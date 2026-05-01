@@ -11,7 +11,7 @@ public sealed partial class PosPage : Page
 
     public PosPage()
     {
-        InitializeComponent();
+        this.InitializeComponent();
         ViewModel = App.Services.GetRequiredService<PosViewModel>();
     }
 

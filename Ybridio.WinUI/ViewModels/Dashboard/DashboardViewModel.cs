@@ -7,6 +7,11 @@ using Ybridio.Application.Services.Caja;
 using Ybridio.Application.Services.Inventario;
 using Ybridio.Application.Services.Venta;
 using Ybridio.WinUI.Services;
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Linq;
 
 namespace Ybridio.WinUI.ViewModels.Dashboard;
 
@@ -108,7 +113,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         if (_session.Usuario is null) return;
 
         var result = await _caja.ObtenerCajaActivaAsync(_session.Usuario.Id, ct);
-        if (result.Succeeded && result.Value is not null)
+        if (result.Success && result.Value is not null)
         {
             CajaEstado = "Abierta";
             CajaDescripcion = result.Value.CajaNombre;

@@ -7,6 +7,11 @@ using Ybridio.Application.DTOs.Ventas;
 using Ybridio.Application.Services.Inventario;
 using Ybridio.Application.Services.Venta;
 using Ybridio.WinUI.Services;
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Linq;
 
 namespace Ybridio.WinUI.ViewModels.POS;
 
@@ -183,7 +188,7 @@ public sealed partial class PosViewModel : ObservableObject
 
             var result = await _ventaService.CrearVentaAsync(dto, _session.Usuario.Id, ct);
 
-            if (result.Succeeded)
+            if (result.Success)
             {
                 SuccessMessage = $"Venta #{result.Value!.Id} registrada correctamente.";
                 Carrito.Clear();
@@ -232,8 +237,8 @@ public sealed partial class PosViewModel : ObservableObject
     private static string MapError(string? message, ErrorCode code) => code switch
     {
         ErrorCode.StockInsuficiente => "Stock insuficiente para uno o más productos.",
-        ErrorCode.CajaCerrada => "La caja está cerrada. Ábrela antes de continuar.",
-        ErrorCode.Unauthorized or ErrorCode.Forbidden => "No tienes permiso para realizar ventas.",
+        ErrorCode.CajaNotOpen => "La caja está cerrada. Ábrela antes de continuar.",
+        ErrorCode.Unauthorized or ErrorCode.CajaNotOpen => "No tienes permiso para realizar ventas.",
         ErrorCode.ConcurrencyConflict => "Conflicto de concurrencia. Recarga el catálogo e intenta de nuevo.",
         ErrorCode.Unknown => "Error inesperado al registrar la venta.",
         _ => message ?? "Error desconocido."

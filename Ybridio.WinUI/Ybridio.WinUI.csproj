@@ -14,10 +14,10 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <Page Remove="Views\Dashboard\DashboardPage.xaml" />
-    <Page Remove="Views\LoginPage.xaml" />
-    <Page Remove="Views\POS\PosPage.xaml" />
-    <Page Remove="Views\ShellPage.xaml" />
+    <None Remove="Views\Dashboard\DashboardPage.xaml" />
+    <None Remove="Views\LoginPage.xaml" />
+    <None Remove="Views\POS\PosPage.xaml" />
+    <None Remove="Views\ShellPage.xaml" />
   </ItemGroup>
 
   <ItemGroup>
@@ -56,18 +56,18 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="Views\Dashboard\DashboardPage.xaml">
+    <Page Update="Views\Dashboard\DashboardPage.xaml">
       <Generator>MSBuild:Compile</Generator>
-    </None>
-    <None Update="Views\LoginPage.xaml">
+    </Page>
+    <Page Update="Views\LoginPage.xaml">
       <Generator>MSBuild:Compile</Generator>
-    </None>
-    <None Update="Views\POS\PosPage.xaml">
+    </Page>
+    <Page Update="Views\POS\PosPage.xaml">
       <Generator>MSBuild:Compile</Generator>
-    </None>
-    <None Update="Views\ShellPage.xaml">
+    </Page>
+    <Page Update="Views\ShellPage.xaml">
       <Generator>MSBuild:Compile</Generator>
-    </None>
+    </Page>
   </ItemGroup>
 
   <!--

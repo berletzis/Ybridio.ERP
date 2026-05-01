@@ -8,64 +8,58 @@
     mc:Ignorable="d"
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
-    <Grid HorizontalAlignment="Center" VerticalAlignment="Center" Width="380">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+	<Grid HorizontalAlignment="Center" VerticalAlignment="Center" Width="380">
+		<Grid.RowDefinitions>
+			<RowDefinition Height="Auto" />
+			<RowDefinition Height="Auto" />
+			<RowDefinition Height="Auto" />
+			<RowDefinition Height="Auto" />
+			<RowDefinition Height="Auto" />
+			<RowDefinition Height="Auto" />
+		</Grid.RowDefinitions>
 
-        <!-- Logo / Título -->
-        <StackPanel Grid.Row="0" Margin="0,0,0,32" HorizontalAlignment="Center">
-            <FontIcon Glyph="&#xE7EE;" FontSize="48" Foreground="{ThemeResource AccentAAFillColorDefaultBrush}" />
-            <TextBlock Text="Ybridio ERP"
+		<!-- Logo / Título -->
+		<StackPanel Grid.Row="0" Margin="0,0,0,32" HorizontalAlignment="Center">
+			<FontIcon Glyph="&#xE7EE;" FontSize="48" />
+			<TextBlock Text="Ybridio ERP"
                        Style="{StaticResource TitleLargeTextBlockStyle}"
                        HorizontalAlignment="Center"
                        Margin="0,8,0,4" />
-            <TextBlock Text="Inicia sesión para continuar"
+			<TextBlock Text="Inicia sesión para continuar"
                        Style="{StaticResource BodyTextBlockStyle}"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                        HorizontalAlignment="Center" />
-        </StackPanel>
+		</StackPanel>
 
-        <!-- Email -->
-        <TextBox Grid.Row="1"
+		<!-- Email -->
+		<TextBox Grid.Row="1"
                  Header="Correo electrónico"
                  PlaceholderText="usuario@empresa.com"
-                 Text="{x:Bind ViewModel.Email, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                 Margin="0,0,0,16"
-                 IsEnabled="{x:Bind ViewModel.IsBusy, Mode=OneWay, Converter={StaticResource BoolNegation}}" />
-
-        <!-- Contraseña -->
-        <PasswordBox Grid.Row="2"
-                     Header="Contraseña"
-                     PlaceholderText="••••••••"
-                     Password="{x:Bind ViewModel.Password, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                     Margin="0,0,0,24"
-                     IsEnabled="{x:Bind ViewModel.IsBusy, Mode=OneWay, Converter={StaticResource BoolNegation}}" />
-
-        <!-- Error -->
-        <InfoBar Grid.Row="3"
-                 IsOpen="{x:Bind ViewModel.ErrorMessage.Length, Mode=OneWay, Converter={StaticResource IntToBool}}"
-                 Severity="Error"
-                 Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
-                 IsClosable="False"
+                 Text="{x:Bind ViewModel.Email, Mode=TwoWay}"
                  Margin="0,0,0,16" />
 
-        <!-- Botón -->
-        <Button Grid.Row="4"
+		<!-- Contraseña -->
+		<PasswordBox Grid.Row="2"
+                     Header="Contraseña"
+                     PlaceholderText="••••••••"
+                     Margin="0,0,0,24"
+                     PasswordChanged="PasswordBox_PasswordChanged" />
+
+		<!-- Error -->
+		<TextBlock Grid.Row="3"
+                   Text="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
+                   Foreground="Red"
+                   Margin="0,0,0,16" />
+
+		<!-- Botón -->
+		<Button Grid.Row="4"
                 Content="Iniciar sesión"
                 HorizontalAlignment="Stretch"
-                Command="{x:Bind ViewModel.LoginCommand}"
-                Style="{StaticResource AccentButtonStyle}" />
+                Command="{x:Bind ViewModel.LoginCommand}" />
 
-        <!-- Progreso -->
-        <ProgressBar Grid.Row="5"
+		<!-- Progreso -->
+		<ProgressBar Grid.Row="5"
                      IsIndeterminate="True"
-                     Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
+                     Visibility="Collapsed"
                      Margin="0,16,0,0" />
-    </Grid>
+	</Grid>
 </Page>

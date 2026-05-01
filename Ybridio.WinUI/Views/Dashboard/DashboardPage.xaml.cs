@@ -11,13 +11,17 @@ public sealed partial class DashboardPage : Page
 
     public DashboardPage()
     {
-        InitializeComponent();
+        this.InitializeComponent();
         ViewModel = App.Services.GetRequiredService<DashboardViewModel>();
     }
 
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
-        await ViewModel.LoadCommand.ExecuteAsync(null);
+
+        if (ViewModel.LoadCommand.CanExecute(null))
+        {
+            await ViewModel.LoadCommand.ExecuteAsync(null);
+        }
     }
 }

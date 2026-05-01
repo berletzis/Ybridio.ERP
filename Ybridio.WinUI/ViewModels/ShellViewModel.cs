@@ -5,6 +5,11 @@ using Ybridio.WinUI.Services;
 using Ybridio.WinUI.Views;
 using Ybridio.WinUI.Views.Dashboard;
 using Ybridio.WinUI.Views.POS;
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Linq;
 
 namespace Ybridio.WinUI.ViewModels;
 
@@ -77,7 +82,7 @@ public sealed partial class ShellViewModel : ObservableObject
         if (_session.Usuario is null) return;
 
         var result = await _caja.ObtenerCajaActivaAsync(_session.Usuario.Id, ct);
-        if (result.Succeeded && result.Value is not null)
+        if (result.Success && result.Value is not null)
         {
             _session.SetCajaActiva(result.Value);
             CajaEstado = result.Value.CajaNombre;

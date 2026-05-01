@@ -12,10 +12,11 @@ using Ybridio.WinUI.ViewModels.POS;
 using Ybridio.WinUI.Views;
 using Ybridio.WinUI.Views.Dashboard;
 using Ybridio.WinUI.Views.POS;
+using System;
 
 namespace Ybridio.WinUI;
 
-public partial class App : Application
+public partial class App : Microsoft.UI.Xaml.Application
 {
     public static IServiceProvider Services { get; private set; } = null!;
 

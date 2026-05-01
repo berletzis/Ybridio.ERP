@@ -1,3 +1,8 @@
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -48,7 +53,7 @@ public sealed partial class LoginViewModel : ObservableObject
         {
             var result = await _auth.LoginAsync(new(Email, Password), ct);
 
-            if (!result.Succeeded)
+            if (!result.Success)
             {
                 ErrorMessage = MapError(result.Error, result.ErrorCode);
                 return;
@@ -71,7 +76,7 @@ public sealed partial class LoginViewModel : ObservableObject
     private static string MapError(string? message, ErrorCode code) => code switch
     {
         ErrorCode.NotFound or ErrorCode.Unauthorized => "Usuario o contraseña incorrectos.",
-        ErrorCode.Inactive => "El usuario está inactivo. Contacta al administrador.",
+        ErrorCode.UserInactive => "El usuario está inactivo. Contacta al administrador.",
         ErrorCode.Unknown => "Ocurrió un error inesperado. Intenta de nuevo.",
         _ => message ?? "Error desconocido."
     };
