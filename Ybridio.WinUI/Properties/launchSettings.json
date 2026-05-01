@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Ybridio.WinUI (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "Ybridio.WinUI (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

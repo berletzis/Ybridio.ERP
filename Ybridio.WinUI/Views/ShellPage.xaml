@@ -1,0 +1,287 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Ybridio.WinUI.Views.ShellPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="48" />   <!-- TopBar -->
+            <RowDefinition Height="Auto" /> <!-- CommandBar contextual -->
+            <RowDefinition Height="*" />    <!-- NavigationView + Frame -->
+        </Grid.RowDefinitions>
+
+        <!-- ══════════════════════════════════════════════════════════════════ -->
+        <!-- TOP BAR                                                           -->
+        <!-- ══════════════════════════════════════════════════════════════════ -->
+        <Grid Grid.Row="0"
+              Background="{ThemeResource NavigationViewDefaultPaneBackground}"
+              Padding="12,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />  <!-- App name -->
+                <ColumnDefinition Width="*" />     <!-- Search -->
+                <ColumnDefinition Width="Auto" />  <!-- Session info + logout -->
+            </Grid.ColumnDefinitions>
+
+            <!-- Nombre aplicación -->
+            <TextBlock Grid.Column="0"
+                       Text="Ybridio ERP"
+                       Style="{StaticResource SubtitleTextBlockStyle}"
+                       VerticalAlignment="Center"
+                       Margin="0,0,24,0" />
+
+            <!-- Búsqueda (UI solamente) -->
+            <AutoSuggestBox Grid.Column="1"
+                            PlaceholderText="Buscar..."
+                            QueryIcon="Find"
+                            MaxWidth="400"
+                            VerticalAlignment="Center" />
+
+            <!-- Sesión -->
+            <StackPanel Grid.Column="2"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center"
+                        Spacing="12">
+
+                <!-- Tienda -->
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <FontIcon Glyph="&#xE7F4;" FontSize="14"
+                              Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Text="{x:Bind ViewModel.TiendaNombre, Mode=OneWay}"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+
+                <!-- Caja -->
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <FontIcon Glyph="&#xE8C7;" FontSize="14"
+                              Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
+                    <TextBlock Text="{x:Bind ViewModel.CajaEstado, Mode=OneWay}"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+
+                <!-- Separador -->
+                <Rectangle Width="1" Height="20" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+                <!-- Usuario -->
+                <PersonPicture DisplayName="{x:Bind ViewModel.UsuarioNombre, Mode=OneWay}" Width="28" Height="28" />
+                <TextBlock Text="{x:Bind ViewModel.UsuarioNombre, Mode=OneWay}"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           VerticalAlignment="Center" />
+
+                <!-- Logout -->
+                <Button Command="{x:Bind ViewModel.LogoutCommand}"
+                        Style="{StaticResource TransparentButtonStyle}"
+                        ToolTipService.ToolTip="Cerrar sesión"
+                        Padding="8,4">
+                    <FontIcon Glyph="&#xF3B1;" FontSize="16" />
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- ══════════════════════════════════════════════════════════════════ -->
+        <!-- COMMAND BAR CONTEXTUAL                                            -->
+        <!-- ══════════════════════════════════════════════════════════════════ -->
+        <CommandBar Grid.Row="1"
+                    DefaultLabelPosition="Right"
+                    Background="{ThemeResource LayerFillColorDefaultBrush}"
+                    HorizontalAlignment="Left">
+
+            <!-- POS commands -->
+            <AppBarButton Icon="Shop"
+                          Label="Vender"
+                          Visibility="{x:Bind ViewModel.ShowPosCommands, Mode=OneWay}" />
+            <AppBarButton Icon="Cancel"
+                          Label="Cancelar venta"
+                          Visibility="{x:Bind ViewModel.ShowPosCommands, Mode=OneWay}" />
+
+            <!-- Inventory commands -->
+            <AppBarButton Icon="Add"
+                          Label="Nuevo"
+                          Visibility="{x:Bind ViewModel.ShowInventoryCommands, Mode=OneWay}" />
+            <AppBarButton Icon="Edit"
+                          Label="Editar"
+                          Visibility="{x:Bind ViewModel.ShowInventoryCommands, Mode=OneWay}" />
+
+            <!-- Caja commands -->
+            <AppBarButton Icon="Accept"
+                          Label="Abrir caja"
+                          Visibility="{x:Bind ViewModel.ShowCajaCommands, Mode=OneWay}" />
+            <AppBarButton Icon="Stop"
+                          Label="Cerrar caja"
+                          Visibility="{x:Bind ViewModel.ShowCajaCommands, Mode=OneWay}" />
+        </CommandBar>
+
+        <!-- ══════════════════════════════════════════════════════════════════ -->
+        <!-- NAVIGATIONVIEW + FRAME                                            -->
+        <!-- ══════════════════════════════════════════════════════════════════ -->
+        <NavigationView Grid.Row="2"
+                        x:Name="NavView"
+                        IsBackButtonVisible="Collapsed"
+                        PaneDisplayMode="Left"
+                        OpenPaneLength="220"
+                        IsSettingsVisible="False"
+                        SelectionChanged="NavView_SelectionChanged">
+
+            <NavigationView.MenuItems>
+
+                <!-- Dashboard -->
+                <NavigationViewItem Content="Dashboard" Tag="Dashboard">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8A1;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <!-- ── PUNTO DE VENTA ─────────────────────────────────────── -->
+                <NavigationViewItemHeader Content="PUNTO DE VENTA" />
+                <NavigationViewItem Content="Mostrador (POS)" Tag="POS">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE719;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Apertura de Caja" Tag="AperturaCaja">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8C7;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Cierre de Caja" Tag="CierreCaja">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8C8;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Retiro de Efectivo" Tag="RetiroEfectivo">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8AB;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Cancelaciones" Tag="Cancelaciones">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE711;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Devoluciones" Tag="Devoluciones">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE7BE;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Reimprimir Ticket" Tag="ReimprimirTicket">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE749;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Consulta de Cierres" Tag="ConsultaCierres">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8F1;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <!-- ── INVENTARIO ─────────────────────────────────────────── -->
+                <NavigationViewItemHeader Content="INVENTARIO" />
+                <NavigationViewItem Content="Productos" Tag="Productos">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8B9;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Existencias" Tag="Existencias">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8F1;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Entradas" Tag="Entradas">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8FA;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Salidas" Tag="Salidas">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8FB;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Kardex" Tag="Kardex">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8D2;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Conteo" Tag="Conteo">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8EF;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Órdenes de Compra" Tag="OrdenesCompra">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8D0;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <!-- ── VENTAS ─────────────────────────────────────────────── -->
+                <NavigationViewItemHeader Content="VENTAS" />
+                <NavigationViewItem Content="Cotizaciones" Tag="Cotizaciones">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8A5;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Orden de Trabajo" Tag="OrdenTrabajo">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8FD;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Consulta de Ventas" Tag="ConsultaVentas">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8FF;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <!-- ── CONTACTOS ──────────────────────────────────────────── -->
+                <NavigationViewItemHeader Content="CONTACTOS" />
+                <NavigationViewItem Content="Contactos" Tag="Contactos">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE716;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <!-- ── CONFIGURACIÓN ──────────────────────────────────────── -->
+                <NavigationViewItemHeader Content="CONFIGURACIÓN" />
+                <NavigationViewItem Content="Configuración local" Tag="ConfigLocal">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE713;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Impresoras" Tag="Impresoras">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE749;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Cajas" Tag="Cajas">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8C7;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Empresas" Tag="Empresas">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE731;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Usuarios" Tag="Usuarios">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE77B;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Catálogos Generales" Tag="Catalogos">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8A9;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+            </NavigationView.MenuItems>
+
+            <!-- Frame central -->
+            <Frame x:Name="InnerFrame" />
+
+        </NavigationView>
+    </Grid>
+</Page>
