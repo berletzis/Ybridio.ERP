@@ -1,14 +1,16 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Ybridio.Application.Services.Caja;
 using Ybridio.WinUI.Services;
 using Ybridio.WinUI.Views;
 using Ybridio.WinUI.Views.Dashboard;
+using Ybridio.WinUI.Views.Inventario;
+
 using Ybridio.WinUI.Views.POS;
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Ybridio.WinUI.ViewModels;
 
@@ -117,7 +119,8 @@ public sealed partial class ShellViewModel : ObservableObject
 
             case "Inventario":
                 SeccionActiva = "Inventario";
-                ShowRibbonInventario = Visibility.Visible;
+                ShowRibbonInventario = Visibility.Collapsed;
+                _navigation.NavigateTo(typeof(InventarioPage));
                 break;
 
             case "Ventas":

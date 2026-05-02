@@ -29,7 +29,10 @@ public class ErpDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
     public DbSet<Cliente> Clientes => Set<Cliente>();
     public DbSet<Producto> Productos => Set<Producto>();
     public DbSet<Proveedor> Proveedores => Set<Proveedor>();
-
+    public DbSet<UnidadMedida> UnidadesMedida => Set<UnidadMedida>();
+    public DbSet<CategoriaProducto> CategoriasProducto => Set<CategoriaProducto>();
+    public DbSet<TipoProducto> TiposProducto => Set<TipoProducto>();
+    public DbSet<TipoImpuesto> TiposImpuesto => Set<TipoImpuesto>();
     // ── compras ───────────────────────────────────────────────────────────────
     public DbSet<OrdenCompra> OrdenesCompra => Set<OrdenCompra>();
     public DbSet<OrdenCompraDetalle> OrdenesCompraDetalle => Set<OrdenCompraDetalle>();
