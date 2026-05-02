@@ -13,6 +13,9 @@ public class AperturaCaja : CreationAuditEntity
     public decimal? MontoFinal { get; set; }
     public bool Activa { get; set; }
 
+    // Sobrescribe la base — nullable porque apertura puede crearse sin usuario de auditoría
+    public new Guid? UsuarioCreacionId { get; set; }
+
     // Navegación
     public Caja Caja { get; set; } = null!;
 }

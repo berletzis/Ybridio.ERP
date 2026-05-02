@@ -15,6 +15,14 @@
   </PropertyGroup>
   <ItemGroup>
     <None Remove="Views\Dashboard\DashboardPage.xaml" />
+    <None Remove="Views\Inventario\ConteoPage.xaml" />
+    <None Remove="Views\Inventario\EntradasPage.xaml" />
+    <None Remove="Views\Inventario\ExistenciasPage.xaml" />
+    <None Remove="Views\Inventario\InventarioPage.xaml" />
+    <None Remove="Views\Inventario\KardexPage.xaml" />
+    <None Remove="Views\Inventario\OrdenesCompraPage.xaml" />
+    <None Remove="Views\Inventario\ProductosPage.xaml" />
+    <None Remove="Views\Inventario\SalidasPage.xaml" />
     <None Remove="Views\LoginPage.xaml" />
     <None Remove="Views\POS\PosPage.xaml" />
     <None Remove="Views\ShellPage.xaml" />
@@ -56,6 +64,45 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Page Update="Views\Inventario\ExistenciasPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Inventario\ProductosPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Views\Inventario\OrdenesCompraPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Views\Inventario\ConteoPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Views\Inventario\KardexPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Views\Inventario\SalidasPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Views\Inventario\EntradasPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
     <Page Update="Views\Dashboard\DashboardPage.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -66,6 +113,12 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Update="Views\ShellPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Views\Inventario\InventarioPage.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>

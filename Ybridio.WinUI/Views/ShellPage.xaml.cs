@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using Ybridio.WinUI.ViewModels;
@@ -22,9 +23,15 @@ public sealed partial class ShellPage : Page
         await ViewModel.InitializeAsync(InnerFrame);
     }
 
-    private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
+    private void ModuleButton_Click(object sender, RoutedEventArgs e)
     {
-        if (args.SelectedItem is NavigationViewItem item && item.Tag is string tag)
+        if (sender is Button btn && btn.Tag is string tag)
+            ViewModel.SelectModuleCommand.Execute(tag);
+    }
+
+    private void RibbonButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is string tag)
             ViewModel.NavigateToCommand.Execute(tag);
     }
 }

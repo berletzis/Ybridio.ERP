@@ -77,10 +77,10 @@ public sealed partial class DashboardViewModel : ObservableObject
 
         try
         {
-            await Task.WhenAll(
-                LoadVentasAsync(ct),
-                LoadCajaAsync(ct),
-                LoadBajoStockAsync(ct));
+            // Secuencial en lugar de WhenAll — evita concurrencia en DbContext
+            await LoadVentasAsync(ct);
+            await LoadCajaAsync(ct);
+            await LoadBajoStockAsync(ct);
         }
         catch (OperationCanceledException) { /* navegación cancelada */ }
         catch (Exception ex)

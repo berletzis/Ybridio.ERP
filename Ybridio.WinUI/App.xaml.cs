@@ -42,7 +42,7 @@ public partial class App : Microsoft.UI.Xaml.Application
         // ── EF Core + Identity ────────────────────────────────────────────────
         // La cadena de conexión debe configurarse para producción (appsettings, env-var, etc.)
         var connectionString =
-            "Server=localhost;Database=YbridioERP;Trusted_Connection=True;TrustServerCertificate=True;";
+            "Server=132.148.74.136\\ybridio;Database=YBRIDIO-26;user id=sa;password=U3xc3pt!0n!22;TrustServerCertificate=True;MultipleActiveResultSets=true";
 
         services.AddDbContext<ErpDbContext>(opt =>
             opt.UseSqlServer(connectionString), ServiceLifetime.Scoped);

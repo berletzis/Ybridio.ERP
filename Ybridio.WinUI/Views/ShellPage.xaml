@@ -9,279 +9,374 @@
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
     <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="48" />   <!-- TopBar -->
-            <RowDefinition Height="Auto" /> <!-- CommandBar contextual -->
-            <RowDefinition Height="*" />    <!-- NavigationView + Frame -->
-        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="56" />
+            <!-- Barra iconos izquierda -->
+            <ColumnDefinition Width="*" />
+            <!-- Contenido principal -->
+        </Grid.ColumnDefinitions>
 
         <!-- ══════════════════════════════════════════════════════════════════ -->
-        <!-- TOP BAR                                                           -->
+        <!-- BARRA IZQUIERDA — solo iconos                                     -->
         <!-- ══════════════════════════════════════════════════════════════════ -->
-        <Grid Grid.Row="0"
-              Background="{ThemeResource NavigationViewDefaultPaneBackground}"
-              Padding="12,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />  <!-- App name -->
-                <ColumnDefinition Width="*" />     <!-- Search -->
-                <ColumnDefinition Width="Auto" />  <!-- Session info + logout -->
-            </Grid.ColumnDefinitions>
+        <Grid Grid.Column="0"
+              Background="{ThemeResource NavigationViewDefaultPaneBackground}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="48" />
+                <!-- Logo/App -->
+                <RowDefinition Height="*" />
+                <!-- Iconos módulos -->
+                <RowDefinition Height="Auto"/>
+                <!-- Logout abajo -->
+            </Grid.RowDefinitions>
 
-            <!-- Nombre aplicación -->
-            <TextBlock Grid.Column="0"
-                       Text="Ybridio ERP"
-                       Style="{StaticResource SubtitleTextBlockStyle}"
-                       VerticalAlignment="Center"
-                       Margin="0,0,24,0" />
-
-            <!-- Búsqueda (UI solamente) -->
-            <AutoSuggestBox Grid.Column="1"
-                            PlaceholderText="Buscar..."
-                            QueryIcon="Find"
-                            MaxWidth="400"
-                            VerticalAlignment="Center" />
-
-            <!-- Sesión -->
-            <StackPanel Grid.Column="2"
-                        Orientation="Horizontal"
-                        VerticalAlignment="Center"
-                        Spacing="12">
-
-                <!-- Tienda -->
-                <StackPanel Orientation="Horizontal" Spacing="4">
-                    <FontIcon Glyph="&#xE7F4;" FontSize="14"
-                              Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Text="{x:Bind ViewModel.TiendaNombre, Mode=OneWay}"
-                               Style="{StaticResource CaptionTextBlockStyle}"
-                               VerticalAlignment="Center" />
-                </StackPanel>
-
-                <!-- Caja -->
-                <StackPanel Orientation="Horizontal" Spacing="4">
-                    <FontIcon Glyph="&#xE8C7;" FontSize="14"
-                              Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
-                    <TextBlock Text="{x:Bind ViewModel.CajaEstado, Mode=OneWay}"
-                               Style="{StaticResource CaptionTextBlockStyle}"
-                               VerticalAlignment="Center" />
-                </StackPanel>
-
-                <!-- Separador -->
-                <Rectangle Width="1" Height="20" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
-
-                <!-- Usuario -->
-                <PersonPicture DisplayName="{x:Bind ViewModel.UsuarioNombre, Mode=OneWay}" Width="28" Height="28" />
-                <TextBlock Text="{x:Bind ViewModel.UsuarioNombre, Mode=OneWay}"
-                           Style="{StaticResource CaptionTextBlockStyle}"
+            <!-- Logo -->
+            <Border Grid.Row="0"
+                    BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                    BorderThickness="0,0,0,1">
+                <TextBlock Text="Y"
+                           FontSize="20"
+                           FontWeight="Bold"
+                           Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                           HorizontalAlignment="Center"
                            VerticalAlignment="Center" />
+            </Border>
 
-                <!-- Logout -->
-                <Button Command="{x:Bind ViewModel.LogoutCommand}"
-                        Style="{StaticResource TransparentButtonStyle}"
-                        ToolTipService.ToolTip="Cerrar sesión"
-                        Padding="8,4">
-                    <FontIcon Glyph="&#xF3B1;" FontSize="16" />
-                </Button>
-            </StackPanel>
+            <!-- Iconos de módulos -->
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden">
+                <StackPanel>
+
+                    <!-- Dashboard -->
+                    <Button Tag="Dashboard"
+                            Click="ModuleButton_Click"
+                            Style="{StaticResource NavigationBackButtonNormalStyle}"
+                            Width="56" Height="52"
+                            ToolTipService.ToolTip="Dashboard">
+                        <FontIcon Glyph="&#xE8A1;" FontSize="18" />
+                    </Button>
+
+                    <!-- Separador -->
+                    <Rectangle Height="1" Margin="8,4"
+                               Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+                    <!-- POS -->
+                    <Button Tag="POS"
+                            Click="ModuleButton_Click"
+                            Style="{StaticResource NavigationBackButtonNormalStyle}"
+                            Width="56" Height="52"
+                            ToolTipService.ToolTip="Punto de Venta">
+                        <FontIcon Glyph="&#xE719;" FontSize="18" />
+                    </Button>
+
+                    <!-- Inventario -->
+                    <Button Tag="Inventario"
+                            Click="ModuleButton_Click"
+                            Style="{StaticResource NavigationBackButtonNormalStyle}"
+                            Width="56" Height="52"
+                            ToolTipService.ToolTip="Inventario">
+                        <FontIcon Glyph="&#xE8B9;" FontSize="18" />
+                    </Button>
+
+                    <!-- Ventas -->
+                    <Button Tag="Ventas"
+                            Click="ModuleButton_Click"
+                            Style="{StaticResource NavigationBackButtonNormalStyle}"
+                            Width="56" Height="52"
+                            ToolTipService.ToolTip="Ventas">
+                        <FontIcon Glyph="&#xE8FF;" FontSize="18" />
+                    </Button>
+
+                    <!-- Contactos -->
+                    <Button Tag="Contactos"
+                            Click="ModuleButton_Click"
+                            Style="{StaticResource NavigationBackButtonNormalStyle}"
+                            Width="56" Height="52"
+                            ToolTipService.ToolTip="Contactos">
+                        <FontIcon Glyph="&#xE716;" FontSize="18" />
+                    </Button>
+
+                    <!-- Configuración -->
+                    <Button Tag="Configuracion"
+                            Click="ModuleButton_Click"
+                            Style="{StaticResource NavigationBackButtonNormalStyle}"
+                            Width="56" Height="52"
+                            ToolTipService.ToolTip="Configuración">
+                        <FontIcon Glyph="&#xE713;" FontSize="18" />
+                    </Button>
+
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Logout abajo -->
+            <Button Grid.Row="2"
+                    Command="{x:Bind ViewModel.LogoutCommand}"
+                    Style="{StaticResource NavigationBackButtonNormalStyle}"
+                    Width="56" Height="52"
+                    ToolTipService.ToolTip="Cerrar sesión">
+                <FontIcon Glyph="&#xF3B1;" FontSize="18" />
+            </Button>
         </Grid>
 
         <!-- ══════════════════════════════════════════════════════════════════ -->
-        <!-- COMMAND BAR CONTEXTUAL                                            -->
+        <!-- CONTENIDO PRINCIPAL                                               -->
         <!-- ══════════════════════════════════════════════════════════════════ -->
-        <CommandBar Grid.Row="1"
-                    DefaultLabelPosition="Right"
-                    Background="{ThemeResource LayerFillColorDefaultBrush}"
-                    HorizontalAlignment="Left">
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="48" />
+                <!-- TopBar -->
+                <RowDefinition Height="Auto" />
+                <!-- Ribbon de sub-módulos -->
+                <RowDefinition Height="*" />
+                <!-- Frame -->
+            </Grid.RowDefinitions>
 
-            <!-- POS commands -->
-            <AppBarButton Icon="Shop"
-                          Label="Vender"
-                          Visibility="{x:Bind ViewModel.ShowPosCommands, Mode=OneWay}" />
-            <AppBarButton Icon="Cancel"
-                          Label="Cancelar venta"
-                          Visibility="{x:Bind ViewModel.ShowPosCommands, Mode=OneWay}" />
+            <!-- ── TOP BAR ─────────────────────────────────────────────── -->
+            <Grid Grid.Row="0"
+                  Background="{ThemeResource NavigationViewDefaultPaneBackground}"
+                  Padding="12,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
 
-            <!-- Inventory commands -->
-            <AppBarButton Icon="Add"
-                          Label="Nuevo"
-                          Visibility="{x:Bind ViewModel.ShowInventoryCommands, Mode=OneWay}" />
-            <AppBarButton Icon="Edit"
-                          Label="Editar"
-                          Visibility="{x:Bind ViewModel.ShowInventoryCommands, Mode=OneWay}" />
+                <!-- Sección activa -->
+                <TextBlock Grid.Column="0"
+                           Text="{x:Bind ViewModel.SeccionActiva, Mode=OneWay}"
+                           Style="{StaticResource SubtitleTextBlockStyle}"
+                           VerticalAlignment="Center"
+                           Margin="0,0,24,0" />
 
-            <!-- Caja commands -->
-            <AppBarButton Icon="Accept"
-                          Label="Abrir caja"
-                          Visibility="{x:Bind ViewModel.ShowCajaCommands, Mode=OneWay}" />
-            <AppBarButton Icon="Stop"
-                          Label="Cerrar caja"
-                          Visibility="{x:Bind ViewModel.ShowCajaCommands, Mode=OneWay}" />
-        </CommandBar>
+                <!-- Búsqueda -->
+                <AutoSuggestBox Grid.Column="1"
+                                PlaceholderText="Buscar..."
+                                QueryIcon="Find"
+                                MaxWidth="400"
+                                VerticalAlignment="Center" />
 
-        <!-- ══════════════════════════════════════════════════════════════════ -->
-        <!-- NAVIGATIONVIEW + FRAME                                            -->
-        <!-- ══════════════════════════════════════════════════════════════════ -->
-        <NavigationView Grid.Row="2"
-                        x:Name="NavView"
-                        IsBackButtonVisible="Collapsed"
-                        PaneDisplayMode="Left"
-                        OpenPaneLength="220"
-                        IsSettingsVisible="False"
-                        SelectionChanged="NavView_SelectionChanged">
+                <!-- Sesión -->
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center"
+                            Spacing="12">
 
-            <NavigationView.MenuItems>
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <FontIcon Glyph="&#xE7F4;" FontSize="14"
+                                  Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="{x:Bind ViewModel.TiendaNombre, Mode=OneWay}"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
 
-                <!-- Dashboard -->
-                <NavigationViewItem Content="Dashboard" Tag="Dashboard">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE8A1;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <FontIcon Glyph="&#xE8C7;" FontSize="14"
+                                  Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
+                        <TextBlock Text="{x:Bind ViewModel.CajaEstado, Mode=OneWay}"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
 
-                <!-- ── PUNTO DE VENTA ─────────────────────────────────────── -->
-                <NavigationViewItemHeader Content="PUNTO DE VENTA" />
-                <NavigationViewItem Content="Mostrador (POS)" Tag="POS">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE719;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="Apertura de Caja" Tag="AperturaCaja">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE8C7;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="Cierre de Caja" Tag="CierreCaja">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE8C8;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="Retiro de Efectivo" Tag="RetiroEfectivo">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE8AB;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="Cancelaciones" Tag="Cancelaciones">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE711;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="Devoluciones" Tag="Devoluciones">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE7BE;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="Reimprimir Ticket" Tag="ReimprimirTicket">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE749;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="Consulta de Cierres" Tag="ConsultaCierres">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE8F1;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
+                    <Rectangle Width="1" Height="20"
+                               Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
-                <!-- ── INVENTARIO ─────────────────────────────────────────── -->
-                <NavigationViewItemHeader Content="INVENTARIO" />
-                <NavigationViewItem Content="Productos" Tag="Productos">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE8B9;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="Existencias" Tag="Existencias">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE8F1;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="Entradas" Tag="Entradas">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE8FA;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="Salidas" Tag="Salidas">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE8FB;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="Kardex" Tag="Kardex">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE8D2;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="Conteo" Tag="Conteo">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE8EF;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="Órdenes de Compra" Tag="OrdenesCompra">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE8D0;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
+                    <PersonPicture DisplayName="{x:Bind ViewModel.UsuarioNombre, Mode=OneWay}"
+                                   Width="28" Height="28" />
+                    <TextBlock Text="{x:Bind ViewModel.UsuarioNombre, Mode=OneWay}"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+            </Grid>
 
-                <!-- ── VENTAS ─────────────────────────────────────────────── -->
-                <NavigationViewItemHeader Content="VENTAS" />
-                <NavigationViewItem Content="Cotizaciones" Tag="Cotizaciones">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE8A5;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="Orden de Trabajo" Tag="OrdenTrabajo">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE8FD;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="Consulta de Ventas" Tag="ConsultaVentas">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE8FF;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
+            <!-- ── RIBBON DE SUB-MÓDULOS ────────────────────────────────── -->
+            <ScrollViewer Grid.Row="1"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Disabled"
+                          Background="{ThemeResource LayerFillColorDefaultBrush}">
+                <StackPanel x:Name="RibbonPanel"
+                            Orientation="Horizontal"
+                            Spacing="2"
+                            Padding="8,4">
 
-                <!-- ── CONTACTOS ──────────────────────────────────────────── -->
-                <NavigationViewItemHeader Content="CONTACTOS" />
-                <NavigationViewItem Content="Contactos" Tag="Contactos">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE716;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
+                    <!-- POS sub-módulos -->
+                    <StackPanel x:Name="RibbonPOS" Orientation="Horizontal" Spacing="2"
+                                Visibility="{x:Bind ViewModel.ShowRibbonPOS, Mode=OneWay}">
+                        <Button Tag="POS" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6" ToolTipService.ToolTip="Mostrador POS">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE719;" FontSize="14"/>
+                                <TextBlock Text="Mostrador" VerticalAlignment="Center" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="AperturaCaja" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE8C7;" FontSize="14"/>
+                                <TextBlock Text="Apertura Caja" VerticalAlignment="Center" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="CierreCaja" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE8C8;" FontSize="14"/>
+                                <TextBlock Text="Cierre Caja" VerticalAlignment="Center" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="RetiroEfectivo" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE8AB;" FontSize="14"/>
+                                <TextBlock Text="Retiro" VerticalAlignment="Center" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="Cancelaciones" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE711;" FontSize="14"/>
+                                <TextBlock Text="Cancelaciones" VerticalAlignment="Center" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="Devoluciones" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE7BE;" FontSize="14"/>
+                                <TextBlock Text="Devoluciones" VerticalAlignment="Center" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="ReimprimirTicket" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE749;" FontSize="14"/>
+                                <TextBlock Text="Reimprimir" VerticalAlignment="Center" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="ConsultaCierres" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE8F1;" FontSize="14"/>
+                                <TextBlock Text="Consulta Cierres" VerticalAlignment="Center" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
 
-                <!-- ── CONFIGURACIÓN ──────────────────────────────────────── -->
-                <NavigationViewItemHeader Content="CONFIGURACIÓN" />
-                <NavigationViewItem Content="Configuración local" Tag="ConfigLocal">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE713;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="Impresoras" Tag="Impresoras">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE749;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="Cajas" Tag="Cajas">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE8C7;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="Empresas" Tag="Empresas">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE731;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="Usuarios" Tag="Usuarios">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE77B;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="Catálogos Generales" Tag="Catalogos">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE8A9;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
+                    <!-- Inventario sub-módulos -->
+                    <StackPanel x:Name="RibbonInventario" Orientation="Horizontal" Spacing="2"
+                                Visibility="{x:Bind ViewModel.ShowRibbonInventario, Mode=OneWay}">
+                        <Button Tag="Productos" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE8B9;" FontSize="14"/>
+                                <TextBlock Text="Productos" VerticalAlignment="Center" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="Existencias" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE8F1;" FontSize="14"/>
+                                <TextBlock Text="Existencias" VerticalAlignment="Center" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="Entradas" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE8FA;" FontSize="14"/>
+                                <TextBlock Text="Entradas" VerticalAlignment="Center" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="Salidas" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE8FB;" FontSize="14"/>
+                                <TextBlock Text="Salidas" VerticalAlignment="Center" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="Kardex" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE8D2;" FontSize="14"/>
+                                <TextBlock Text="Kardex" VerticalAlignment="Center" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="Conteo" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE8EF;" FontSize="14"/>
+                                <TextBlock Text="Conteo" VerticalAlignment="Center" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="OrdenesCompra" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE8D0;" FontSize="14"/>
+                                <TextBlock Text="Órdenes Compra" VerticalAlignment="Center" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
 
-            </NavigationView.MenuItems>
+                    <!-- Ventas sub-módulos -->
+                    <StackPanel x:Name="RibbonVentas" Orientation="Horizontal" Spacing="2"
+                                Visibility="{x:Bind ViewModel.ShowRibbonVentas, Mode=OneWay}">
+                        <Button Tag="Cotizaciones" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE8A5;" FontSize="14"/>
+                                <TextBlock Text="Cotizaciones" VerticalAlignment="Center" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="OrdenTrabajo" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE8FD;" FontSize="14"/>
+                                <TextBlock Text="Orden Trabajo" VerticalAlignment="Center" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="ConsultaVentas" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE8FF;" FontSize="14"/>
+                                <TextBlock Text="Consulta Ventas" VerticalAlignment="Center" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
 
-            <!-- Frame central -->
-            <Frame x:Name="InnerFrame" />
+                    <!-- Contactos sub-módulos -->
+                    <StackPanel x:Name="RibbonContactos" Orientation="Horizontal" Spacing="2"
+                                Visibility="{x:Bind ViewModel.ShowRibbonContactos, Mode=OneWay}">
+                        <Button Tag="Contactos" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE716;" FontSize="14"/>
+                                <TextBlock Text="Contactos" VerticalAlignment="Center" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
 
-        </NavigationView>
+                    <!-- Configuración sub-módulos -->
+                    <StackPanel x:Name="RibbonConfiguracion" Orientation="Horizontal" Spacing="2"
+                                Visibility="{x:Bind ViewModel.ShowRibbonConfiguracion, Mode=OneWay}">
+                        <Button Tag="ConfigLocal" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE713;" FontSize="14"/>
+                                <TextBlock Text="Config. Local" VerticalAlignment="Center" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="Impresoras" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE749;" FontSize="14"/>
+                                <TextBlock Text="Impresoras" VerticalAlignment="Center" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="Cajas" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE8C7;" FontSize="14"/>
+                                <TextBlock Text="Cajas" VerticalAlignment="Center" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="Empresas" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE731;" FontSize="14"/>
+                                <TextBlock Text="Empresas" VerticalAlignment="Center" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="Usuarios" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE77B;" FontSize="14"/>
+                                <TextBlock Text="Usuarios" VerticalAlignment="Center" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="Catalogos" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE8A9;" FontSize="14"/>
+                                <TextBlock Text="Catálogos" VerticalAlignment="Center" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- ── FRAME CENTRAL ────────────────────────────────────────── -->
+            <Frame x:Name="InnerFrame" Grid.Row="2" />
+        </Grid>
     </Grid>
 </Page>

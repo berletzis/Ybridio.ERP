@@ -20,7 +20,7 @@ internal sealed class AperturaCajaConfiguration : IEntityTypeConfiguration<Apert
         builder.Property(e => e.FechaCreacion).IsRequired()
             .HasDefaultValueSql("getdate()");
         // UsuarioCreacionId en DB es nullable para esta tabla
-        builder.Property(e => e.UsuarioCreacionId).IsRequired(false);
+       // builder.Property(e => e.UsuarioCreacionId).IsRequired(false);
         builder.Property(e => e.Borrado).IsRequired().HasDefaultValue(false);
         builder.Property(e => e.RowVersion).IsRowVersion();
 

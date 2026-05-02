@@ -13,9 +13,6 @@
         <MicaBackdrop />
     </Window.SystemBackdrop>
 
-    <!--
-        Frame raíz: aloja LoginPage al inicio y ShellPage tras autenticarse.
-        El NavigationService recibe referencia a este Frame desde code-behind.
-    -->
     <Frame x:Name="RootFrame" />
+
 </Window>
