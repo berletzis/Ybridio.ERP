@@ -12,8 +12,11 @@ public sealed partial class ShellPage : Page
 
     public ShellPage()
     {
-        InitializeComponent();
+        // ViewModel debe asignarse ANTES de InitializeComponent para que
+        // los bindings compilados x:Bind lo vean desde el inicio y no
+        // usen Visibility.Visible como valor por defecto (null path).
         ViewModel = App.Services.GetRequiredService<ShellViewModel>();
+        InitializeComponent();
     }
 
     protected override async void OnNavigatedTo(NavigationEventArgs e)

@@ -15,6 +15,9 @@
   </PropertyGroup>
   <ItemGroup>
     <None Remove="Views\Dashboard\DashboardPage.xaml" />
+    <None Remove="Views\Configuracion\ConfiguracionPage.xaml" />
+    <None Remove="Views\Contactos\ContactosPage.xaml" />
+    <None Remove="Views\Ventas\VentasPage.xaml" />
     <None Remove="Views\Inventario\ConteoPage.xaml" />
     <None Remove="Views\Inventario\EntradasPage.xaml" />
     <None Remove="Views\Inventario\ExistenciasPage.xaml" />
@@ -64,6 +67,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Page Update="Views\Configuracion\ConfiguracionPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Contactos\ContactosPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Ventas\VentasPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Update="Views\Inventario\ExistenciasPage.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>

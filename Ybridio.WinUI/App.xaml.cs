@@ -11,9 +11,12 @@ using Ybridio.WinUI.ViewModels.Dashboard;
 using Ybridio.WinUI.ViewModels.Inventario;
 using Ybridio.WinUI.ViewModels.POS;
 using Ybridio.WinUI.Views;
+using Ybridio.WinUI.Views.Configuracion;
+using Ybridio.WinUI.Views.Contactos;
 using Ybridio.WinUI.Views.Dashboard;
 using Ybridio.WinUI.Views.Inventario;
 using Ybridio.WinUI.Views.POS;
+using Ybridio.WinUI.Views.Ventas;
 using System;
 
 namespace Ybridio.WinUI;
@@ -71,6 +74,11 @@ public partial class App : Microsoft.UI.Xaml.Application
         services.AddTransient<ShellPage>();
         services.AddTransient<DashboardPage>();
         services.AddTransient<PosPage>();
+
+        // ── Módulos principales ───────────────────────────────────────────────
+        services.AddTransient<VentasPage>();
+        services.AddTransient<ContactosPage>();
+        services.AddTransient<ConfiguracionPage>();
 
         // ── Inventario ────────────────────────────────────────────────────────
         services.AddTransient<InventarioPage>();
