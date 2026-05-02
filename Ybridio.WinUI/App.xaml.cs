@@ -33,7 +33,7 @@ public partial class App : Microsoft.UI.Xaml.Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        var window = new MainWindow();
+        var window = Services.GetRequiredService<MainWindow>();
         window.Activate();
     }
 
@@ -59,6 +59,7 @@ public partial class App : Microsoft.UI.Xaml.Application
         services.AddApplicationServices();
 
         // ── UI Services ───────────────────────────────────────────────────────
+        services.AddSingleton<MainWindow>();
         services.AddSingleton<SessionService>();
         services.AddSingleton<INavigationService, NavigationService>();
 

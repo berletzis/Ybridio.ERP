@@ -16,6 +16,21 @@ public sealed class CompararProductosWindow : Window
     {
         Title = "Comparar productos";
         AppWindow.Resize(new SizeInt32(900, 600));
+
+        try
+        {
+            var mainWindow = App.Services.GetRequiredService<MainWindow>();
+            AppWindow.SetOwnerWindowId(mainWindow.AppWindow.Id);
+
+            var mainPos  = mainWindow.AppWindow.Position;
+            var mainSize = mainWindow.AppWindow.Size;
+            var thisSize = AppWindow.Size;
+            AppWindow.Move(new Windows.Graphics.PointInt32(
+                mainPos.X + (mainSize.Width  - thisSize.Width)  / 2,
+                mainPos.Y + (mainSize.Height - thisSize.Height) / 2));
+        }
+        catch { }
+
         Content = BuildUI(a, b);
     }
 
