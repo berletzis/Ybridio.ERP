@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -46,7 +47,7 @@ public sealed class ProductoDetailWindow : Window
         try
         {
             var mainWindow = App.Services.GetRequiredService<MainWindow>();
-            AppWindow.SetOwnerWindowId(mainWindow.AppWindow.Id);
+            mainWindow.Closed += (_, _) => this.Close();
 
             var mainPos  = mainWindow.AppWindow.Position;
             var mainSize = mainWindow.AppWindow.Size;

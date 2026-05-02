@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -20,7 +21,7 @@ public sealed class CompararProductosWindow : Window
         try
         {
             var mainWindow = App.Services.GetRequiredService<MainWindow>();
-            AppWindow.SetOwnerWindowId(mainWindow.AppWindow.Id);
+            mainWindow.Closed += (_, _) => this.Close();
 
             var mainPos  = mainWindow.AppWindow.Position;
             var mainSize = mainWindow.AppWindow.Size;
