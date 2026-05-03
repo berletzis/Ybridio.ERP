@@ -1,6 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.UI.Xaml;
+
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -38,23 +38,6 @@ public sealed partial class ShellViewModel : ObservableObject
 
     [ObservableProperty]
     private string seccionActiva = "Ybridio ERP";
-
-    // ── Ribbon visibility por sección ────────────────────────────────────────
-
-    [ObservableProperty]
-    private Visibility showRibbonPOS = Visibility.Collapsed;
-
-    [ObservableProperty]
-    private Visibility showRibbonInventario = Visibility.Collapsed;
-
-    [ObservableProperty]
-    private Visibility showRibbonVentas = Visibility.Collapsed;
-
-    [ObservableProperty]
-    private Visibility showRibbonContactos = Visibility.Collapsed;
-
-    [ObservableProperty]
-    private Visibility showRibbonConfiguracion = Visibility.Collapsed;
 
     public ShellViewModel(INavigationService navigation, SessionService session, ICajaService caja)
     {
@@ -99,13 +82,6 @@ public sealed partial class ShellViewModel : ObservableObject
     [RelayCommand]
     private void SelectModule(string modulo)
     {
-        // Colapsar todos los ribbons
-        ShowRibbonPOS = Visibility.Collapsed;
-        ShowRibbonInventario = Visibility.Collapsed;
-        ShowRibbonVentas = Visibility.Collapsed;
-        ShowRibbonContactos = Visibility.Collapsed;
-        ShowRibbonConfiguracion = Visibility.Collapsed;
-
         switch (modulo)
         {
             case "Dashboard":
@@ -115,31 +91,26 @@ public sealed partial class ShellViewModel : ObservableObject
 
             case "POS":
                 SeccionActiva = "Punto de Venta";
-                ShowRibbonPOS = Visibility.Visible;
                 _navigation.NavigateTo(typeof(PosPage));
                 break;
 
             case "Inventario":
                 SeccionActiva = "Inventario";
-                ShowRibbonInventario = Visibility.Visible;
                 _navigation.NavigateTo(typeof(InventarioPage));
                 break;
 
             case "Ventas":
                 SeccionActiva = "Ventas";
-                ShowRibbonVentas = Visibility.Visible;
                 _navigation.NavigateTo(typeof(VentasPage));
                 break;
 
             case "Contactos":
                 SeccionActiva = "Contactos";
-                ShowRibbonContactos = Visibility.Visible;
                 _navigation.NavigateTo(typeof(ContactosPage));
                 break;
 
             case "Configuracion":
                 SeccionActiva = "Configuración";
-                ShowRibbonConfiguracion = Visibility.Visible;
                 _navigation.NavigateTo(typeof(ConfiguracionPage));
                 break;
         }

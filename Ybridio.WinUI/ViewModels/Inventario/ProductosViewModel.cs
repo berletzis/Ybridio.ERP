@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.UI.Xaml;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -27,6 +28,13 @@ public sealed partial class ProductosViewModel : ObservableObject
     public ObservableCollection<TipoImpuestoDto> TiposImpuesto { get; } = [];
 
     public int EmpresaId => _session.EmpresaId;
+
+    /// <summary>
+    /// Usado por ProductosPage para mostrar el estado vacío con ErpGridEmptyTemplate.
+    /// Se actualiza cuando cambia IsLoading o el contenido de Productos.
+    /// </summary>
+    public Visibility IsEmptyState =>
+        Productos.Count == 0 && !IsLoading ? Visibility.Visible : Visibility.Collapsed;
 
     // ── Estado ───────────────────────────────────────────────────────────────
 
@@ -297,6 +305,9 @@ public sealed partial class ProductosViewModel : ObservableObject
     partial void OnBusquedaChanged(string value) => AplicarFiltro();
     partial void OnSoloActivosChanged(bool value) => _ = RefrescarAsync();
 
+    // Notifica IsEmptyState cada vez que IsLoading cambia
+    partial void OnIsLoadingChanged(bool value) => OnPropertyChanged(nameof(IsEmptyState));
+
     private void AplicarFiltro()
     {
         Productos.Clear();
@@ -311,5 +322,7 @@ public sealed partial class ProductosViewModel : ObservableObject
 
         foreach (var p in lista)
             Productos.Add(p);
+
+        OnPropertyChanged(nameof(IsEmptyState));
     }
 }

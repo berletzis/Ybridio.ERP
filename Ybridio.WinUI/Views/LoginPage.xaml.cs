@@ -13,6 +13,11 @@ public sealed partial class LoginPage : Page
     {
         this.InitializeComponent();
         ViewModel = App.Services.GetRequiredService<LoginViewModel>();
+
+#if DEBUG
+        ViewModel.Email = "c.berletzis@dological.com";
+        ViewModel.Password = "@Adm1nDO!!__";
+#endif
     }
 
     private void PasswordBox_PasswordChanged(object sender, RoutedEventArgs e)

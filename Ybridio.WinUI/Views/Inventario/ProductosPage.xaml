@@ -16,134 +16,155 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- CommandBar -->
+        <!-- ── Toolbar ─────────────────────────────────────────────────── -->
         <CommandBar Grid.Row="0"
                     DefaultLabelPosition="Right"
                     HorizontalAlignment="Left">
-            <AppBarButton Icon="Add" Label="Nuevo"
-                          Command="{x:Bind ViewModel.NuevoCommand}"/>
-            <AppBarButton Icon="Edit" Label="Editar"
-                          Command="{x:Bind ViewModel.EditarCommand}"/>
-            <AppBarButton Icon="Copy" Label="Clonar"
-                          Command="{x:Bind ViewModel.ClonarCommand}"/>
-            <AppBarButton Icon="Switch" Label="Comparar"
-                          Command="{x:Bind ViewModel.CompararCommand}"/>
+            <AppBarButton Label="Nuevo" Command="{x:Bind ViewModel.NuevoCommand}">
+                <AppBarButton.Icon><FontIcon Glyph="&#xEA3A;"/></AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarButton Label="Editar" Command="{x:Bind ViewModel.EditarCommand}">
+                <AppBarButton.Icon><FontIcon Glyph="&#xEA3A;"/></AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarButton Label="Clonar" Command="{x:Bind ViewModel.ClonarCommand}">
+                <AppBarButton.Icon><FontIcon Glyph="&#xEA3A;"/></AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarButton Label="Comparar" Command="{x:Bind ViewModel.CompararCommand}">
+                <AppBarButton.Icon><FontIcon Glyph="&#xEA3A;"/></AppBarButton.Icon>
+            </AppBarButton>
             <AppBarSeparator/>
-            <AppBarButton Icon="Sync" Label="Activar/Desactivar"
-                          Command="{x:Bind ViewModel.CambiarActivoCommand}"/>
-            <AppBarButton Icon="Delete" Label="Eliminar"
-                          Command="{x:Bind ViewModel.EliminarCommand}"/>
+            <AppBarButton Label="Activar/Desactivar" Command="{x:Bind ViewModel.CambiarActivoCommand}">
+                <AppBarButton.Icon><FontIcon Glyph="&#xEA3A;"/></AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarButton Label="Eliminar" Command="{x:Bind ViewModel.EliminarCommand}">
+                <AppBarButton.Icon><FontIcon Glyph="&#xEA3A;"/></AppBarButton.Icon>
+            </AppBarButton>
             <AppBarSeparator/>
-            <AppBarButton Icon="Refresh" Label="Actualizar"
-                          Command="{x:Bind ViewModel.RefrescarCommand}"/>
+            <AppBarButton Label="Actualizar" Command="{x:Bind ViewModel.RefrescarCommand}">
+                <AppBarButton.Icon><FontIcon Glyph="&#xEA3A;"/></AppBarButton.Icon>
+            </AppBarButton>
         </CommandBar>
 
-        <!-- Barra de búsqueda -->
-        <Grid Grid.Row="1" Padding="8,4" ColumnSpacing="8">
+        <!-- ── Buscador ──────────────────────────────────────────────────── -->
+        <!--
+            Padding: 8px arriba (respira del toolbar), 12px abajo (respira del grid).
+            AutoSuggestBox: icono de lupa integrado, actualiza ViewModel en cada tecla.
+        -->
+        <Grid Grid.Row="1" Padding="12,8,12,12" ColumnSpacing="12">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <TextBox Grid.Column="0"
-                     PlaceholderText="Buscar por código, código de barras o nombre..."
-                     Text="{x:Bind ViewModel.Busqueda, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+            <AutoSuggestBox Grid.Column="0"
+                            PlaceholderText="Buscar por código, código de barras o nombre..."
+                            QueryIcon="Find"
+                            Text="{x:Bind ViewModel.Busqueda, Mode=TwoWay}"
+                            VerticalAlignment="Center"/>
             <CheckBox Grid.Column="1"
                       Content="Solo activos"
-                      IsChecked="{x:Bind ViewModel.SoloActivos, Mode=TwoWay}"/>
+                      IsChecked="{x:Bind ViewModel.SoloActivos, Mode=TwoWay}"
+                      VerticalAlignment="Center"/>
         </Grid>
 
-        <!-- Lista -->
+        <!-- ══════════════════════════════════════════════════════════════
+             Lista Outlook-style:
+             • 6 columnas (vs 10 anteriores) — menos ruido visual
+             • Columna principal compuesta: Nombre (SemiBold) + Código (gris)
+             • Sin separadores de fila — el espacio (52px) es la separación
+             • Selección: fondo #F5F5F5 sutil + barra azul 3px (protagonista)
+             ══════════════════════════════════════════════════════════════ -->
         <Grid Grid.Row="2">
+
             <ListView x:Name="ListaProductos"
+                      Style="{StaticResource OutlookDataGridStyle}"
                       ItemsSource="{x:Bind ViewModel.Productos, Mode=OneWay}"
                       SelectionMode="Extended"
                       SelectionChanged="ListaProductos_SelectionChanged"
                       DoubleTapped="ListaProductos_DoubleTapped">
 
+                <!-- ── Header ─────────────────────────────────────────── -->
                 <ListView.Header>
-                    <Grid Padding="12,6"
-                          Background="{ThemeResource LayerFillColorDefaultBrush}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="90"/>
-                            <ColumnDefinition Width="110"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="130"/>
-                            <ColumnDefinition Width="75"/>
-                            <ColumnDefinition Width="90"/>
-                            <ColumnDefinition Width="90"/>
-                            <ColumnDefinition Width="110"/>
-                            <ColumnDefinition Width="55"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Código" FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="1" Text="Cód. Barras" FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="2" Text="Nombre" FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="3" Text="Categoría" FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="4" Text="Unidad" FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="5" Text="Precio" FontWeight="SemiBold" TextAlignment="Right"/>
-                        <TextBlock Grid.Column="6" Text="Costo" FontWeight="SemiBold" TextAlignment="Right"/>
-                        <TextBlock Grid.Column="7" Text="Impuesto" FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="8" Text="Activo" FontWeight="SemiBold" TextAlignment="Center"/>
-                    </Grid>
+                    <Border Background="#FAFAFA"
+                            BorderBrush="#E8E8E8"
+                            BorderThickness="0,0,0,1">
+                        <Grid Padding="{StaticResource ErpHeaderPadding}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="8"/>    <!-- zona indicador -->
+                                <ColumnDefinition Width="*"/>    <!-- Nombre / Código -->
+                                <ColumnDefinition Width="130"/>  <!-- Categoría -->
+                                <ColumnDefinition Width="65"/>   <!-- Unidad -->
+                                <ColumnDefinition Width="90"/>   <!-- Precio -->
+                                <ColumnDefinition Width="55"/>   <!-- Activo -->
+                            </Grid.ColumnDefinitions>
+                            <!-- col 0: vacía (zona indicador) -->
+                            <TextBlock Grid.Column="1" Text="Producto"
+                                       Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                            <TextBlock Grid.Column="2" Text="Categoría"
+                                       Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                            <TextBlock Grid.Column="3" Text="Unidad"
+                                       Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                            <TextBlock Grid.Column="4" Text="Precio"
+                                       Style="{StaticResource ErpGridHeaderTextStyle}"
+                                       TextAlignment="Right"/>
+                            <TextBlock Grid.Column="5" Text="Activo"
+                                       Style="{StaticResource ErpGridHeaderTextStyle}"
+                                       TextAlignment="Center"/>
+                        </Grid>
+                    </Border>
                 </ListView.Header>
 
-                <ListView.ItemContainerStyle>
-                    <Style TargetType="ListViewItem">
-                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                        <Setter Property="Padding" Value="12,2"/>
-                    </Style>
-                </ListView.ItemContainerStyle>
-
+                <!-- ── Filas Outlook-style ─────────────────────────────── -->
+                <!--
+                    Sin Border exterior (sin separadores de línea).
+                    La separación entre filas la da la altura (52px ErpRowHeight).
+                    Columna 1: StackPanel con Nombre (SemiBold) + Código (gris, 11px)
+                               — jerarquía visual tipo lista de emails.
+                -->
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="dto:ProductoDto">
-                        <Grid ColumnSpacing="4" Height="32">
+                        <Grid ColumnSpacing="8" Height="52">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="90"/>
-                                <ColumnDefinition Width="110"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="130"/>
-                                <ColumnDefinition Width="75"/>
-                                <ColumnDefinition Width="90"/>
-                                <ColumnDefinition Width="90"/>
-                                <ColumnDefinition Width="110"/>
-                                <ColumnDefinition Width="55"/>
+                                <ColumnDefinition Width="8"/>    <!-- zona indicador -->
+                                <ColumnDefinition Width="*"/>    <!-- Nombre / Código -->
+                                <ColumnDefinition Width="130"/>  <!-- Categoría -->
+                                <ColumnDefinition Width="65"/>   <!-- Unidad -->
+                                <ColumnDefinition Width="90"/>   <!-- Precio -->
+                                <ColumnDefinition Width="55"/>   <!-- Activo -->
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0"
-                                       Text="{x:Bind Codigo}"
-                                       TextTrimming="CharacterEllipsis"
-                                       VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="1"
-                                       Text="{x:Bind CodigoBarras}"
-                                       TextTrimming="CharacterEllipsis"
-                                       VerticalAlignment="Center"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+
+                            <!-- Col 0: zona indicador (vacía, el indicador está en ControlTemplate) -->
+
+                            <!-- Col 1: celda compuesta — Nombre + Código (estilo Outlook) -->
+                            <StackPanel Grid.Column="1"
+                                        Spacing="2"
+                                        VerticalAlignment="Center">
+                                <TextBlock Text="{x:Bind Nombre}"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{x:Bind Codigo}"
+                                           FontSize="11"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+
+                            <!-- Col 2: Categoría — secundario -->
                             <TextBlock Grid.Column="2"
-                                       Text="{x:Bind Nombre}"
-                                       TextTrimming="CharacterEllipsis"
-                                       VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="3"
                                        Text="{x:Bind CategoriaNombre}"
-                                       TextTrimming="CharacterEllipsis"
-                                       VerticalAlignment="Center"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                            <TextBlock Grid.Column="4"
+                                       Style="{StaticResource ErpCellSecondaryStyle}"/>
+
+                            <!-- Col 3: Unidad — secundario -->
+                            <TextBlock Grid.Column="3"
                                        Text="{x:Bind UnidadMedidaAbreviatura}"
-                                       VerticalAlignment="Center"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                            <TextBlock Grid.Column="5"
+                                       Style="{StaticResource ErpCellSecondaryStyle}"/>
+
+                            <!-- Col 4: Precio — numérico -->
+                            <TextBlock Grid.Column="4"
                                        Text="{x:Bind Precio}"
-                                       TextAlignment="Right"
-                                       VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="6"
-                                       Text="{x:Bind Costo}"
-                                       TextAlignment="Right"
-                                       VerticalAlignment="Center"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                            <TextBlock Grid.Column="7"
-                                       Text="{x:Bind TipoImpuestoNombre}"
-                                       TextTrimming="CharacterEllipsis"
-                                       VerticalAlignment="Center"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                            <CheckBox Grid.Column="8"
+                                       Style="{StaticResource ErpCellNumericStyle}"/>
+
+                            <!-- Col 5: Activo — checkbox solo lectura -->
+                            <CheckBox Grid.Column="5"
                                       IsChecked="{x:Bind Activo}"
                                       IsEnabled="False"
                                       HorizontalAlignment="Center"
@@ -153,35 +174,35 @@
                 </ListView.ItemTemplate>
             </ListView>
 
+            <!-- Estado: cargando -->
             <ProgressRing IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
                           HorizontalAlignment="Center"
                           VerticalAlignment="Center"
                           Width="48" Height="48"/>
+
+            <!-- Estado: vacío -->
+            <ContentControl ContentTemplate="{StaticResource ErpGridEmptyTemplate}"
+                            Visibility="{x:Bind ViewModel.IsEmptyState, Mode=OneWay}"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            IsHitTestVisible="False"/>
         </Grid>
 
-        <!-- StatusBar -->
-        <Border Grid.Row="3"
-                Background="{ThemeResource LayerFillColorDefaultBrush}"
-                Padding="12,3">
+        <!-- ── StatusBar ─────────────────────────────────────────────────── -->
+        <Border Grid.Row="3" Style="{StaticResource ErpGridStatusBarStyle}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
-                    <TextBlock VerticalAlignment="Center"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                               FontSize="12">
+                    <TextBlock Style="{StaticResource ErpGridStatusTextStyle}">
                         <Run Text="{x:Bind ViewModel.Productos.Count, Mode=OneWay}"/>
                         <Run Text="producto(s)"/>
                     </TextBlock>
-                    <TextBlock VerticalAlignment="Center"
-                               FontSize="12"
-                               Foreground="Red"
+                    <TextBlock Style="{StaticResource ErpGridErrorTextStyle}"
                                Text="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"/>
-                    <TextBlock VerticalAlignment="Center"
-                               FontSize="12"
-                               Foreground="{ThemeResource AccentFillColorDefaultBrush}"
+                    <TextBlock Style="{StaticResource ErpGridSuccessTextStyle}"
                                Text="{x:Bind ViewModel.SuccessMessage, Mode=OneWay}"/>
                 </StackPanel>
                 <ProgressRing Grid.Column="1"

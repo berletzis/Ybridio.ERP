@@ -6,6 +6,7 @@ using Ybridio.Application.Extensions;
 using Ybridio.Infrastructure.Persistence;
 using Ybridio.Infrastructure.Persistence.Identity;
 using Ybridio.WinUI.Services;
+using Ybridio.WinUI.Services.Windowing;
 using Ybridio.WinUI.ViewModels;
 using Ybridio.WinUI.ViewModels.Dashboard;
 using Ybridio.WinUI.ViewModels.Inventario;
@@ -62,6 +63,7 @@ public partial class App : Microsoft.UI.Xaml.Application
         services.AddSingleton<MainWindow>();
         services.AddSingleton<SessionService>();
         services.AddSingleton<INavigationService, NavigationService>();
+        services.AddSingleton<IWindowManager, WindowManager>();
 
         // ── ViewModels ────────────────────────────────────────────────────────
         services.AddTransient<LoginViewModel>();

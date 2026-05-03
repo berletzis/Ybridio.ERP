@@ -20,7 +20,7 @@
 
 		<!-- Logo / Título -->
 		<StackPanel Grid.Row="0" Margin="0,0,0,32" HorizontalAlignment="Center">
-			<FontIcon Glyph="&#xE7EE;" FontSize="48" />
+			<FontIcon Glyph="&#xEA3A;" FontSize="48" />
 			<TextBlock Text="Ybridio ERP"
                        Style="{StaticResource TitleLargeTextBlockStyle}"
                        HorizontalAlignment="Center"

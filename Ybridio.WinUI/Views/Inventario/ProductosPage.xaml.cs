@@ -4,17 +4,21 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
 using System.Linq;
 using Ybridio.Application.DTOs.Catalogos;
+using Ybridio.WinUI.Services.Windowing;
 using Ybridio.WinUI.ViewModels.Inventario;
 
 namespace Ybridio.WinUI.Views.Inventario;
 
 public sealed partial class ProductosPage : Page
 {
+    private readonly IWindowManager _windowManager;
+
     public ProductosViewModel ViewModel { get; }
 
     public ProductosPage()
     {
-        ViewModel = App.Services.GetRequiredService<ProductosViewModel>();
+        ViewModel      = App.Services.GetRequiredService<ProductosViewModel>();
+        _windowManager = App.Services.GetRequiredService<IWindowManager>();
         InitializeComponent();
     }
 
@@ -23,7 +27,7 @@ public sealed partial class ProductosPage : Page
         base.OnNavigatedTo(e);
 
         ViewModel.SolicitarAbrirDetalle = AbrirVentanaDetalle;
-        ViewModel.SolicitarComparar = AbrirVentanaComparar;
+        ViewModel.SolicitarComparar     = AbrirVentanaComparar;
 
         if (ViewModel.LoadCommand.CanExecute(null))
             await ViewModel.LoadCommand.ExecuteAsync(null);
@@ -47,8 +51,18 @@ public sealed partial class ProductosPage : Page
 
     private void AbrirVentanaDetalle(ProductoDto? producto)
     {
-        var ventana = new ProductoDetailWindow(ViewModel, producto);
-        ventana.Activate();
+        // WindowManager garantiza: una instancia por producto, siempre al frente,
+        // centrada en la ventana principal, y limpieza automática al cerrar.
+        var key = producto?.Id ?? 0;
+        _windowManager.OpenWindow<ProductoDetailWindow, int>(
+            key,
+            () => new ProductoDetailWindow(ViewModel, producto),
+            new WindowOptions
+            {
+                Width            = 900,
+                Height           = 700,
+                PositionStrategy = WindowPositionStrategy.CenterOwner
+            });
     }
 
     private void AbrirVentanaComparar((ProductoDto A, ProductoDto B) par)

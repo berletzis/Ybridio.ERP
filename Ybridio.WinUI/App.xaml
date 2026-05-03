@@ -8,9 +8,91 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
-                <!-- Other merged dictionaries here -->
+                <ResourceDictionary Source="ms-appx:///Styles/DataGrid/DataGridBase.xaml"/>
+                <ResourceDictionary Source="ms-appx:///Styles/Forms/FormBase.xaml"/>
             </ResourceDictionary.MergedDictionaries>
             <!-- Other app resources here -->
+
+            <!--
+                OutlookTabItemStyle — tabs planos estilo Outlook/Fluent
+                Uso: <Page.Resources><Style TargetType="TabViewItem" BasedOn="{StaticResource OutlookTabItemStyle}"/></Page.Resources>
+            -->
+            <Style x:Key="OutlookTabItemStyle" TargetType="TabViewItem">
+                <Setter Property="Background"       Value="Transparent"/>
+                <Setter Property="BorderThickness"  Value="0"/>
+                <Setter Property="MinWidth"         Value="0"/>
+                <Setter Property="FontSize"         Value="13"/>
+                <Setter Property="FontFamily"       Value="{ThemeResource ContentControlThemeFontFamily}"/>
+                <Setter Property="Foreground"       Value="{ThemeResource TextFillColorSecondaryBrush}"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="TabViewItem">
+                            <Grid x:Name="TabContainer"
+                                  MinHeight="36"
+                                  Background="Transparent">
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal"/>
+                                        <VisualState x:Name="PointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="HeaderPresenter.Foreground"
+                                                        Value="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Pressed">
+                                            <VisualState.Setters>
+                                                <Setter Target="HeaderPresenter.Foreground"
+                                                        Value="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Selected">
+                                            <VisualState.Setters>
+                                                <Setter Target="HeaderPresenter.Foreground"
+                                                        Value="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                                <Setter Target="HeaderPresenter.FontWeight"
+                                                        Value="SemiBold"/>
+                                                <Setter Target="SelectionBar.Visibility"
+                                                        Value="Visible"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Disabled">
+                                            <VisualState.Setters>
+                                                <Setter Target="HeaderPresenter.Foreground"
+                                                        Value="{ThemeResource TextFillColorDisabledBrush}"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="3"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- Texto del tab -->
+                                <ContentPresenter x:Name="HeaderPresenter"
+                                                  Grid.Row="0"
+                                                  Content="{TemplateBinding Header}"
+                                                  ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                                  FontSize="{TemplateBinding FontSize}"
+                                                  FontFamily="{TemplateBinding FontFamily}"
+                                                  Foreground="{TemplateBinding Foreground}"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  Margin="16,8"/>
+
+                                <!-- Indicador de selección (underline azul) -->
+                                <Border x:Name="SelectionBar"
+                                        Grid.Row="1"
+                                        Background="#0078D4"
+                                        CornerRadius="1"
+                                        Visibility="Collapsed"
+                                        Margin="6,0"/>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

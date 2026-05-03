@@ -42,19 +42,13 @@ public sealed class ProductoDetailWindow : Window
         _original = producto;
 
         Title = producto is null ? "Nuevo producto" : $"Editar: {producto.Nombre}";
-        AppWindow.Resize(new SizeInt32(900, 700));
 
+        // Tamaño y posición son gestionados por WindowManager.
+        // Solo registramos el cierre en cascada con la ventana principal.
         try
         {
             var mainWindow = App.Services.GetRequiredService<MainWindow>();
             mainWindow.Closed += (_, _) => this.Close();
-
-            var mainPos  = mainWindow.AppWindow.Position;
-            var mainSize = mainWindow.AppWindow.Size;
-            var thisSize = AppWindow.Size;
-            AppWindow.Move(new Windows.Graphics.PointInt32(
-                mainPos.X + (mainSize.Width  - thisSize.Width)  / 2,
-                mainPos.Y + (mainSize.Height - thisSize.Height) / 2));
         }
         catch { }
 

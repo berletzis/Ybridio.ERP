@@ -8,64 +8,56 @@
     mc:Ignorable="d"
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
+    <Page.Resources>
+        <!-- Aplica OutlookTabItemStyle a todos los TabViewItem de esta página -->
+        <Style TargetType="TabViewItem" BasedOn="{StaticResource OutlookTabItemStyle}"/>
+    </Page.Resources>
+
     <TabView x:Name="InventarioTabs"
-             TabWidthMode="Equal"
+             TabWidthMode="SizeToContent"
              IsAddTabButtonVisible="False"
+             Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
              SelectionChanged="InventarioTabs_SelectionChanged">
 
         <!-- Existencias -->
-        <TabViewItem x:Name="TabExistencias" Header="Existencias">
-            <TabViewItem.IconSource>
-                <FontIconSource Glyph="&#xE8F1;" />
-            </TabViewItem.IconSource>
+        <TabViewItem x:Name="TabExistencias" Header="Existencias" IsClosable="False">
+
             <Frame x:Name="FrameExistencias" />
         </TabViewItem>
 
         <!-- Entradas -->
-        <TabViewItem x:Name="TabEntradas" Header="Entradas">
-            <TabViewItem.IconSource>
-                <FontIconSource Glyph="&#xE8FA;" />
-            </TabViewItem.IconSource>
+        <TabViewItem x:Name="TabEntradas" Header="Entradas" IsClosable="False">
+
             <Frame x:Name="FrameEntradas" />
         </TabViewItem>
 
         <!-- Salidas -->
-        <TabViewItem x:Name="TabSalidas" Header="Salidas">
-            <TabViewItem.IconSource>
-                <FontIconSource Glyph="&#xE8FB;" />
-            </TabViewItem.IconSource>
+        <TabViewItem x:Name="TabSalidas" Header="Salidas" IsClosable="False">
+
             <Frame x:Name="FrameSalidas" />
         </TabViewItem>
 
         <!-- Kardex -->
-        <TabViewItem x:Name="TabKardex" Header="Kardex">
-            <TabViewItem.IconSource>
-                <FontIconSource Glyph="&#xE8D2;" />
-            </TabViewItem.IconSource>
+        <TabViewItem x:Name="TabKardex" Header="Kardex" IsClosable="False">
+
             <Frame x:Name="FrameKardex" />
         </TabViewItem>
 
         <!-- Conteo -->
-        <TabViewItem x:Name="TabConteo" Header="Conteo">
-            <TabViewItem.IconSource>
-                <FontIconSource Glyph="&#xE8EF;" />
-            </TabViewItem.IconSource>
+        <TabViewItem x:Name="TabConteo" Header="Conteo" IsClosable="False">
+
             <Frame x:Name="FrameConteo" />
         </TabViewItem>
 
         <!-- Órdenes de Compra -->
-        <TabViewItem x:Name="TabOrdenesCompra" Header="Órdenes de Compra">
-            <TabViewItem.IconSource>
-                <FontIconSource Glyph="&#xE8D0;" />
-            </TabViewItem.IconSource>
+        <TabViewItem x:Name="TabOrdenesCompra" Header="Órdenes de Compra" IsClosable="False">
+
             <Frame x:Name="FrameOrdenesCompra" />
         </TabViewItem>
 
         <!-- Productos -->
-        <TabViewItem x:Name="TabProductos" Header="Productos">
-            <TabViewItem.IconSource>
-                <FontIconSource Glyph="&#xE8B9;" />
-            </TabViewItem.IconSource>
+        <TabViewItem x:Name="TabProductos" Header="Productos" IsClosable="False">
+
             <Frame x:Name="FrameProductos" />
         </TabViewItem>
 

@@ -10,14 +10,14 @@
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="56" />
+            <ColumnDefinition Width="72" />
             <!-- Barra iconos izquierda -->
             <ColumnDefinition Width="*" />
             <!-- Contenido principal -->
         </Grid.ColumnDefinitions>
 
         <!-- ══════════════════════════════════════════════════════════════════ -->
-        <!-- BARRA IZQUIERDA — solo iconos                                     -->
+        <!-- BARRA IZQUIERDA — estilo Outlook 2026                             -->
         <!-- ══════════════════════════════════════════════════════════════════ -->
         <Grid Grid.Column="0"
               Background="{ThemeResource NavigationViewDefaultPaneBackground}">
@@ -26,6 +26,8 @@
                 <!-- Logo/App -->
                 <RowDefinition Height="*" />
                 <!-- Iconos módulos -->
+                <RowDefinition Height="Auto"/>
+                <!-- Config -->
                 <RowDefinition Height="Auto"/>
                 <!-- Logout abajo -->
             </Grid.RowDefinitions>
@@ -44,15 +46,23 @@
 
             <!-- Iconos de módulos -->
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden">
-                <StackPanel>
+                <StackPanel x:Name="NavButtonsPanel">
 
                     <!-- Dashboard -->
-                    <Button Tag="Dashboard"
+                    <Button x:Name="BtnDashboard"
+                            Tag="Dashboard"
                             Click="ModuleButton_Click"
-                            Style="{StaticResource NavigationBackButtonNormalStyle}"
-                            Width="56" Height="52"
+                            Width="72" Height="64"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Padding="0"
+                            CornerRadius="8"
+                            HorizontalAlignment="Center"
                             ToolTipService.ToolTip="Dashboard">
-                        <FontIcon Glyph="&#xE8A1;" FontSize="18" />
+                        <StackPanel HorizontalAlignment="Center" Spacing="4">
+                            <FontIcon Glyph="&#xEA3A;" FontSize="20" HorizontalAlignment="Center"/>
+                            <TextBlock Text="Dashboard" FontSize="10" HorizontalAlignment="Center"/>
+                        </StackPanel>
                     </Button>
 
                     <!-- Separador -->
@@ -60,60 +70,108 @@
                                Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
                     <!-- POS -->
-                    <Button Tag="POS"
+                    <Button x:Name="BtnPOS"
+                            Tag="POS"
                             Click="ModuleButton_Click"
-                            Style="{StaticResource NavigationBackButtonNormalStyle}"
-                            Width="56" Height="52"
+                            Width="72" Height="64"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Padding="0"
+                            CornerRadius="8"
+                            HorizontalAlignment="Center"
                             ToolTipService.ToolTip="Punto de Venta">
-                        <FontIcon Glyph="&#xE719;" FontSize="18" />
+                        <StackPanel HorizontalAlignment="Center" Spacing="4">
+                            <FontIcon Glyph="&#xEA3A;" FontSize="20" HorizontalAlignment="Center"/>
+                            <TextBlock Text="POS" FontSize="10" HorizontalAlignment="Center"/>
+                        </StackPanel>
                     </Button>
 
                     <!-- Inventario -->
-                    <Button Tag="Inventario"
+                    <Button x:Name="BtnInventario"
+                            Tag="Inventario"
                             Click="ModuleButton_Click"
-                            Style="{StaticResource NavigationBackButtonNormalStyle}"
-                            Width="56" Height="52"
+                            Width="72" Height="64"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Padding="0"
+                            CornerRadius="8"
+                            HorizontalAlignment="Center"
                             ToolTipService.ToolTip="Inventario">
-                        <FontIcon Glyph="&#xE8B9;" FontSize="18" />
+                        <StackPanel HorizontalAlignment="Center" Spacing="4">
+                            <FontIcon Glyph="&#xEA3A;" FontSize="20" HorizontalAlignment="Center"/>
+                            <TextBlock Text="Inventario" FontSize="10" HorizontalAlignment="Center"/>
+                        </StackPanel>
                     </Button>
 
                     <!-- Ventas -->
-                    <Button Tag="Ventas"
+                    <Button x:Name="BtnVentas"
+                            Tag="Ventas"
                             Click="ModuleButton_Click"
-                            Style="{StaticResource NavigationBackButtonNormalStyle}"
-                            Width="56" Height="52"
+                            Width="72" Height="64"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Padding="0"
+                            CornerRadius="8"
+                            HorizontalAlignment="Center"
                             ToolTipService.ToolTip="Ventas">
-                        <FontIcon Glyph="&#xE8FF;" FontSize="18" />
+                        <StackPanel HorizontalAlignment="Center" Spacing="4">
+                            <FontIcon Glyph="&#xEA3A;" FontSize="20" HorizontalAlignment="Center"/>
+                            <TextBlock Text="Ventas" FontSize="10" HorizontalAlignment="Center"/>
+                        </StackPanel>
                     </Button>
 
                     <!-- Contactos -->
-                    <Button Tag="Contactos"
+                    <Button x:Name="BtnContactos"
+                            Tag="Contactos"
                             Click="ModuleButton_Click"
-                            Style="{StaticResource NavigationBackButtonNormalStyle}"
-                            Width="56" Height="52"
+                            Width="72" Height="64"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Padding="0"
+                            CornerRadius="8"
+                            HorizontalAlignment="Center"
                             ToolTipService.ToolTip="Contactos">
-                        <FontIcon Glyph="&#xE716;" FontSize="18" />
-                    </Button>
-
-                    <!-- Configuración -->
-                    <Button Tag="Configuracion"
-                            Click="ModuleButton_Click"
-                            Style="{StaticResource NavigationBackButtonNormalStyle}"
-                            Width="56" Height="52"
-                            ToolTipService.ToolTip="Configuración">
-                        <FontIcon Glyph="&#xE713;" FontSize="18" />
+                        <StackPanel HorizontalAlignment="Center" Spacing="4">
+                            <FontIcon Glyph="&#xEA3A;" FontSize="20" HorizontalAlignment="Center"/>
+                            <TextBlock Text="Contactos" FontSize="10" HorizontalAlignment="Center"/>
+                        </StackPanel>
                     </Button>
 
                 </StackPanel>
             </ScrollViewer>
 
+            <!-- Configuración (fijo sobre Salir) -->
+            <Button x:Name="BtnConfiguracion"
+                    Grid.Row="2"
+                    Tag="Configuracion"
+                    Click="ModuleButton_Click"
+                    Width="72" Height="64"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Padding="0"
+                    CornerRadius="8"
+                    HorizontalAlignment="Center"
+                    ToolTipService.ToolTip="Configuración">
+                <StackPanel HorizontalAlignment="Center" Spacing="4">
+                    <FontIcon Glyph="&#xEA3A;" FontSize="20" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Config" FontSize="10" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+
             <!-- Logout abajo -->
-            <Button Grid.Row="2"
+            <Button Grid.Row="3"
                     Command="{x:Bind ViewModel.LogoutCommand}"
-                    Style="{StaticResource NavigationBackButtonNormalStyle}"
-                    Width="56" Height="52"
+                    Width="72" Height="64"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Padding="0"
+                    CornerRadius="8"
+                    HorizontalAlignment="Center"
                     ToolTipService.ToolTip="Cerrar sesión">
-                <FontIcon Glyph="&#xF3B1;" FontSize="18" />
+                <StackPanel HorizontalAlignment="Center" Spacing="4">
+                    <FontIcon Glyph="&#xEA3A;" FontSize="20" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Salir" FontSize="10" HorizontalAlignment="Center"/>
+                </StackPanel>
             </Button>
         </Grid>
 
@@ -124,14 +182,13 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="48" />
                 <!-- TopBar -->
-                <RowDefinition Height="Auto" />
-                <!-- Ribbon de sub-módulos -->
                 <RowDefinition Height="*" />
                 <!-- Frame -->
             </Grid.RowDefinitions>
 
             <!-- ── TOP BAR ─────────────────────────────────────────────── -->
-            <Grid Grid.Row="0"
+            <Grid x:Name="TopBarGrid"
+                  Grid.Row="0"
                   Background="{ThemeResource NavigationViewDefaultPaneBackground}"
                   Padding="12,0">
                 <Grid.ColumnDefinitions>
@@ -161,7 +218,7 @@
                             Spacing="12">
 
                     <StackPanel Orientation="Horizontal" Spacing="4">
-                        <FontIcon Glyph="&#xE7F4;" FontSize="14"
+                        <FontIcon Glyph="&#xEA3A;" FontSize="14"
                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         <TextBlock Text="{x:Bind ViewModel.TiendaNombre, Mode=OneWay}"
                                    Style="{StaticResource CaptionTextBlockStyle}"
@@ -169,7 +226,7 @@
                     </StackPanel>
 
                     <StackPanel Orientation="Horizontal" Spacing="4">
-                        <FontIcon Glyph="&#xE8C7;" FontSize="14"
+                        <FontIcon Glyph="&#xEA3A;" FontSize="14"
                                   Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
                         <TextBlock Text="{x:Bind ViewModel.CajaEstado, Mode=OneWay}"
                                    Style="{StaticResource CaptionTextBlockStyle}"
@@ -187,196 +244,8 @@
                 </StackPanel>
             </Grid>
 
-            <!-- ── RIBBON DE SUB-MÓDULOS ────────────────────────────────── -->
-            <ScrollViewer Grid.Row="1"
-                          HorizontalScrollBarVisibility="Auto"
-                          VerticalScrollBarVisibility="Disabled"
-                          Background="{ThemeResource LayerFillColorDefaultBrush}">
-                <StackPanel x:Name="RibbonPanel"
-                            Orientation="Horizontal"
-                            Spacing="2"
-                            Padding="8,4">
-
-                    <!-- POS sub-módulos -->
-                    <StackPanel x:Name="RibbonPOS" Orientation="Horizontal" Spacing="2"
-                                Visibility="{x:Bind ViewModel.ShowRibbonPOS, Mode=OneWay}">
-                        <Button Tag="POS" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6" ToolTipService.ToolTip="Mostrador POS">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE719;" FontSize="14"/>
-                                <TextBlock Text="Mostrador" VerticalAlignment="Center" FontSize="12"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Tag="AperturaCaja" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE8C7;" FontSize="14"/>
-                                <TextBlock Text="Apertura Caja" VerticalAlignment="Center" FontSize="12"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Tag="CierreCaja" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE8C8;" FontSize="14"/>
-                                <TextBlock Text="Cierre Caja" VerticalAlignment="Center" FontSize="12"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Tag="RetiroEfectivo" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE8AB;" FontSize="14"/>
-                                <TextBlock Text="Retiro" VerticalAlignment="Center" FontSize="12"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Tag="Cancelaciones" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE711;" FontSize="14"/>
-                                <TextBlock Text="Cancelaciones" VerticalAlignment="Center" FontSize="12"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Tag="Devoluciones" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE7BE;" FontSize="14"/>
-                                <TextBlock Text="Devoluciones" VerticalAlignment="Center" FontSize="12"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Tag="ReimprimirTicket" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE749;" FontSize="14"/>
-                                <TextBlock Text="Reimprimir" VerticalAlignment="Center" FontSize="12"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Tag="ConsultaCierres" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE8F1;" FontSize="14"/>
-                                <TextBlock Text="Consulta Cierres" VerticalAlignment="Center" FontSize="12"/>
-                            </StackPanel>
-                        </Button>
-                    </StackPanel>
-
-                    <!-- Inventario sub-módulos -->
-                    <StackPanel x:Name="RibbonInventario" Orientation="Horizontal" Spacing="2"
-                                Visibility="{x:Bind ViewModel.ShowRibbonInventario, Mode=OneWay}">
-                        <Button Tag="Productos" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE8B9;" FontSize="14"/>
-                                <TextBlock Text="Productos" VerticalAlignment="Center" FontSize="12"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Tag="Existencias" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE8F1;" FontSize="14"/>
-                                <TextBlock Text="Existencias" VerticalAlignment="Center" FontSize="12"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Tag="Entradas" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE8FA;" FontSize="14"/>
-                                <TextBlock Text="Entradas" VerticalAlignment="Center" FontSize="12"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Tag="Salidas" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE8FB;" FontSize="14"/>
-                                <TextBlock Text="Salidas" VerticalAlignment="Center" FontSize="12"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Tag="Kardex" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE8D2;" FontSize="14"/>
-                                <TextBlock Text="Kardex" VerticalAlignment="Center" FontSize="12"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Tag="Conteo" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE8EF;" FontSize="14"/>
-                                <TextBlock Text="Conteo" VerticalAlignment="Center" FontSize="12"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Tag="OrdenesCompra" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE8D0;" FontSize="14"/>
-                                <TextBlock Text="Órdenes Compra" VerticalAlignment="Center" FontSize="12"/>
-                            </StackPanel>
-                        </Button>
-                    </StackPanel>
-
-                    <!-- Ventas sub-módulos -->
-                    <StackPanel x:Name="RibbonVentas" Orientation="Horizontal" Spacing="2"
-                                Visibility="{x:Bind ViewModel.ShowRibbonVentas, Mode=OneWay}">
-                        <Button Tag="Cotizaciones" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE8A5;" FontSize="14"/>
-                                <TextBlock Text="Cotizaciones" VerticalAlignment="Center" FontSize="12"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Tag="OrdenTrabajo" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE8FD;" FontSize="14"/>
-                                <TextBlock Text="Orden Trabajo" VerticalAlignment="Center" FontSize="12"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Tag="ConsultaVentas" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE8FF;" FontSize="14"/>
-                                <TextBlock Text="Consulta Ventas" VerticalAlignment="Center" FontSize="12"/>
-                            </StackPanel>
-                        </Button>
-                    </StackPanel>
-
-                    <!-- Contactos sub-módulos -->
-                    <StackPanel x:Name="RibbonContactos" Orientation="Horizontal" Spacing="2"
-                                Visibility="{x:Bind ViewModel.ShowRibbonContactos, Mode=OneWay}">
-                        <Button Tag="Contactos" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE716;" FontSize="14"/>
-                                <TextBlock Text="Contactos" VerticalAlignment="Center" FontSize="12"/>
-                            </StackPanel>
-                        </Button>
-                    </StackPanel>
-
-                    <!-- Configuración sub-módulos -->
-                    <StackPanel x:Name="RibbonConfiguracion" Orientation="Horizontal" Spacing="2"
-                                Visibility="{x:Bind ViewModel.ShowRibbonConfiguracion, Mode=OneWay}">
-                        <Button Tag="ConfigLocal" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE713;" FontSize="14"/>
-                                <TextBlock Text="Config. Local" VerticalAlignment="Center" FontSize="12"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Tag="Impresoras" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE749;" FontSize="14"/>
-                                <TextBlock Text="Impresoras" VerticalAlignment="Center" FontSize="12"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Tag="Cajas" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE8C7;" FontSize="14"/>
-                                <TextBlock Text="Cajas" VerticalAlignment="Center" FontSize="12"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Tag="Empresas" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE731;" FontSize="14"/>
-                                <TextBlock Text="Empresas" VerticalAlignment="Center" FontSize="12"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Tag="Usuarios" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE77B;" FontSize="14"/>
-                                <TextBlock Text="Usuarios" VerticalAlignment="Center" FontSize="12"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Tag="Catalogos" Click="RibbonButton_Click" Style="{StaticResource NavigationBackButtonNormalStyle}" Padding="12,6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE8A9;" FontSize="14"/>
-                                <TextBlock Text="Catálogos" VerticalAlignment="Center" FontSize="12"/>
-                            </StackPanel>
-                        </Button>
-                    </StackPanel>
-
-                </StackPanel>
-            </ScrollViewer>
-
             <!-- ── FRAME CENTRAL ────────────────────────────────────────── -->
-            <Frame x:Name="InnerFrame" Grid.Row="2" />
+            <Frame x:Name="InnerFrame" Grid.Row="1" />
         </Grid>
     </Grid>
 </Page>
