@@ -25,7 +25,7 @@ public class Producto : AuditableEntity
     public int? TipoImpuestoId { get; set; }
 
     // ── Clasificación ─────────────────────────────────────────────────────────
-    public int? CategoriaId { get; set; }
+    // CategoriaId eliminado: la relación ahora es N:N via ProductoCategoria
     public int? TipoProductoId { get; set; }
     public int? UnidadMedidaId { get; set; }
 
@@ -42,7 +42,7 @@ public class Producto : AuditableEntity
     // ── Navegación ────────────────────────────────────────────────────────────
     public Empresa Empresa { get; set; } = null!;
     public TipoImpuesto? TipoImpuesto { get; set; }
-    public CategoriaProducto? Categoria { get; set; }
+    public ICollection<ProductoCategoria> Categorias { get; set; } = [];
     public TipoProducto? TipoProducto { get; set; }
     public UnidadMedida? UnidadMedida { get; set; }
     public Proveedor? Proveedor { get; set; }

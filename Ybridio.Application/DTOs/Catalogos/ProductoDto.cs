@@ -28,7 +28,12 @@ public sealed record ProductoDto(
     decimal? StockMaximo,
     int? ProveedorId,
     string? ProveedorNombre,
-    bool Activo);
+    bool Activo,
+    /// <summary>
+    /// Todos los CategoriaProducto.Id a los que pertenece el producto (relación N:N).
+    /// Permite filtrar por cualquier categoría, no solo la principal.
+    /// </summary>
+    IReadOnlyList<int> CategoriaIds);
 
 /// <summary>DTO para crear un Producto.</summary>
 public sealed record CrearProductoDto(
@@ -134,3 +139,13 @@ public sealed record UpsertTipoImpuestoDto(
     string Nombre,
     decimal Porcentaje,
     bool Activo = true);
+
+/// <summary>
+/// Proyección de categoría con conteo de productos asociados.
+/// Usada por el panel de clasificación tipo Outlook.
+/// </summary>
+public sealed record CategoriaConConteoDto(
+    int Id,
+    string Nombre,
+    int? CategoriaPadreId,
+    int TotalProductos);

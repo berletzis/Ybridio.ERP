@@ -14,6 +14,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <None Remove="Controls\Navigation\ClassificationPanel.xaml" />
     <None Remove="Styles\DataGrid\DataGridBase.xaml" />
     <None Remove="Styles\Forms\FormBase.xaml" />
     <None Remove="Views\Dashboard\DashboardPage.xaml" />
@@ -66,6 +67,12 @@
   <ItemGroup>
     <ProjectReference Include="..\Ybridio.Application\Ybridio.Application.csproj" />
     <ProjectReference Include="..\Ybridio.Infrastructure\Ybridio.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Controls\Navigation\ClassificationPanel.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
   </ItemGroup>
 
   <ItemGroup>

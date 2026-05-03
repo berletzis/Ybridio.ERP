@@ -71,4 +71,11 @@ public interface IProductoService
     Task<IReadOnlyList<CategoriaProductoDto>> ListarCategoriasAsync(int empresaId, CancellationToken ct = default);
     Task<IReadOnlyList<TipoProductoDto>> ListarTiposProductoAsync(int empresaId, CancellationToken ct = default);
     Task<IReadOnlyList<TipoImpuestoDto>> ListarTiposImpuestoAsync(int empresaId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Categorías activas con conteo de productos asociados.
+    /// Una sola consulta SQL (subconsulta correlacionada). Sin N+1.
+    /// </summary>
+    Task<IReadOnlyList<CategoriaConConteoDto>> ListarCategoriasConConteoAsync(
+        int empresaId, CancellationToken ct = default);
 }

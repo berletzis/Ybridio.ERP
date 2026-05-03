@@ -3,7 +3,9 @@
     "allow": [
       "PowerShell(Get-ChildItem -Path \"D:\\\\Users\\\\berletzis\\\\Source\\\\Repos\\\\Ybridio.ERP\" -Recurse | Where-Object { $_.Extension -in @\\('.cs', '.xaml', '.csproj', '.slnx'\\) } | Select-Object -ExpandProperty FullName | Sort-Object)",
       "PowerShell(dotnet build *)",
-      "PowerShell(Get-Content \"D:\\\\Users\\\\berletzis\\\\Source\\\\Repos\\\\Ybridio.ERP\\\\Ybridio.WinUI\\\\obj\\\\x64\\\\Debug\\\\net8.0-windows10.0.19041.0\\\\win-x64\\\\output.json\" | ConvertFrom-Json | Select-Object -ExpandProperty Results | Where-Object { $_.Severity -gt 0 } | Format-List)"
+      "PowerShell(Get-Content \"D:\\\\Users\\\\berletzis\\\\Source\\\\Repos\\\\Ybridio.ERP\\\\Ybridio.WinUI\\\\obj\\\\x64\\\\Debug\\\\net8.0-windows10.0.19041.0\\\\win-x64\\\\output.json\" | ConvertFrom-Json | Select-Object -ExpandProperty Results | Where-Object { $_.Severity -gt 0 } | Format-List)",
+      "PowerShell(tree *)",
+      "Skill(update-config)"
     ]
   }
 }

@@ -5,210 +5,315 @@
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
       xmlns:dto="using:Ybridio.Application.DTOs.Catalogos"
+      xmlns:nav="using:Ybridio.WinUI.Controls.Navigation"
       mc:Ignorable="d"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
+    <!--
+        Layout de 2 filas:
+          Row 0 — CommandBar (toolbar de acciones)
+          Row 1 — SplitView:
+                    Pane    → ClassificationPanel (oculto por defecto, 240px al abrir)
+                    Content → buscador + hamburger + grid + statusbar
+
+        El SplitView es un control nativo WinUI 3 que empuja el contenido
+        (DisplayMode=Inline) y anima la apertura/cierre automáticamente.
+        No se usa overlay ni columnas estáticas.
+    -->
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- ── Toolbar ─────────────────────────────────────────────────── -->
         <CommandBar Grid.Row="0"
                     DefaultLabelPosition="Right"
-                    HorizontalAlignment="Left">
+                    HorizontalAlignment="Left"
+                    Margin="8,0,0,0">
             <AppBarButton Label="Nuevo" Command="{x:Bind ViewModel.NuevoCommand}">
-                <AppBarButton.Icon><FontIcon Glyph="&#xEA3A;"/></AppBarButton.Icon>
+                <AppBarButton.Icon></AppBarButton.Icon>
             </AppBarButton>
             <AppBarButton Label="Editar" Command="{x:Bind ViewModel.EditarCommand}">
-                <AppBarButton.Icon><FontIcon Glyph="&#xEA3A;"/></AppBarButton.Icon>
+                <AppBarButton.Icon></AppBarButton.Icon>
             </AppBarButton>
             <AppBarButton Label="Clonar" Command="{x:Bind ViewModel.ClonarCommand}">
-                <AppBarButton.Icon><FontIcon Glyph="&#xEA3A;"/></AppBarButton.Icon>
+                <AppBarButton.Icon></AppBarButton.Icon>
             </AppBarButton>
             <AppBarButton Label="Comparar" Command="{x:Bind ViewModel.CompararCommand}">
-                <AppBarButton.Icon><FontIcon Glyph="&#xEA3A;"/></AppBarButton.Icon>
+                <AppBarButton.Icon></AppBarButton.Icon>
             </AppBarButton>
             <AppBarSeparator/>
             <AppBarButton Label="Activar/Desactivar" Command="{x:Bind ViewModel.CambiarActivoCommand}">
-                <AppBarButton.Icon><FontIcon Glyph="&#xEA3A;"/></AppBarButton.Icon>
+                <AppBarButton.Icon></AppBarButton.Icon>
             </AppBarButton>
             <AppBarButton Label="Eliminar" Command="{x:Bind ViewModel.EliminarCommand}">
-                <AppBarButton.Icon><FontIcon Glyph="&#xEA3A;"/></AppBarButton.Icon>
+                <AppBarButton.Icon></AppBarButton.Icon>
             </AppBarButton>
             <AppBarSeparator/>
             <AppBarButton Label="Actualizar" Command="{x:Bind ViewModel.RefrescarCommand}">
-                <AppBarButton.Icon><FontIcon Glyph="&#xEA3A;"/></AppBarButton.Icon>
+                <AppBarButton.Icon></AppBarButton.Icon>
             </AppBarButton>
         </CommandBar>
 
-        <!-- ── Buscador ──────────────────────────────────────────────────── -->
         <!--
-            Padding: 8px arriba (respira del toolbar), 12px abajo (respira del grid).
-            AutoSuggestBox: icono de lupa integrado, actualiza ViewModel en cada tecla.
+             Layout 3 columnas: panel colapsable + handle de resize + contenido.
+             Col 0: ClassificationPanel (Width=0 cerrado, 240px abierto — ajustable).
+             Col 1: Drag handle (5px, visible solo cuando el panel está abierto).
+             Col 2: Contenido principal (fill).
+             El botón hamburger (☰) alterna Col 0 entre 0 y 240px sin animación
+             pero con soporte de redimensionado libre via PointerPressed/Moved/Released.
         -->
-        <Grid Grid.Row="1" Padding="12,8,12,12" ColumnSpacing="12">
+        <Grid Grid.Row="1" x:Name="ContentAreaGrid">
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="0" MinWidth="0" MaxWidth="400"/>
+                <ColumnDefinition Width="0"/>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <AutoSuggestBox Grid.Column="0"
-                            PlaceholderText="Buscar por código, código de barras o nombre..."
-                            QueryIcon="Find"
-                            Text="{x:Bind ViewModel.Busqueda, Mode=TwoWay}"
-                            VerticalAlignment="Center"/>
-            <CheckBox Grid.Column="1"
-                      Content="Solo activos"
-                      IsChecked="{x:Bind ViewModel.SoloActivos, Mode=TwoWay}"
-                      VerticalAlignment="Center"/>
-        </Grid>
 
-        <!-- ══════════════════════════════════════════════════════════════
-             Lista Outlook-style:
-             • 6 columnas (vs 10 anteriores) — menos ruido visual
-             • Columna principal compuesta: Nombre (SemiBold) + Código (gris)
-             • Sin separadores de fila — el espacio (52px) es la separación
-             • Selección: fondo #F5F5F5 sutil + barra azul 3px (protagonista)
-             ══════════════════════════════════════════════════════════════ -->
-        <Grid Grid.Row="2">
+            <!-- ── Col 0: Panel de clasificación ────────────────────────── -->
+            <Grid Grid.Column="0" Background="#F5F5F5">
+                <!--
+                    IsFilterActive enlazado TwoWay a ViewModel.MostrarSoloCategorias:
+                    el ToggleButton del header del panel actualiza directamente el ViewModel.
+                    PanelTitle="Categorías" — renombrado (era "Catálogo").
+                -->
+                <nav:ClassificationPanel x:Name="ClasificacionPanel"
+                                         PanelTitle="Categorías"
+                                         IsFilterActive="{x:Bind ViewModel.MostrarSoloCategorias, Mode=TwoWay}"
+                                         ItemsSource="{x:Bind ViewModel.ClasificacionItems}"
+                                         SelectionChanged="ClasificacionPanel_SelectionChanged"/>
+            </Grid>
 
-            <ListView x:Name="ListaProductos"
-                      Style="{StaticResource OutlookDataGridStyle}"
-                      ItemsSource="{x:Bind ViewModel.Productos, Mode=OneWay}"
-                      SelectionMode="Extended"
-                      SelectionChanged="ListaProductos_SelectionChanged"
-                      DoubleTapped="ListaProductos_DoubleTapped">
+            <!-- ── Col 1: Handle de redimensionado ──────────────────────── -->
+            <!--
+                Visible solo cuando el panel está abierto.
+                Captura el puntero y ajusta Col 0 Width con Math.Clamp(180..400).
+                No usa GridSplitter (no disponible en WinUI 3 base); implementado
+                con PointerPressed/Moved/Released en el code-behind.
+            -->
+            <Border x:Name="PanelResizeHandle"
+                    Grid.Column="1"
+                    Visibility="Collapsed"
+                    Background="#CCCCCC"
+                    VerticalAlignment="Stretch"
+                    PointerPressed="PanelResize_PointerPressed"
+                    PointerMoved="PanelResize_PointerMoved"
+                    PointerReleased="PanelResize_PointerReleased"/>
 
-                <!-- ── Header ─────────────────────────────────────────── -->
-                <ListView.Header>
-                    <Border Background="#FAFAFA"
-                            BorderBrush="#E8E8E8"
-                            BorderThickness="0,0,0,1">
-                        <Grid Padding="{StaticResource ErpHeaderPadding}">
+            <!-- ── Col 2: Contenido principal ───────────────────────────── -->
+            <Grid Grid.Column="2">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>  <!-- buscador + hamburger -->
+                        <RowDefinition Height="Auto"/>  <!-- chip de filtro activo -->
+                        <RowDefinition Height="*"/>     <!-- lista -->
+                        <RowDefinition Height="Auto"/>  <!-- statusbar -->
+                    </Grid.RowDefinitions>
+
+                    <!-- ── Buscador + botón hamburger ────────────────── -->
+                    <!--
+                        Layout: [☰] [Buscador .............] [Solo activos]
+                        El botón hamburger está en la misma fila que el buscador,
+                        a la izquierda, y controla únicamente la visibilidad del panel.
+                    -->
+                    <Grid Grid.Row="0" Padding="8,8,20,12" ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>  <!-- hamburger -->
+                            <ColumnDefinition Width="*"/>     <!-- buscador -->
+                            <ColumnDefinition Width="Auto"/>  <!-- checkbox -->
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Botón hamburger: solo toggle de visibilidad -->
+                        <Button Grid.Column="0"
+                                Click="TogglePanel_Click"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                Width="36" Height="36"
+                                Padding="0"
+                                CornerRadius="4"
+                                VerticalAlignment="Center"
+                                ToolTipService.ToolTip="Mostrar/ocultar clasificación">
+                            <FontIcon Glyph="&#xE700;" FontSize="16"/>
+                        </Button>
+
+                        <AutoSuggestBox Grid.Column="1"
+                                        PlaceholderText="Buscar por código, código de barras o nombre..."
+                                        QueryIcon="Find"
+                                        Text="{x:Bind ViewModel.Busqueda, Mode=TwoWay}"
+                                        VerticalAlignment="Center"/>
+
+                        <CheckBox Grid.Column="2"
+                                  Content="Solo activos"
+                                  IsChecked="{x:Bind ViewModel.SoloActivos, Mode=TwoWay}"
+                                  VerticalAlignment="Center"/>
+                    </Grid>
+
+                    <!-- ── Chip: filtro de categoría activo ─────────────── -->
+                    <!--
+                        Visible solo cuando hay categoría seleccionada (FiltroActivoVisibility).
+                        El botón ✕ limpia el filtro y deselecciona el panel.
+                    -->
+                    <Border Grid.Row="1"
+                            Margin="20,4,20,0"
+                            HorizontalAlignment="Left"
+                            Visibility="{x:Bind ViewModel.FiltroActivoVisibility, Mode=OneWay}"
+                            Background="#EBF3FB"
+                            BorderBrush="#C8DDF4"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="8,4">
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <TextBlock FontSize="12" VerticalAlignment="Center">
+                                <Run Text="Categoría: "/>
+                                <Run Text="{x:Bind ViewModel.FiltroActivoNombre, Mode=OneWay}"
+                                     FontWeight="SemiBold"/>
+                            </TextBlock>
+                            <Button Click="LimpiarFiltroChip_Click"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Padding="2,0"
+                                    MinWidth="0"
+                                    VerticalAlignment="Center"
+                                    ToolTipService.ToolTip="Limpiar filtro">
+                                <FontIcon Glyph="&#xE711;" FontSize="10"/>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ══════════════════════════════════════════════════
+                         Contenedor visual tipo Outlook: fondo blanco
+                         ══════════════════════════════════════════════════ -->
+                    <Border Grid.Row="2"
+                            Margin="20,8,20,0"
+                            Background="White"
+                            BorderBrush="#E5E5E5"
+                            BorderThickness="1">
+                    <Grid>
+
+                        <ListView x:Name="ListaProductos"
+                                  Style="{StaticResource OutlookDataGridStyle}"
+                                  ItemsSource="{x:Bind ViewModel.Productos, Mode=OneWay}"
+                                  SelectionMode="Extended"
+                                  SelectionChanged="ListaProductos_SelectionChanged"
+                                  DoubleTapped="ListaProductos_DoubleTapped">
+
+                            <!-- ── Header ─────────────────────────────── -->
+                            <ListView.Header>
+                                <Border Background="#FAFAFA"
+                                        BorderBrush="#E8E8E8"
+                                        BorderThickness="0,0,0,1">
+                                    <Grid Padding="{StaticResource ErpHeaderPadding}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="130"/>
+                                            <ColumnDefinition Width="65"/>
+                                            <ColumnDefinition Width="90"/>
+                                            <ColumnDefinition Width="55"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="1" Text="Producto"
+                                                   Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                        <TextBlock Grid.Column="2" Text="Categoría"
+                                                   Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                        <TextBlock Grid.Column="3" Text="Unidad"
+                                                   Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                        <TextBlock Grid.Column="4" Text="Precio"
+                                                   Style="{StaticResource ErpGridHeaderTextStyle}"
+                                                   TextAlignment="Right"/>
+                                        <TextBlock Grid.Column="5" Text="Activo"
+                                                   Style="{StaticResource ErpGridHeaderTextStyle}"
+                                                   TextAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+                            </ListView.Header>
+
+                            <!-- ── Filas ──────────────────────────────── -->
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="dto:ProductoDto">
+                                    <Grid ColumnSpacing="8" Height="{StaticResource ErpRowHeight}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="130"/>
+                                            <ColumnDefinition Width="65"/>
+                                            <ColumnDefinition Width="90"/>
+                                            <ColumnDefinition Width="55"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="1"
+                                                    Spacing="2"
+                                                    VerticalAlignment="Center">
+                                            <TextBlock Text="{x:Bind Nombre}"
+                                                       FontSize="14"
+                                                       FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{x:Bind Codigo}"
+                                                       FontSize="11"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+
+                                        <TextBlock Grid.Column="2"
+                                                   Text="{x:Bind CategoriaNombre}"
+                                                   Style="{StaticResource ErpCellSecondaryStyle}"/>
+
+                                        <TextBlock Grid.Column="3"
+                                                   Text="{x:Bind UnidadMedidaAbreviatura}"
+                                                   Style="{StaticResource ErpCellSecondaryStyle}"/>
+
+                                        <TextBlock Grid.Column="4"
+                                                   Text="{x:Bind Precio}"
+                                                   Style="{StaticResource ErpCellNumericStyle}"/>
+
+                                        <CheckBox Grid.Column="5"
+                                                  IsChecked="{x:Bind Activo}"
+                                                  IsEnabled="False"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+
+                        <!-- Estado: cargando -->
+                        <ProgressRing IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"
+                                      Width="48" Height="48"/>
+
+                        <!-- Estado: vacío -->
+                        <ContentControl ContentTemplate="{StaticResource ErpGridEmptyTemplate}"
+                                        Visibility="{x:Bind ViewModel.IsEmptyState, Mode=OneWay}"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        IsHitTestVisible="False"/>
+                    </Grid>
+                    </Border>
+
+                    <!-- ── StatusBar ──────────────────────────────────── -->
+                    <Border Grid.Row="3" Style="{StaticResource ErpGridStatusBarStyle}"
+                            Margin="20,0,20,16">
+                        <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="8"/>    <!-- zona indicador -->
-                                <ColumnDefinition Width="*"/>    <!-- Nombre / Código -->
-                                <ColumnDefinition Width="130"/>  <!-- Categoría -->
-                                <ColumnDefinition Width="65"/>   <!-- Unidad -->
-                                <ColumnDefinition Width="90"/>   <!-- Precio -->
-                                <ColumnDefinition Width="55"/>   <!-- Activo -->
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <!-- col 0: vacía (zona indicador) -->
-                            <TextBlock Grid.Column="1" Text="Producto"
-                                       Style="{StaticResource ErpGridHeaderTextStyle}"/>
-                            <TextBlock Grid.Column="2" Text="Categoría"
-                                       Style="{StaticResource ErpGridHeaderTextStyle}"/>
-                            <TextBlock Grid.Column="3" Text="Unidad"
-                                       Style="{StaticResource ErpGridHeaderTextStyle}"/>
-                            <TextBlock Grid.Column="4" Text="Precio"
-                                       Style="{StaticResource ErpGridHeaderTextStyle}"
-                                       TextAlignment="Right"/>
-                            <TextBlock Grid.Column="5" Text="Activo"
-                                       Style="{StaticResource ErpGridHeaderTextStyle}"
-                                       TextAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                                <TextBlock Style="{StaticResource ErpGridStatusTextStyle}">
+                                    <Run Text="{x:Bind ViewModel.Productos.Count, Mode=OneWay}"/>
+                                    <Run Text="producto(s)"/>
+                                </TextBlock>
+                                <TextBlock Style="{StaticResource ErpGridErrorTextStyle}"
+                                           Text="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"/>
+                                <TextBlock Style="{StaticResource ErpGridSuccessTextStyle}"
+                                           Text="{x:Bind ViewModel.SuccessMessage, Mode=OneWay}"/>
+                            </StackPanel>
+                            <ProgressRing Grid.Column="1"
+                                          IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
+                                          Width="16" Height="16"/>
                         </Grid>
                     </Border>
-                </ListView.Header>
-
-                <!-- ── Filas Outlook-style ─────────────────────────────── -->
-                <!--
-                    Sin Border exterior (sin separadores de línea).
-                    La separación entre filas la da la altura (52px ErpRowHeight).
-                    Columna 1: StackPanel con Nombre (SemiBold) + Código (gris, 11px)
-                               — jerarquía visual tipo lista de emails.
-                -->
-                <ListView.ItemTemplate>
-                    <DataTemplate x:DataType="dto:ProductoDto">
-                        <Grid ColumnSpacing="8" Height="52">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="8"/>    <!-- zona indicador -->
-                                <ColumnDefinition Width="*"/>    <!-- Nombre / Código -->
-                                <ColumnDefinition Width="130"/>  <!-- Categoría -->
-                                <ColumnDefinition Width="65"/>   <!-- Unidad -->
-                                <ColumnDefinition Width="90"/>   <!-- Precio -->
-                                <ColumnDefinition Width="55"/>   <!-- Activo -->
-                            </Grid.ColumnDefinitions>
-
-                            <!-- Col 0: zona indicador (vacía, el indicador está en ControlTemplate) -->
-
-                            <!-- Col 1: celda compuesta — Nombre + Código (estilo Outlook) -->
-                            <StackPanel Grid.Column="1"
-                                        Spacing="2"
-                                        VerticalAlignment="Center">
-                                <TextBlock Text="{x:Bind Nombre}"
-                                           FontSize="13"
-                                           FontWeight="SemiBold"
-                                           TextTrimming="CharacterEllipsis"/>
-                                <TextBlock Text="{x:Bind Codigo}"
-                                           FontSize="11"
-                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                           TextTrimming="CharacterEllipsis"/>
-                            </StackPanel>
-
-                            <!-- Col 2: Categoría — secundario -->
-                            <TextBlock Grid.Column="2"
-                                       Text="{x:Bind CategoriaNombre}"
-                                       Style="{StaticResource ErpCellSecondaryStyle}"/>
-
-                            <!-- Col 3: Unidad — secundario -->
-                            <TextBlock Grid.Column="3"
-                                       Text="{x:Bind UnidadMedidaAbreviatura}"
-                                       Style="{StaticResource ErpCellSecondaryStyle}"/>
-
-                            <!-- Col 4: Precio — numérico -->
-                            <TextBlock Grid.Column="4"
-                                       Text="{x:Bind Precio}"
-                                       Style="{StaticResource ErpCellNumericStyle}"/>
-
-                            <!-- Col 5: Activo — checkbox solo lectura -->
-                            <CheckBox Grid.Column="5"
-                                      IsChecked="{x:Bind Activo}"
-                                      IsEnabled="False"
-                                      HorizontalAlignment="Center"
-                                      VerticalAlignment="Center"/>
-                        </Grid>
-                    </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
-
-            <!-- Estado: cargando -->
-            <ProgressRing IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
-                          HorizontalAlignment="Center"
-                          VerticalAlignment="Center"
-                          Width="48" Height="48"/>
-
-            <!-- Estado: vacío -->
-            <ContentControl ContentTemplate="{StaticResource ErpGridEmptyTemplate}"
-                            Visibility="{x:Bind ViewModel.IsEmptyState, Mode=OneWay}"
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                            IsHitTestVisible="False"/>
-        </Grid>
-
-        <!-- ── StatusBar ─────────────────────────────────────────────────── -->
-        <Border Grid.Row="3" Style="{StaticResource ErpGridStatusBarStyle}">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
-                    <TextBlock Style="{StaticResource ErpGridStatusTextStyle}">
-                        <Run Text="{x:Bind ViewModel.Productos.Count, Mode=OneWay}"/>
-                        <Run Text="producto(s)"/>
-                    </TextBlock>
-                    <TextBlock Style="{StaticResource ErpGridErrorTextStyle}"
-                               Text="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"/>
-                    <TextBlock Style="{StaticResource ErpGridSuccessTextStyle}"
-                               Text="{x:Bind ViewModel.SuccessMessage, Mode=OneWay}"/>
-                </StackPanel>
-                <ProgressRing Grid.Column="1"
-                              IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
-                              Width="16" Height="16"/>
             </Grid>
-        </Border>
+        </Grid>
     </Grid>
 </Page>

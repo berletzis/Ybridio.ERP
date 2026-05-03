@@ -21,6 +21,13 @@ dotnet restore Ybridio.ERP.slnx
 
 No unit test projects exist yet.
 
+## Global visual style (Outlook 2026)
+
+- **Typography**: `ErpCellFontSize=14`, `ErpHeaderFontSize=13`, `ErpRowHeight=56` — defined in `Styles/DataGrid/DataGridBase.xaml`
+- **DataGrid container**: wrap the ListView in `<Border Margin="20,8,20,0" Background="White" BorderBrush="#E5E5E5" BorderThickness="1">` — consistent across all modules
+- **Tabs**: `OutlookTabItemStyle` in `App.xaml` — FontSize=14, MinHeight=40, blue underline indicator, SemiBold when active
+- **Shell TopBar**: shows only section title + tienda/caja + user; search lives inside each module page
+
 ## Architecture
 
 Clean Architecture in 4 layers (bottom → top):
@@ -42,12 +49,36 @@ Ybridio.WinUI           → WinUI 3 presentation (Windows App SDK 2.0.1)
 - Identity via `ApplicationUser` / `ApplicationRole` on the same context
 - EF configs in `Persistence/Configurations/`
 - Connection string is hardcoded in `App.xaml.cs` (dev environment only)
+- **Global soft-delete filter**: `OnModelCreating` applies `!Borrado` automatically to all `AuditableEntity` and `CreationAuditEntity` subclasses. Plain entities (e.g., `ProductoCategoria`) have NO filter.
+
+### Domain — Producto↔Categoría (N:N)
+`Producto` no longer has a direct `CategoriaId` FK. The relationship is **many-to-many via `ProductoCategoria`**:
+
+```
+catalogos.Producto
+catalogos.CategoriaProducto   ← self-referencing via CategoriaPadreId (hierarchy)
+catalogos.ProductoCategoria   ← join table: Id, ProductoId, CategoriaId, EsPrincipal, FechaCreacion
+```
+
+- `ProductoCategoria` is NOT an `AuditableEntity` (no `Borrado` column) — no global filter applies
+- `EsPrincipal=true` marks the "main" category shown in list views
+- `CategoriaProducto.CategoriaPadreId` enables hierarchical trees (FK_CategoriaProducto_Padre)
 
 ### Application (`Ybridio.Application`)
 - Services registered via `AddApplicationServices()` extension — all **Scoped**
 - `ServiceResult<T>` / `ServiceResult` return type for all write operations (has `.Success`, `.Value`, `.Error`, `.ErrorCode`)
 - DTOs are `sealed record` types in `DTOs/` subfolders matching domain namespaces
 - `ErrorCode` enum for typed error mapping in the UI
+
+**`ProductoDto`** has two category fields:
+- `CategoriaId` / `CategoriaNombre` — the *principal* category (EsPrincipal=true), for display
+- `CategoriaIds: IReadOnlyList<int>` — ALL category IDs the product belongs to, for N:N filtering in the ViewModel
+
+**`ProductoService` query pattern**: navigation properties require `Include()`; `MapToDto` runs client-side after `ToListAsync()`. Do NOT use `.Select(p => MapToDto(p))` before `ToListAsync` — EF Core won't translate the method and navigation properties will be null. Always:
+```csharp
+var lista = await query.Include(...).ToListAsync(ct);
+return lista.Select(MapToDto).ToList();
+```
 
 ### WinUI (`Ybridio.WinUI`)
 - **MVVM**: CommunityToolkit.Mvvm 8.4.0 — `ObservableObject`, `[ObservableProperty]`, `[RelayCommand]`

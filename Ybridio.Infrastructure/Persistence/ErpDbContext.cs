@@ -28,6 +28,7 @@ public class ErpDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
     // ── catalogos ─────────────────────────────────────────────────────────────
     public DbSet<Cliente> Clientes => Set<Cliente>();
     public DbSet<Producto> Productos => Set<Producto>();
+    public DbSet<ProductoCategoria> ProductoCategorias => Set<ProductoCategoria>();
     public DbSet<Proveedor> Proveedores => Set<Proveedor>();
     public DbSet<UnidadMedida> UnidadesMedida => Set<UnidadMedida>();
     public DbSet<CategoriaProducto> CategoriasProducto => Set<CategoriaProducto>();

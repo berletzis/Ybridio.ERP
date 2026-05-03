@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Ybridio.Application.DTOs.Catalogos;
 using Ybridio.Application.Services.Producto;
+using Ybridio.WinUI.Controls.Navigation;
 using Ybridio.WinUI.Services;
 
 namespace Ybridio.WinUI.ViewModels.Inventario;
@@ -17,6 +18,186 @@ public sealed partial class ProductosViewModel : ObservableObject
 {
     private readonly IProductoService _productos;
     private readonly SessionService _session;
+
+    // ── Clasificación (panel tipo Outlook) ───────────────────────────────────
+
+    public ObservableCollection<ClassificationItem> ClasificacionItems { get; } = [];
+
+    // Árbol completo sin filtrar — fuente de verdad para AplicarFiltroClasificacion
+    private IReadOnlyList<ClassificationItem> _categoriasBase = [];
+
+    // IDs de la categoría seleccionada Y todos sus descendientes.
+    // Empty = TODOS (sin filtro). Permite que seleccionar un padre filtre sus hijos también.
+    private HashSet<int> _categoriaFiltroIds = [];
+
+    // Nombre de la categoría activa para mostrar en el chip (null = sin filtro)
+    [ObservableProperty]
+    private string? filtroActivoNombre;
+
+    partial void OnFiltroActivoNombreChanged(string? value) =>
+        OnPropertyChanged(nameof(FiltroActivoVisibility));
+
+    public Visibility FiltroActivoVisibility =>
+        string.IsNullOrEmpty(FiltroActivoNombre) ? Visibility.Collapsed : Visibility.Visible;
+
+    // Toggle "Solo categorías con productos" — oculta nodos con Count == 0
+    [ObservableProperty]
+    private bool mostrarSoloCategorias;
+
+    partial void OnMostrarSoloCategoriasChanged(bool value) => AplicarFiltroClasificacion();
+
+    /// <summary>
+    /// Callback invocado cuando el filtro de categoría se limpia (toggle o botón ✕).
+    /// Permite que la Page sincronice el panel sin acoplar ViewModel a la Vista.
+    /// </summary>
+    public Action? FiltroLimpiadoCallback;
+
+    /// <summary>
+    /// Llamado por ProductosPage al seleccionar un nodo en ClassificationPanel.
+    /// El panel no filtra — solo notifica; el ViewModel decide qué hacer.
+    /// </summary>
+    public void FiltrarPorClasificacion(ClassificationItem? item)
+    {
+        if (item is null || item.IsRoot)
+        {
+            _categoriaFiltroIds = [];
+            FiltroActivoNombre  = null;
+        }
+        else
+        {
+            // Incluir el nodo seleccionado y TODOS sus descendientes para que
+            // seleccionar "Deportes" muestre también productos de "Running", "Fútbol", etc.
+            _categoriaFiltroIds = GetAllCategoryIds(item);
+            FiltroActivoNombre  = item.Name;
+        }
+        AplicarFiltro();
+    }
+
+    /// <summary>Limpia el filtro de categoría y notifica a la Page para deseleccionar el panel.</summary>
+    public void LimpiarFiltro()
+    {
+        _categoriaFiltroIds = [];
+        FiltroActivoNombre  = null;
+        FiltroLimpiadoCallback?.Invoke();
+        AplicarFiltro();
+    }
+
+    /// <summary>
+    /// Devuelve el CategoriaId del nodo dado más los de todos sus descendientes.
+    /// Permite filtrado jerárquico: padre incluye productos de todos los hijos.
+    /// </summary>
+    private static HashSet<int> GetAllCategoryIds(ClassificationItem item)
+    {
+        var ids = new HashSet<int>();
+        if (item.CategoriaId.HasValue) ids.Add(item.CategoriaId.Value);
+        foreach (var child in item.Children)
+            ids.UnionWith(GetAllCategoryIds(child));
+        return ids;
+    }
+
+    private async Task CargarClasificacionAsync(CancellationToken ct)
+    {
+        var categorias = await _productos.ListarCategoriasConConteoAsync(_session.EmpresaId, ct);
+
+        // 1. Construir árbol jerárquico
+        var arbol = BuildCategoryTree(categorias, null).ToList();
+
+        // 2. Acumular conteos en post-order: cada padre suma los conteos de sus hijos
+        //    → "Deportes (0 directos) + Running (5)" = "Deportes (5)"
+        foreach (var raiz in arbol)
+            AccumulateChildCounts(raiz);
+
+        _categoriasBase = arbol;
+        AplicarFiltroClasificacion();
+    }
+
+    /// <summary>
+    /// Reconstruye ClasificacionItems aplicando el toggle MostrarSoloCategorias.
+    /// Limpia el filtro activo para mantener coherencia con el árbol visible.
+    /// </summary>
+    private void AplicarFiltroClasificacion()
+    {
+        // Al reconstruir el árbol, limpiar el filtro para evitar inconsistencias
+        _categoriaFiltroIds = [];
+        FiltroActivoNombre = null;
+        FiltroLimpiadoCallback?.Invoke();
+
+        ClasificacionItems.Clear();
+
+        ClasificacionItems.Add(new ClassificationItem
+        {
+            Id         = "todos",
+            Name       = "TODOS",
+            Count      = _todosLosProductos.Count,
+            IsRoot     = true,
+            IsExpanded = true
+        });
+
+        foreach (var item in _categoriasBase)
+        {
+            var nodo = MostrarSoloCategorias ? FiltrarSinProductos(item) : item;
+            if (nodo is not null) ClasificacionItems.Add(nodo);
+        }
+
+        AplicarFiltro();
+    }
+
+    /// <summary>
+    /// Post-order: acumula el conteo de todos los descendientes en cada nodo padre.
+    /// Modifica el árbol in-place; sólo se llama una vez tras construirlo desde BD.
+    /// </summary>
+    private static int AccumulateChildCounts(ClassificationItem item)
+    {
+        if (item.Children.Count == 0) return item.Count;
+        int sumHijos = item.Children.Sum(AccumulateChildCounts);
+        item.Count += sumHijos;
+        return item.Count;
+    }
+
+    /// <summary>
+    /// Devuelve una copia del nodo excluyendo ramas donde Count == 0.
+    /// Tras AccumulateChildCounts, Count == 0 garantiza que no hay productos en toda la rama.
+    /// </summary>
+    private static ClassificationItem? FiltrarSinProductos(ClassificationItem item)
+    {
+        if (item.Count == 0) return null;
+
+        var hijosFiltrados = item.Children
+            .Select(FiltrarSinProductos)
+            .Where(h => h is not null)
+            .Cast<ClassificationItem>()
+            .ToList();
+
+        return new ClassificationItem
+        {
+            Id          = item.Id,
+            Name        = item.Name,
+            Count       = item.Count,
+            CategoriaId = item.CategoriaId,
+            IsRoot      = item.IsRoot,
+            IsExpanded  = item.IsExpanded,
+            Children    = new ObservableCollection<ClassificationItem>(hijosFiltrados)
+        };
+    }
+
+    /// <summary>
+    /// Construye recursivamente el árbol de ClassificationItem a partir de la lista plana.
+    /// </summary>
+    private static IEnumerable<ClassificationItem> BuildCategoryTree(
+        IReadOnlyList<CategoriaConConteoDto> all,
+        int? parentId)
+        => all
+            .Where(c => c.CategoriaPadreId == parentId)
+            .Select(c => new ClassificationItem
+            {
+                Id          = $"cat_{c.Id}",
+                Name        = c.Nombre,
+                Count       = c.TotalProductos,  // conteo directo; AccumulateChildCounts lo acumula
+                CategoriaId = c.Id,
+                IsExpanded  = true,
+                Children    = new ObservableCollection<ClassificationItem>(
+                                  BuildCategoryTree(all, c.Id))
+            });
 
     // ── Colecciones ──────────────────────────────────────────────────────────
 
@@ -86,6 +267,7 @@ public sealed partial class ProductosViewModel : ObservableObject
         {
             await CargarCatalogosAsync(ct);
             _todosLosProductos = await _productos.ListarPorEmpresaAsync(_session.EmpresaId, SoloActivos, ct);
+            await CargarClasificacionAsync(ct);
             AplicarFiltro();
         }
         catch (OperationCanceledException) { }
@@ -313,12 +495,19 @@ public sealed partial class ProductosViewModel : ObservableObject
         Productos.Clear();
         var termino = Busqueda.Trim();
 
-        var lista = string.IsNullOrWhiteSpace(termino)
-            ? _todosLosProductos
-            : _todosLosProductos.Where(p =>
+        IEnumerable<ProductoDto> lista = _todosLosProductos;
+
+        // Filtro de texto
+        if (!string.IsNullOrWhiteSpace(termino))
+            lista = lista.Where(p =>
                 p.Codigo.Contains(termino, StringComparison.OrdinalIgnoreCase) ||
                 (p.CodigoBarras?.Contains(termino, StringComparison.OrdinalIgnoreCase) ?? false) ||
                 p.Nombre.Contains(termino, StringComparison.OrdinalIgnoreCase));
+
+        // Filtro jerárquico N:N: el producto pertenece a la categoría seleccionada O a algún
+        // descendiente de ella. _categoriaFiltroIds contiene el nodo seleccionado + todos sus hijos.
+        if (_categoriaFiltroIds.Count > 0)
+            lista = lista.Where(p => p.CategoriaIds.Any(id => _categoriaFiltroIds.Contains(id)));
 
         foreach (var p in lista)
             Productos.Add(p);

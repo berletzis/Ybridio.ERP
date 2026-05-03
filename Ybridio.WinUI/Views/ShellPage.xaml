@@ -204,12 +204,7 @@
                            VerticalAlignment="Center"
                            Margin="0,0,24,0" />
 
-                <!-- Búsqueda -->
-                <AutoSuggestBox Grid.Column="1"
-                                PlaceholderText="Buscar..."
-                                QueryIcon="Find"
-                                MaxWidth="400"
-                                VerticalAlignment="Center" />
+                <!-- col 1: espaciador (búsqueda movida a cada módulo) -->
 
                 <!-- Sesión -->
                 <StackPanel Grid.Column="2"

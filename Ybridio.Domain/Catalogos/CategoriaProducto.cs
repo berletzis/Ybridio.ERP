@@ -12,6 +12,12 @@ public class CategoriaProducto : AuditableEntity
     public string? Descripcion { get; set; }
     public bool Activo { get; set; } = true;
 
+    // Jerarquía (self-referencing)
+    public int? CategoriaPadreId { get; set; }
+
     // Navegación
     public Empresa Empresa { get; set; } = null!;
+    public CategoriaProducto? CategoriaPadre { get; set; }
+    public ICollection<CategoriaProducto> SubCategorias { get; set; } = [];
+    public ICollection<ProductoCategoria> ProductoCategorias { get; set; } = [];
 }

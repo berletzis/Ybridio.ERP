@@ -48,10 +48,7 @@ internal sealed class ProductoConfiguration : IEntityTypeConfiguration<Producto>
             .HasConstraintName("FK_Producto_TipoImpuesto")
             .IsRequired(false);
 
-        builder.HasOne(e => e.Categoria).WithMany()
-            .HasForeignKey(e => e.CategoriaId)
-            .HasConstraintName("FK_Producto_CategoriaProducto")
-            .IsRequired(false);
+        // Relación N:N con CategoriaProducto configurada en ProductoCategoriaConfiguration
 
         builder.HasOne(e => e.TipoProducto).WithMany()
             .HasForeignKey(e => e.TipoProductoId)

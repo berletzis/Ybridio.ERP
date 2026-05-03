@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Ybridio.Application.Common;
 using Ybridio.Application.DTOs.Catalogos;
+using Ybridio.Domain.Catalogos;
 using Ybridio.Infrastructure.Persistence;
 using DomainProducto = Ybridio.Domain.Catalogos.Producto;
 
@@ -25,17 +26,27 @@ public sealed class ProductoService : IProductoService
     public async Task<IReadOnlyList<ProductoDto>> ListarPorEmpresaAsync(
         int empresaId, bool soloActivos = false, CancellationToken ct = default)
     {
-        var query = _context.Productos
+        IQueryable<DomainProducto> query = _context.Productos
             .AsNoTracking()
             .Where(p => p.EmpresaId == empresaId);
 
         if (soloActivos)
             query = query.Where(p => p.Activo);
 
-        return await query
+        // Incluir solo la categoría principal para mostrar en la lista.
+        // Se materializa (ToListAsync) antes de MapToDto porque el método
+        // accede a navegaciones que EF Core no puede traducir a SQL directamente.
+        var lista = await query
+            .Include(p => p.TipoImpuesto)
+            .Include(p => p.Categorias)
+                .ThenInclude(pc => pc.Categoria)
+            .Include(p => p.TipoProducto)
+            .Include(p => p.UnidadMedida)
+            .Include(p => p.Proveedor)
             .OrderBy(p => p.Nombre)
-            .Select(p => MapToDto(p))
             .ToListAsync(ct);
+
+        return lista.Select(MapToDto).ToList();
     }
 
     public async Task<ServiceResult<ProductoDto>> ObtenerPorIdAsync(
@@ -44,7 +55,8 @@ public sealed class ProductoService : IProductoService
         var p = await _context.Productos
             .AsNoTracking()
             .Include(p => p.TipoImpuesto)
-            .Include(p => p.Categoria)
+            .Include(p => p.Categorias)
+                .ThenInclude(pc => pc.Categoria)
             .Include(p => p.TipoProducto)
             .Include(p => p.UnidadMedida)
             .Include(p => p.Proveedor)
@@ -60,16 +72,23 @@ public sealed class ProductoService : IProductoService
         int empresaId, string termino, CancellationToken ct = default)
     {
         var t = termino.Trim();
-        return await _context.Productos
+        var resultados = await _context.Productos
             .AsNoTracking()
             .Where(p => p.EmpresaId == empresaId && p.Activo && (
                 p.Nombre.Contains(t) ||
                 p.Codigo.Contains(t) ||
                 (p.CodigoBarras != null && p.CodigoBarras.Contains(t))))
+            .Include(p => p.TipoImpuesto)
+            .Include(p => p.Categorias)
+                .ThenInclude(pc => pc.Categoria)
+            .Include(p => p.TipoProducto)
+            .Include(p => p.UnidadMedida)
+            .Include(p => p.Proveedor)
             .OrderBy(p => p.Nombre)
             .Take(50)
-            .Select(p => MapToDto(p))
             .ToListAsync(ct);
+
+        return resultados.Select(MapToDto).ToList();
     }
 
     // ── Escritura ─────────────────────────────────────────────────────────────
@@ -107,7 +126,6 @@ public sealed class ProductoService : IProductoService
                 Costo = dto.Costo,
                 IvaAplicable = dto.IvaAplicable,
                 TipoImpuestoId = dto.TipoImpuestoId,
-                CategoriaId = dto.CategoriaId,
                 TipoProductoId = dto.TipoProductoId,
                 UnidadMedidaId = dto.UnidadMedidaId,
                 StockMinimo = dto.StockMinimo,
@@ -121,6 +139,19 @@ public sealed class ProductoService : IProductoService
 
             _context.Productos.Add(producto);
             await _context.SaveChangesAsync(ct);
+
+            // Crear relación con categoría principal (si se indicó)
+            if (dto.CategoriaId.HasValue)
+            {
+                _context.ProductoCategorias.Add(new ProductoCategoria
+                {
+                    ProductoId   = producto.Id,
+                    CategoriaId  = dto.CategoriaId.Value,
+                    EsPrincipal  = true,
+                    FechaCreacion = ahora
+                });
+                await _context.SaveChangesAsync(ct);
+            }
 
             _logger.LogInformation("{OperationId} Producto {ProductoId} creado.", opId, producto.Id);
 
@@ -176,7 +207,6 @@ public sealed class ProductoService : IProductoService
             producto.Costo = dto.Costo;
             producto.IvaAplicable = dto.IvaAplicable;
             producto.TipoImpuestoId = dto.TipoImpuestoId;
-            producto.CategoriaId = dto.CategoriaId;
             producto.TipoProductoId = dto.TipoProductoId;
             producto.UnidadMedidaId = dto.UnidadMedidaId;
             producto.StockMinimo = dto.StockMinimo;
@@ -185,6 +215,28 @@ public sealed class ProductoService : IProductoService
             producto.Activo = dto.Activo;
             producto.FechaModificacion = ahora;
             producto.UsuarioModificacionId = usuarioId;
+
+            // Gestionar categoría principal en la tabla de unión N:N
+            var principalExistente = await _context.ProductoCategorias
+                .FirstOrDefaultAsync(pc => pc.ProductoId == productoId && pc.EsPrincipal, ct);
+
+            if (dto.CategoriaId.HasValue)
+            {
+                if (principalExistente is null)
+                    _context.ProductoCategorias.Add(new ProductoCategoria
+                    {
+                        ProductoId   = productoId,
+                        CategoriaId  = dto.CategoriaId.Value,
+                        EsPrincipal  = true,
+                        FechaCreacion = ahora
+                    });
+                else if (principalExistente.CategoriaId != dto.CategoriaId.Value)
+                    principalExistente.CategoriaId = dto.CategoriaId.Value;
+            }
+            else if (principalExistente is not null)
+            {
+                _context.ProductoCategorias.Remove(principalExistente);
+            }
 
             await _context.SaveChangesAsync(ct);
 
@@ -249,7 +301,6 @@ public sealed class ProductoService : IProductoService
                 Costo = origen.Costo,
                 IvaAplicable = origen.IvaAplicable,
                 TipoImpuestoId = origen.TipoImpuestoId,
-                CategoriaId = origen.CategoriaId,
                 TipoProductoId = origen.TipoProductoId,
                 UnidadMedidaId = origen.UnidadMedidaId,
                 StockMinimo = origen.StockMinimo,
@@ -265,6 +316,23 @@ public sealed class ProductoService : IProductoService
 
             _context.Productos.Add(clon);
             await _context.SaveChangesAsync(ct);
+
+            // Clonar categoría principal del origen (si existe)
+            var origenPrincipal = await _context.ProductoCategorias
+                .AsNoTracking()
+                .FirstOrDefaultAsync(pc => pc.ProductoId == dto.ProductoOrigenId && pc.EsPrincipal, ct);
+
+            if (origenPrincipal is not null)
+            {
+                _context.ProductoCategorias.Add(new ProductoCategoria
+                {
+                    ProductoId   = clon.Id,
+                    CategoriaId  = origenPrincipal.CategoriaId,
+                    EsPrincipal  = true,
+                    FechaCreacion = ahora
+                });
+                await _context.SaveChangesAsync(ct);
+            }
 
             _logger.LogInformation("{OperationId} Producto {OrigenId} clonado a {ClonId}.",
                 opId, dto.ProductoOrigenId, clon.Id);
@@ -352,6 +420,33 @@ public sealed class ProductoService : IProductoService
             .Select(c => new CategoriaProductoDto(c.Id, c.EmpresaId, c.Nombre, c.Descripcion, c.Activo))
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<CategoriaConConteoDto>> ListarCategoriasConConteoAsync(
+        int empresaId, CancellationToken ct = default) =>
+        /*
+         * Una sola consulta con subconsulta correlacionada — EF Core la traduce a:
+         *   SELECT c.Id, c.Nombre,
+         *          (SELECT COUNT(*) FROM catalogos.Producto p
+         *           WHERE p.CategoriaId = c.Id AND p.Borrado = 0) AS TotalProductos
+         *   FROM catalogos.CategoriaProducto c
+         *   WHERE c.EmpresaId = @p AND c.Activo = 1 AND c.Borrado = 0
+         *   ORDER BY c.Nombre
+         *
+         * Los filtros Borrado=0 los aplica el global query filter del DbContext.
+         */
+        await _context.CategoriasProducto
+            .AsNoTracking()
+            .Where(c => c.EmpresaId == empresaId && c.Activo)
+            .OrderBy(c => c.Nombre)
+            .Select(c => new CategoriaConConteoDto(
+                c.Id,
+                c.Nombre,
+                c.CategoriaPadreId,
+                // COUNT DISTINCT implícito: contamos Productos (cada producto una sola vez),
+                // aunque tenga múltiples registros en ProductoCategoria para la misma categoría.
+                // El global soft-delete filter de _context.Productos excluye los borrados.
+                _context.Productos.Count(p => p.Categorias.Any(pc => pc.CategoriaId == c.Id))))
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<TipoProductoDto>> ListarTiposProductoAsync(
         int empresaId, CancellationToken ct = default) =>
         await _context.TiposProducto
@@ -372,30 +467,39 @@ public sealed class ProductoService : IProductoService
 
     // ── Mapeo interno ─────────────────────────────────────────────────────────
 
-    private static ProductoDto MapToDto(DomainProducto p) => new(
-        p.Id,
-        p.EmpresaId,
-        p.Codigo,
-        p.CodigoBarras,
-        p.Nombre,
-        p.Descripcion,
-        p.Precio,
-        p.PrecioMinimo,
-        p.Costo,
-        p.IvaAplicable,
-        p.TipoImpuestoId,
-        p.TipoImpuesto?.Nombre,
-        p.TipoImpuesto?.Porcentaje,
-        p.CategoriaId,
-        p.Categoria?.Nombre,
-        p.TipoProductoId,
-        p.TipoProducto?.Nombre,
-        p.UnidadMedidaId,
-        p.UnidadMedida?.Nombre,
-        p.UnidadMedida?.Abreviatura,
-        p.StockMinimo,
-        p.StockMaximo,
-        p.ProveedorId,
-        p.Proveedor?.Nombre,
-        p.Activo);
+    private static ProductoDto MapToDto(DomainProducto p)
+    {
+        var categorias  = p.Categorias ?? [];
+        var principal   = categorias.FirstOrDefault(pc => pc.EsPrincipal);
+        // Todos los IDs de categoría para filtrado N:N en el ViewModel (sin duplicados)
+        var categoriaIds = (IReadOnlyList<int>)categorias.Select(pc => pc.CategoriaId).Distinct().ToList();
+
+        return new ProductoDto(
+            p.Id,
+            p.EmpresaId,
+            p.Codigo,
+            p.CodigoBarras,
+            p.Nombre,
+            p.Descripcion,
+            p.Precio,
+            p.PrecioMinimo,
+            p.Costo,
+            p.IvaAplicable,
+            p.TipoImpuestoId,
+            p.TipoImpuesto?.Nombre,
+            p.TipoImpuesto?.Porcentaje,
+            principal?.CategoriaId,
+            principal?.Categoria?.Nombre,
+            p.TipoProductoId,
+            p.TipoProducto?.Nombre,
+            p.UnidadMedidaId,
+            p.UnidadMedida?.Nombre,
+            p.UnidadMedida?.Abreviatura,
+            p.StockMinimo,
+            p.StockMaximo,
+            p.ProveedorId,
+            p.Proveedor?.Nombre,
+            p.Activo,
+            categoriaIds);
+    }
 }

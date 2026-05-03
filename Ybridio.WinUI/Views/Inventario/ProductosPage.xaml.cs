@@ -1,9 +1,12 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
+using System;
 using System.Linq;
 using Ybridio.Application.DTOs.Catalogos;
+using Ybridio.WinUI.Controls.Navigation;
 using Ybridio.WinUI.Services.Windowing;
 using Ybridio.WinUI.ViewModels.Inventario;
 
@@ -26,8 +29,10 @@ public sealed partial class ProductosPage : Page
     {
         base.OnNavigatedTo(e);
 
-        ViewModel.SolicitarAbrirDetalle = AbrirVentanaDetalle;
-        ViewModel.SolicitarComparar     = AbrirVentanaComparar;
+        ViewModel.SolicitarAbrirDetalle  = AbrirVentanaDetalle;
+        ViewModel.SolicitarComparar      = AbrirVentanaComparar;
+        // Sincronizar panel cuando el filtro se limpia desde el ViewModel
+        ViewModel.FiltroLimpiadoCallback = () => ClasificacionPanel.ClearSelection();
 
         if (ViewModel.LoadCommand.CanExecute(null))
             await ViewModel.LoadCommand.ExecuteAsync(null);
@@ -69,5 +74,74 @@ public sealed partial class ProductosPage : Page
     {
         var ventana = new CompararProductosWindow(par.A, par.B);
         ventana.Activate();
+    }
+
+    // ── Toggle del panel ─────────────────────────────────────────────────────
+
+    private void TogglePanel_Click(object sender, RoutedEventArgs e)
+    {
+        var panelCol  = ContentAreaGrid.ColumnDefinitions[0];
+        var resizeCol = ContentAreaGrid.ColumnDefinitions[1];
+        bool isOpen = panelCol.Width.Value > 0;
+
+        if (isOpen)
+        {
+            panelCol.Width  = new GridLength(0);
+            resizeCol.Width = new GridLength(0);
+            PanelResizeHandle.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            panelCol.Width  = new GridLength(240, GridUnitType.Pixel);
+            resizeCol.Width = new GridLength(5, GridUnitType.Pixel);
+            PanelResizeHandle.Visibility = Visibility.Visible;
+        }
+    }
+
+    // ── Redimensionado libre del panel ───────────────────────────────────────
+
+    private bool   _isResizing;
+    private double _resizeStartX;
+    private double _resizeStartWidth;
+
+    private void PanelResize_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        _isResizing      = true;
+        _resizeStartX    = e.GetCurrentPoint(ContentAreaGrid).Position.X;
+        _resizeStartWidth = ContentAreaGrid.ColumnDefinitions[0].Width.Value;
+        ((UIElement)sender).CapturePointer(e.Pointer);
+        e.Handled = true;
+    }
+
+    private void PanelResize_PointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_isResizing) return;
+        var delta    = e.GetCurrentPoint(ContentAreaGrid).Position.X - _resizeStartX;
+        var newWidth = Math.Clamp(_resizeStartWidth + delta, 180, 400);
+        ContentAreaGrid.ColumnDefinitions[0].Width = new GridLength(newWidth, GridUnitType.Pixel);
+        e.Handled = true;
+    }
+
+    private void PanelResize_PointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        _isResizing = false;
+        ((UIElement)sender).ReleasePointerCapture(e.Pointer);
+        e.Handled = true;
+    }
+
+    // ClassificationPanel → ViewModel: pasa el item completo para que el ViewModel
+    // extraiga CategoriaId y Name sin tener que buscarlo en el árbol.
+    private void ClasificacionPanel_SelectionChanged(object sender, ClassificationItem? e)
+    {
+        ViewModel.FiltrarPorClasificacion(e);
+    }
+
+    // Chip ✕: limpia filtro en ViewModel y deselecciona el nodo en el panel
+    private void LimpiarFiltroChip_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel.LimpiarFiltro();
+        // FiltroLimpiadoCallback ya llama ClearSelection, pero llamarlo aquí garantiza
+        // sincronía inmediata si el callback no estuviera asignado por algún motivo.
+        ClasificacionPanel.ClearSelection();
     }
 }

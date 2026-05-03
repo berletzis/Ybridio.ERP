@@ -11,9 +11,9 @@
     -->
 
     <!-- ── Constantes compartidas ───────────────────────────────────────── -->
-    <x:Double  x:Key="ErpRowHeight">52</x:Double>
-    <x:Double  x:Key="ErpCellFontSize">13</x:Double>
-    <x:Double  x:Key="ErpHeaderFontSize">12</x:Double>
+    <x:Double  x:Key="ErpRowHeight">56</x:Double>
+    <x:Double  x:Key="ErpCellFontSize">14</x:Double>
+    <x:Double  x:Key="ErpHeaderFontSize">13</x:Double>
     <Thickness x:Key="ErpRowPadding">16,0</Thickness>
     <Thickness x:Key="ErpHeaderPadding">16,10,16,10</Thickness>
 

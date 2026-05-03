@@ -26,6 +26,15 @@ internal sealed class CategoriaProductoConfiguration : IEntityTypeConfiguration<
         builder.Property(e => e.RowVersion).IsRowVersion();
         builder.HasOne(e => e.Empresa).WithMany().HasForeignKey(e => e.EmpresaId)
             .HasConstraintName("FK_CategoriaProducto_Empresa");
+
+        builder.Property(e => e.CategoriaPadreId).IsRequired(false);
+        builder.HasOne(e => e.CategoriaPadre)
+            .WithMany(c => c.SubCategorias)
+            .HasForeignKey(e => e.CategoriaPadreId)
+            .HasConstraintName("FK_CategoriaProducto_Padre")
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasIndex(e => e.EmpresaId).HasDatabaseName("IX_CategoriaProducto_EmpresaId");
     }
 }
