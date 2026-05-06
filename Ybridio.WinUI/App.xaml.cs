@@ -4,10 +4,12 @@ using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml;
 using Ybridio.Application.Extensions;
 using Ybridio.Infrastructure.Persistence;
+using Ybridio.Infrastructure.Persistence.Audit;
 using Ybridio.Infrastructure.Persistence.Identity;
 using Ybridio.WinUI.Services;
 using Ybridio.WinUI.Services.Windowing;
 using Ybridio.WinUI.ViewModels;
+using Ybridio.WinUI.ViewModels.Config;
 using Ybridio.WinUI.ViewModels.Dashboard;
 using Ybridio.WinUI.ViewModels.Inventario;
 using Ybridio.WinUI.ViewModels.POS;
@@ -17,6 +19,7 @@ using Ybridio.WinUI.Views.Contactos;
 using Ybridio.WinUI.Views.Dashboard;
 using Ybridio.WinUI.Views.Inventario;
 using Ybridio.WinUI.Views.POS;
+using Ybridio.WinUI.Views.Config;
 using Ybridio.WinUI.Views.Ventas;
 using System;
 
@@ -62,6 +65,8 @@ public partial class App : Microsoft.UI.Xaml.Application
         // ── UI Services ───────────────────────────────────────────────────────
         services.AddSingleton<MainWindow>();
         services.AddSingleton<SessionService>();
+        // Alias para que ErpDbContext reciba ISessionContext por DI
+        services.AddSingleton<ISessionContext>(sp => sp.GetRequiredService<SessionService>());
         services.AddSingleton<INavigationService, NavigationService>();
         services.AddSingleton<IWindowManager, WindowManager>();
 
@@ -71,6 +76,11 @@ public partial class App : Microsoft.UI.Xaml.Application
         services.AddTransient<DashboardViewModel>();
         services.AddTransient<PosViewModel>();
         services.AddTransient<ProductosViewModel>();
+        services.AddTransient<EmpresaViewModel>();
+        services.AddTransient<SucursalesConfigViewModel>();
+        services.AddTransient<UsuariosViewModel>();
+        services.AddTransient<RolesViewModel>();
+        services.AddTransient<AuditoriaViewModel>();
 
         // ── Pages ─────────────────────────────────────────────────────────────
         services.AddTransient<LoginPage>();
@@ -92,6 +102,15 @@ public partial class App : Microsoft.UI.Xaml.Application
         services.AddTransient<ConteoPage>();
         services.AddTransient<OrdenesCompraPage>();
         services.AddTransient<ProductosPage>();
+        services.AddTransient<EmpresaPage>();
+        services.AddTransient<SucursalesConfigPage>();
+        services.AddTransient<UsuariosPage>();
+        services.AddTransient<RolesPage>();
+        services.AddTransient<AuditoriaPage>();
+
+        // ── Infraestructura técnica ───────────────────────────────────────────
+        services.AddTransient<ISchemaAuditService, SchemaAuditService>();
+        services.AddTransient<IDatabaseAuditService, DatabaseAuditService>();
 
         return services.BuildServiceProvider();
     }

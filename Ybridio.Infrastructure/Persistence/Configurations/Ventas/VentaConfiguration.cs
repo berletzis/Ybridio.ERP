@@ -27,10 +27,10 @@ internal sealed class VentaConfiguration : IEntityTypeConfiguration<Venta>
             .HasForeignKey(e => e.EmpresaId)
             .HasConstraintName("FK_Venta_Empresa");
 
-        builder.HasOne(e => e.Tienda)
+        builder.HasOne(e => e.Sucursal)
             .WithMany()
-            .HasForeignKey(e => e.TiendaId)
-            .HasConstraintName("FK_Venta_Tienda");
+            .HasForeignKey(e => e.SucursalId)
+            .HasConstraintName("FK_Venta_Sucursal");
 
         builder.HasOne(e => e.Caja)
             .WithMany()
@@ -44,7 +44,7 @@ internal sealed class VentaConfiguration : IEntityTypeConfiguration<Venta>
             .HasConstraintName("FK_Venta_AperturaCaja")
             .IsRequired(false);
 
-        builder.HasIndex(e => new { e.EmpresaId, e.TiendaId, e.Fecha })
-            .HasDatabaseName("IX_Venta_EmpresaId_TiendaId_Fecha");
+        builder.HasIndex(e => new { e.EmpresaId, e.SucursalId, e.Fecha })
+            .HasDatabaseName("IX_Venta_EmpresaId_SucursalId_Fecha");
     }
 }

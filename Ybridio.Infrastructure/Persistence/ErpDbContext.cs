@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using System;
+using System.Linq.Expressions;
+using System.Reflection;
 using Ybridio.Domain.Catalogos;
 using Ybridio.Domain.Common;
 using Ybridio.Domain.Compras;
@@ -14,104 +17,189 @@ using Ybridio.Infrastructure.Persistence.Identity;
 namespace Ybridio.Infrastructure.Persistence;
 
 /// <summary>
-/// DbContext principal del ERP. Extiende IdentityDbContext con ApplicationUser y ApplicationRole
-/// usando la firma simplificada de tres parámetros genéricos.
+/// DbContext principal del ERP.
+/// Aplica globalmente:
+///   1. Soft-delete (!Borrado) a toda entidad que herede de AuditableEntity / CreationAuditEntity.
+///   2. Filtro de empresa (EmpresaId == session.EmpresaId) a toda entidad con FK EmpresaId.
+///      Cuando session.EmpresaId == 0 (tooling / tests), el filtro de empresa se omite.
 /// </summary>
 public class ErpDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, Guid>
 {
-    public ErpDbContext(DbContextOptions<ErpDbContext> options) : base(options) { }
+    private readonly ISessionContext _session;
+
+    public ErpDbContext(DbContextOptions<ErpDbContext> options, ISessionContext session)
+        : base(options)
+    {
+        _session = session;
+    }
 
     // ── core ──────────────────────────────────────────────────────────────────
     public DbSet<Empresa> Empresas => Set<Empresa>();
-    public DbSet<Tienda> Tiendas => Set<Tienda>();
+    public DbSet<Sucursal>  Sucursales  => Set<Sucursal>();
 
     // ── catalogos ─────────────────────────────────────────────────────────────
-    public DbSet<Cliente> Clientes => Set<Cliente>();
-    public DbSet<Producto> Productos => Set<Producto>();
+    public DbSet<Cliente>          Clientes          => Set<Cliente>();
+    public DbSet<Producto>         Productos         => Set<Producto>();
     public DbSet<ProductoCategoria> ProductoCategorias => Set<ProductoCategoria>();
-    public DbSet<Proveedor> Proveedores => Set<Proveedor>();
-    public DbSet<UnidadMedida> UnidadesMedida => Set<UnidadMedida>();
+    public DbSet<ProductoSucursal>   ProductoSucursales   => Set<ProductoSucursal>();
+    public DbSet<Proveedor>        Proveedores       => Set<Proveedor>();
+    public DbSet<UnidadMedida>     UnidadesMedida    => Set<UnidadMedida>();
     public DbSet<CategoriaProducto> CategoriasProducto => Set<CategoriaProducto>();
-    public DbSet<TipoProducto> TiposProducto => Set<TipoProducto>();
-    public DbSet<TipoImpuesto> TiposImpuesto => Set<TipoImpuesto>();
+    public DbSet<TipoProducto>     TiposProducto     => Set<TipoProducto>();
+    public DbSet<TipoImpuesto>     TiposImpuesto     => Set<TipoImpuesto>();
+
     // ── compras ───────────────────────────────────────────────────────────────
-    public DbSet<OrdenCompra> OrdenesCompra => Set<OrdenCompra>();
-    public DbSet<OrdenCompraDetalle> OrdenesCompraDetalle => Set<OrdenCompraDetalle>();
-    public DbSet<RecepcionCompra> RecepcionesCompra => Set<RecepcionCompra>();
+    public DbSet<OrdenCompra>          OrdenesCompra          => Set<OrdenCompra>();
+    public DbSet<OrdenCompraDetalle>   OrdenesCompraDetalle   => Set<OrdenCompraDetalle>();
+    public DbSet<RecepcionCompra>      RecepcionesCompra      => Set<RecepcionCompra>();
     public DbSet<RecepcionCompraDetalle> RecepcionesCompraDetalle => Set<RecepcionCompraDetalle>();
 
     // ── finanzas ──────────────────────────────────────────────────────────────
-    public DbSet<Caja> Cajas => Set<Caja>();
-    public DbSet<AperturaCaja> AperturasCaja => Set<AperturaCaja>();
-    public DbSet<MovimientoCaja> MovimientosCaja => Set<MovimientoCaja>();
-    public DbSet<TipoMovimientoCaja> TiposMovimientoCaja => Set<TipoMovimientoCaja>();
+    public DbSet<Caja>                Cajas               => Set<Caja>();
+    public DbSet<AperturaCaja>        AperturasCaja       => Set<AperturaCaja>();
+    public DbSet<MovimientoCaja>      MovimientosCaja     => Set<MovimientoCaja>();
+    public DbSet<TipoMovimientoCaja>  TiposMovimientoCaja => Set<TipoMovimientoCaja>();
 
     // ── inventario ────────────────────────────────────────────────────────────
-    public DbSet<Almacen> Almacenes => Set<Almacen>();
-    public DbSet<Existencia> Existencias => Set<Existencia>();
-    public DbSet<MovimientoInventario> MovimientosInventario => Set<MovimientoInventario>();
+    public DbSet<Almacen>                Almacenes               => Set<Almacen>();
+    public DbSet<Existencia>             Existencias             => Set<Existencia>();
+    public DbSet<MovimientoInventario>   MovimientosInventario   => Set<MovimientoInventario>();
     public DbSet<TipoMovimientoInventario> TiposMovimientoInventario => Set<TipoMovimientoInventario>();
 
     // ── seguridad ─────────────────────────────────────────────────────────────
-    public DbSet<Modulo> Modulos => Set<Modulo>();
-    public DbSet<Permiso> Permisos => Set<Permiso>();
-    public DbSet<RolPermiso> RolesPermisos => Set<RolPermiso>();
+    public DbSet<Modulo>        Modulos          => Set<Modulo>();
+    public DbSet<Permiso>       Permisos         => Set<Permiso>();
+    public DbSet<RolPermiso>    RolesPermisos    => Set<RolPermiso>();
     public DbSet<UsuarioPermiso> UsuariosPermisos => Set<UsuarioPermiso>();
-    public DbSet<UsuarioTienda> UsuariosTiendas => Set<UsuarioTienda>();
+    public DbSet<UsuarioSucursal> UsuariosSucursales  => Set<UsuarioSucursal>();
 
     // ── ventas ────────────────────────────────────────────────────────────────
-    public DbSet<Venta> Ventas => Set<Venta>();
+    public DbSet<Venta>       Ventas       => Set<Venta>();
     public DbSet<VentaDetalle> VentasDetalle => Set<VentaDetalle>();
-    public DbSet<Factura> Facturas => Set<Factura>();
+    public DbSet<Factura>     Facturas     => Set<Factura>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
 
-        // Aplicar todas las configuraciones del ensamblado actual automáticamente
         builder.ApplyConfigurationsFromAssembly(typeof(ErpDbContext).Assembly);
 
-        // Mapear las tablas auxiliares de Identity que no tienen entidad propia
+        // Mapear tablas auxiliares de Identity
         builder.Entity<IdentityUserClaim<Guid>>().ToTable("UsuarioClaim", "seguridad");
-        builder.Entity<IdentityUserLogin<Guid>>().ToTable("UsuarioLogin", "seguridad");
-        builder.Entity<IdentityUserToken<Guid>>().ToTable("UsuarioToken", "seguridad");
-        builder.Entity<IdentityRoleClaim<Guid>>().ToTable("RolClaim", "seguridad");
-        builder.Entity<IdentityUserRole<Guid>>().ToTable("UsuarioRol", "seguridad");
+        builder.Entity<IdentityRoleClaim<Guid>>().ToTable("RolClaim",     "seguridad");
+        builder.Entity<IdentityUserRole<Guid>>().ToTable("UsuarioRol",    "seguridad");
 
-        // ── QueryFilters para soft delete ─────────────────────────────────────
-        // Se aplican a todas las entidades que derivan de AuditableEntity o CreationAuditEntity
+        // UsuarioLogin: clave compuesta con NVARCHAR(128) para no superar el límite
+        // de 900 bytes por índice agrupado de SQL Server (450*2 = 1800 > 900)
+        builder.Entity<IdentityUserLogin<Guid>>()
+            .ToTable("UsuarioLogin", "seguridad")
+            .HasKey(e => new { e.LoginProvider, e.ProviderKey });
+        builder.Entity<IdentityUserLogin<Guid>>()
+            .Property(e => e.LoginProvider).HasMaxLength(128);
+        builder.Entity<IdentityUserLogin<Guid>>()
+            .Property(e => e.ProviderKey).HasMaxLength(128);
+
+        // UsuarioToken: clave compuesta con NVARCHAR(128) para la misma razón
+        // (16 bytes Guid + 450 + 450 = 916 > 900)
+        builder.Entity<IdentityUserToken<Guid>>()
+            .ToTable("UsuarioToken", "seguridad")
+            .HasKey(e => new { e.UserId, e.LoginProvider, e.Name });
+        builder.Entity<IdentityUserToken<Guid>>()
+            .Property(e => e.LoginProvider).HasMaxLength(128);
+        builder.Entity<IdentityUserToken<Guid>>()
+            .Property(e => e.Name).HasMaxLength(128);
+
+        // ── QueryFilters combinados: soft-delete + empresa ────────────────────
+        //
+        // Reglas:
+        //  • !Borrado      → toda entidad con AuditableEntity / CreationAuditEntity base
+        //  • EmpresaId     → toda entidad con propiedad EmpresaId (int), excepto Empresa misma
+        //  • session.EmpresaId == 0 → omite el filtro de empresa (design-time / tests)
+        //
+        // HasQueryFilter solo puede llamarse UNA vez por tipo; los filtros se combinan con &&.
+
         foreach (var entityType in builder.Model.GetEntityTypes())
         {
-            if (typeof(AuditableEntity).IsAssignableFrom(entityType.ClrType))
+            var type = entityType.ClrType;
+            LambdaExpression? filter = null;
+
+            // Soft-delete
+            if (typeof(AuditableEntity).IsAssignableFrom(type))
+                filter = BuildSoftDeleteFilter(type);
+            else if (typeof(CreationAuditEntity).IsAssignableFrom(type))
+                filter = BuildSoftDeleteFilter(type);
+
+            // Filtro de empresa (excluye Empresa misma para no bloquear la consulta raíz)
+            if (type != typeof(Empresa) && HasIntProperty(type, "EmpresaId"))
             {
-                builder.Entity(entityType.ClrType)
-                    .HasQueryFilter(BuildSoftDeleteFilter<AuditableEntity>(entityType.ClrType));
+                var empresaFilter = BuildEmpresaFilter(type);
+                filter = filter is null ? empresaFilter : CombineAnd(filter, empresaFilter);
             }
-            else if (typeof(CreationAuditEntity).IsAssignableFrom(entityType.ClrType))
-            {
-                builder.Entity(entityType.ClrType)
-                    .HasQueryFilter(BuildSoftDeleteFilter<CreationAuditEntity>(entityType.ClrType));
-            }
+
+            if (filter is not null)
+                builder.Entity(type).HasQueryFilter(filter);
         }
 
-        // QueryFilter para ApplicationUser (Borrado directo, no hereda de base)
-        builder.Entity<ApplicationUser>().HasQueryFilter(u => !u.Borrado);
+        // ApplicationUser: no hereda de base pero tiene Borrado + EmpresaId
+        builder.Entity<ApplicationUser>()
+            .HasQueryFilter(u => !u.Borrado &&
+                (_session.EmpresaId == 0 || u.EmpresaId == _session.EmpresaId));
 
-        // QueryFilter para ApplicationRole (Borrado directo, no hereda de base)
+        // ApplicationRole: solo soft-delete (roles son globales, sin empresa)
         builder.Entity<ApplicationRole>().HasQueryFilter(r => !r.Borrado);
     }
 
-    /// <summary>
-    /// Construye una expresión lambda <c>e => !e.Borrado</c> para el tipo concreto dado,
-    /// usando el tipo base TBase que declara la propiedad Borrado.
-    /// </summary>
-    private static System.Linq.Expressions.LambdaExpression BuildSoftDeleteFilter<TBase>(Type entityType)
-        where TBase : class
+    // ── Filter builders ───────────────────────────────────────────────────────
+
+    private static LambdaExpression BuildSoftDeleteFilter(Type entityType)
     {
-        var param = System.Linq.Expressions.Expression.Parameter(entityType, "e");
-        var body = System.Linq.Expressions.Expression.Not(
-            System.Linq.Expressions.Expression.Property(param, nameof(AuditableEntity.Borrado)));
-        return System.Linq.Expressions.Expression.Lambda(body, param);
+        var param = Expression.Parameter(entityType, "e");
+        var body  = Expression.Not(Expression.Property(param, nameof(AuditableEntity.Borrado)));
+        return Expression.Lambda(body, param);
+    }
+
+    /// <summary>
+    /// Crea: e => _session.EmpresaId == 0 || e.EmpresaId == _session.EmpresaId
+    /// Captura _session por REFERENCIA (no por valor) para que se evalúe en cada query.
+    /// </summary>
+    private LambdaExpression BuildEmpresaFilter(Type entityType)
+    {
+        var param = Expression.Parameter(entityType, "e");
+
+        // Acceso en tiempo de query: _session.EmpresaId
+        var sessionRef  = Expression.Constant(_session, typeof(ISessionContext));
+        var sessionId   = Expression.Property(sessionRef, nameof(ISessionContext.EmpresaId));
+        var zero        = Expression.Constant(0, typeof(int));
+        var rowId       = Expression.Property(param, "EmpresaId");
+
+        // _session.EmpresaId == 0 → omitir filtro (design-time / sin sesión)
+        var noSession   = Expression.Equal(sessionId, zero);
+        var matches     = Expression.Equal(rowId, sessionId);
+        var body        = Expression.OrElse(noSession, matches);
+
+        return Expression.Lambda(body, param);
+    }
+
+    private static LambdaExpression CombineAnd(LambdaExpression left, LambdaExpression right)
+    {
+        var param     = left.Parameters[0];
+        var rightBody = new ParamReplacer(right.Parameters[0], param).Visit(right.Body);
+        return Expression.Lambda(Expression.AndAlso(left.Body, rightBody), param);
+    }
+
+    private static bool HasIntProperty(Type type, string name)
+    {
+        var p = type.GetProperty(name, BindingFlags.Public | BindingFlags.Instance);
+        return p?.PropertyType == typeof(int);
+    }
+
+    private sealed class ParamReplacer : ExpressionVisitor
+    {
+        private readonly ParameterExpression _from, _to;
+        public ParamReplacer(ParameterExpression from, ParameterExpression to)
+            { _from = from; _to = to; }
+
+        protected override Expression VisitParameter(ParameterExpression node)
+            => node == _from ? _to : base.VisitParameter(node);
     }
 }
-

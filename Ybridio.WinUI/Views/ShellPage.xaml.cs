@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
+using Ybridio.Application.DTOs.Core;
 using Ybridio.WinUI.ViewModels;
 using XamlApp = Microsoft.UI.Xaml.Application;
 
@@ -50,6 +51,15 @@ public sealed partial class ShellPage : Page
         {
             ViewModel.SelectModuleCommand.Execute(tag);
             SetActiveNavButton(btn);
+        }
+    }
+
+    private void TiendaSelector_ItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is SucursalDto tienda)
+        {
+            ViewModel.SeleccionarSucursalCommand.Execute(tienda);
+            SucursalFlyout.Hide();
         }
     }
 

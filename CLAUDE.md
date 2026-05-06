@@ -159,6 +159,56 @@ public sealed class MyWindow : Window
 8. **Every module needs a placeholder page** — if `SelectModule(modulo)` does not call `_navigation.NavigateTo(typeof(XxxPage))`, the Frame retains the last loaded page
 9. Add navigation case in `ShellViewModel.SelectModule`
 
+### ClassificationPanel — control reutilizable
+
+Ubicación: `Ybridio.WinUI/Controls/Navigation/ClassificationPanel.xaml`
+
+**DependencyProperties:**
+
+| DP | Tipo | Descripción |
+|---|---|---|
+| `ItemsSource` | `IEnumerable<ClassificationItem>` | Árbol de nodos — asignado al `TreeView.ItemsSource` directamente |
+| `SelectedItem` | `ClassificationItem` | Nodo actualmente seleccionado |
+| `PanelTitle` | `string` | Título mostrado en el header (e.g., `"Categorías"`) |
+| `IsFilterActive` | `bool` | Controla el ToggleButton del header (⊟ icono de filtro) |
+
+**Evento:** `SelectionChanged(object sender, ClassificationItem? e)`
+
+**Reglas de uso:**
+- `ClassTree.ItemsSource` = el `ObservableCollection` directamente — NO usar `RootNodes` API (el DataContext del DataTemplate es el `TreeViewNode`, no el `Content`, causando bindings vacíos)
+- DataTemplate raíz = `<TreeViewItem ItemsSource="{x:Bind Children}">` — jerarquía N niveles automática
+- Usar `{x:DataType}` + `{x:Bind}` en DataTemplate (NO `{Binding}` sin `x:DataType`)
+- `ClearSelection()`: deselecciona el nodo activo (llamar desde la Page cuando el filtro se limpia)
+
+**`ClassificationItem`** — `Controls/Navigation/ClassificationItem.cs`:
+```
+Id (string)  Name (string)  Count (int)  CountDisplay (computed)
+CategoriaId (int?)  IsRoot (bool)  IsExpanded (bool)  Children (ObservableCollection<ClassificationItem>)
+```
+
+### Módulo Productos — layout de panel colapsable
+
+`ProductosPage.xaml` usa un **Grid de 3 columnas** (no SplitView):
+```
+Col 0 (0px→240px): ClassificationPanel  [MinWidth=0, MaxWidth=400]
+Col 1 (0px→5px):   Border de resize (drag handle)
+Col 2 (*):          Contenido (search + chip + lista + statusbar)
+```
+
+- Hamburger button (☰) → `TogglePanel_Click` → alterna `Col[0].Width` entre 0 y 240px
+- Drag handle → `PanelResize_PointerPressed/Moved/Released` → `Math.Clamp(180..400)`
+- Chip de filtro activo: `Border` en Row 1 del contenido; `Visibility` enlazada a `ViewModel.FiltroActivoVisibility`; botón ✕ llama `ViewModel.LimpiarFiltro()` + `ClasificacionPanel.ClearSelection()`
+
+**Filtrado jerárquico en ViewModel:**
+```csharp
+// Al seleccionar un nodo, calcular IDs del nodo + todos sus descendientes
+_categoriaFiltroIds = GetAllCategoryIds(item);   // HashSet<int>
+// En AplicarFiltro:
+lista.Where(p => p.CategoriaIds.Any(id => _categoriaFiltroIds.Contains(id)))
+```
+
+**`FiltroLimpiadoCallback`**: `Action?` en el ViewModel que la Page asigna en `OnNavigatedTo` para deseleccionar el panel sin acoplar ViewModel a la Vista.
+
 ### Shell navigation
 `ShellViewModel.SelectModule` must:
 1. Collapse **all** `ShowRibbonXxx` properties first
@@ -166,3 +216,98 @@ public sealed class MyWindow : Window
 3. Call `_navigation.NavigateTo(typeof(XxxPage))` — every module case must navigate, even placeholders
 
 `MainWindow` is registered as **singleton** (`services.AddSingleton<MainWindow>()`); `OnLaunched` retrieves it via `Services.GetRequiredService<MainWindow>()`.
+
+---
+
+## Conventions (obligatorias en todo código nuevo)
+
+### Naming
+
+| Elemento | Regla | Ejemplo |
+|---|---|---|
+| Clases | PascalCase | `ProductoService`, `UsuarioDto` |
+| Interfaces | Prefijo `I` + PascalCase | `IProductoService`, `ITiendaService` |
+| Métodos | PascalCase; async → sufijo `Async` | `ObtenerProductosAsync`, `GuardarAsync` |
+| Propiedades | PascalCase | `FechaCreacion`, `EmpresaId` |
+| Campos privados | `_camelCase` | `_session`, `_roleManager` |
+| Parámetros / variables locales | camelCase | `productoId`, `cancellationToken` |
+
+### Folder structure
+
+```
+Ybridio.Domain/
+  Catalogos/   Inventario/   Ventas/   Finanzas/   Compras/   Seguridad/   Core/   Common/
+
+Ybridio.Application/
+  DTOs/<DomainArea>/
+  Services/<DomainArea>/   (interface + implementation)
+  Common/                  (ServiceResult, ErrorCode, etc.)
+  Extensions/
+
+Ybridio.Infrastructure/
+  Persistence/
+    Configurations/<DomainArea>/
+    Migrations/
+    Identity/
+  Extensions/
+
+Ybridio.WinUI/
+  Views/<Module>/
+  ViewModels/<Module>/
+  Controls/
+  Helpers/
+  Services/    ← solo UI helpers (NavigationService, WindowManager)
+  Styles/
+```
+
+### Mandatory patterns
+
+- **Business logic → Application layer only.** Never in WinUI ViewModels or Infrastructure.
+- **DTOs between layers.** Never expose domain entities to WinUI.
+- **ViewModels are orchestrators.** Call Application services, map to observable properties, fire commands. No SQL, no EF, no Identity APIs.
+- **Services → Scoped lifetime.** Register in `ServiceCollectionExtensions.AddApplicationServices()`.
+- **ViewModels → Transient lifetime.** Register in `App.xaml.cs`.
+
+### XML Documentation (required on all public API)
+
+Every `public` or `internal` class, interface, method, property, and constructor in **Domain**, **Application**, and **Infrastructure** must carry XML doc comments. WinUI ViewModels and Pages are also documented when they expose public members used by XAML bindings.
+
+```csharp
+/// <summary>
+/// Obtiene todos los productos activos de la empresa en sesión,
+/// aplicando el filtro de soft-delete global.
+/// </summary>
+/// <param name="ct">Token de cancelación.</param>
+/// <returns>Lista inmutable de <see cref="ProductoDto"/> ordenada por nombre.</returns>
+public async Task<IReadOnlyList<ProductoDto>> ListarAsync(CancellationToken ct = default)
+
+/// <summary>
+/// Crea un nuevo producto y lo asocia a la categoría principal indicada.
+/// </summary>
+/// <param name="dto">Datos del producto a crear.</param>
+/// <param name="usuarioId">ID del usuario que realiza la operación (auditoría).</param>
+/// <param name="ct">Token de cancelación.</param>
+/// <returns>
+/// <see cref="ServiceResult{T}"/> con el <see cref="ProductoDto"/> creado,
+/// o error <see cref="ErrorCode.ValidationFailed"/> si los datos son inválidos.
+/// </returns>
+public async Task<ServiceResult<ProductoDto>> CrearAsync(
+    CrearProductoDto dto, Guid usuarioId, CancellationToken ct = default)
+```
+
+**What to document per type:**
+
+| Type | Required in `<summary>` |
+|---|---|
+| Service / interface | What it does, which business rules it enforces, which context (Empresa/Tienda) it uses |
+| DTO / record | Purpose, which operation it belongs to, nullable semantics |
+| Entity | Business meaning, key relationships, soft-delete / audit behavior |
+| ViewModel | Which page it serves, which events it reacts to (e.g. `TiendaChanged`) |
+| Migration | Why it exists (drift fix, new feature, schema change) |
+
+**Rules:**
+- Use `<see cref="..."/>` for type references inside comments.
+- Omit `<returns>` only on `void` / `Task` methods with no meaningful result.
+- One-sentence `<summary>` is enough if the method name is already self-describing; expand only when the WHY or the constraints are non-obvious.
+- Do NOT document `<param>` for `CancellationToken ct` — it is self-evident.
+- Private methods: document only when the logic is non-obvious (algorithm, workaround, constraint).

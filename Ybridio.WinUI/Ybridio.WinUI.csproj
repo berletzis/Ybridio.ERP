@@ -27,6 +27,11 @@
     <None Remove="Views\Inventario\InventarioPage.xaml" />
     <None Remove="Views\Inventario\KardexPage.xaml" />
     <None Remove="Views\Inventario\OrdenesCompraPage.xaml" />
+    <None Remove="Views\Config\EmpresaPage.xaml" />
+    <None Remove="Views\Config\SucursalesConfigPage.xaml" />
+    <None Remove="Views\Config\UsuariosPage.xaml" />
+    <None Remove="Views\Config\RolesPage.xaml" />
+    <None Remove="Views\Config\AuditoriaPage.xaml" />
     <None Remove="Views\Inventario\ProductosPage.xaml" />
     <None Remove="Views\Inventario\SalidasPage.xaml" />
     <None Remove="Views\LoginPage.xaml" />
@@ -95,6 +100,21 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Update="Views\Inventario\ExistenciasPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Config\EmpresaPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Config\SucursalesConfigPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Config\UsuariosPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Config\RolesPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Config\AuditoriaPage.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Update="Views\Inventario\ProductosPage.xaml">

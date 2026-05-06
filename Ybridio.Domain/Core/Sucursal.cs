@@ -2,7 +2,7 @@ using Ybridio.Domain.Common;
 
 namespace Ybridio.Domain.Core;
 
-public class Tienda : AuditableEntity
+public class Sucursal : AuditableEntity
 {
     public int Id { get; set; }
     public int EmpresaId { get; set; }

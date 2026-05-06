@@ -78,4 +78,15 @@ public interface IProductoService
     /// </summary>
     Task<IReadOnlyList<CategoriaConConteoDto>> ListarCategoriasConConteoAsync(
         int empresaId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Reemplaza TODAS las categorías del producto por la lista dada.
+    /// La primera categoría se marca como EsPrincipal = true.
+    /// Lista vacía elimina todas las categorías.
+    /// </summary>
+    Task<ServiceResult> ReemplazarCategoriasAsync(
+        int productoId,
+        IReadOnlyList<int> categoriaIds,
+        Guid usuarioId,
+        CancellationToken ct = default);
 }

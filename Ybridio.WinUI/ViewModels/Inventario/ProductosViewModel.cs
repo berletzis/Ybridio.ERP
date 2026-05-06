@@ -11,13 +11,13 @@ using Ybridio.Application.DTOs.Catalogos;
 using Ybridio.Application.Services.Producto;
 using Ybridio.WinUI.Controls.Navigation;
 using Ybridio.WinUI.Services;
+using Ybridio.WinUI.ViewModels;
 
 namespace Ybridio.WinUI.ViewModels.Inventario;
 
-public sealed partial class ProductosViewModel : ObservableObject
+public sealed partial class ProductosViewModel : BaseContextViewModel
 {
     private readonly IProductoService _productos;
-    private readonly SessionService _session;
 
     // ── Clasificación (panel tipo Outlook) ───────────────────────────────────
 
@@ -97,7 +97,7 @@ public sealed partial class ProductosViewModel : ObservableObject
 
     private async Task CargarClasificacionAsync(CancellationToken ct)
     {
-        var categorias = await _productos.ListarCategoriasConConteoAsync(_session.EmpresaId, ct);
+        var categorias = await _productos.ListarCategoriasConConteoAsync(Session.EmpresaId, ct);
 
         // 1. Construir árbol jerárquico
         var arbol = BuildCategoryTree(categorias, null).ToList();
@@ -208,7 +208,7 @@ public sealed partial class ProductosViewModel : ObservableObject
     public ObservableCollection<TipoProductoDto> TiposProducto { get; } = [];
     public ObservableCollection<TipoImpuestoDto> TiposImpuesto { get; } = [];
 
-    public int EmpresaId => _session.EmpresaId;
+    public int EmpresaId => Session.EmpresaId;
 
     /// <summary>
     /// Usado por ProductosPage para mostrar el estado vacío con ErpGridEmptyTemplate.
@@ -248,17 +248,19 @@ public sealed partial class ProductosViewModel : ObservableObject
     public Action<(ProductoDto A, ProductoDto B)>? SolicitarComparar;
 
     public ProductosViewModel(IProductoService productos, SessionService session)
+        : base(session)
     {
         _productos = productos;
-        _session = session;
     }
+
+    protected override Task OnContextChangedAsync() => RefrescarAsync();
 
     // ── Carga ────────────────────────────────────────────────────────────────
 
     [RelayCommand]
     public async Task LoadAsync(CancellationToken ct = default)
     {
-        if (_session.EmpresaId == 0) return;
+        if (Session.EmpresaId == 0) return;
 
         IsLoading = true;
         ErrorMessage = string.Empty;
@@ -266,7 +268,7 @@ public sealed partial class ProductosViewModel : ObservableObject
         try
         {
             await CargarCatalogosAsync(ct);
-            _todosLosProductos = await _productos.ListarPorEmpresaAsync(_session.EmpresaId, SoloActivos, ct);
+            _todosLosProductos = await _productos.ListarPorEmpresaAsync(Session.EmpresaId, SoloActivos, ct);
             await CargarClasificacionAsync(ct);
             AplicarFiltro();
         }
@@ -283,10 +285,10 @@ public sealed partial class ProductosViewModel : ObservableObject
 
     private async Task CargarCatalogosAsync(CancellationToken ct)
     {
-        var unidades = await _productos.ListarUnidadesMedidaAsync(_session.EmpresaId, ct);
-        var categorias = await _productos.ListarCategoriasAsync(_session.EmpresaId, ct);
-        var tipos = await _productos.ListarTiposProductoAsync(_session.EmpresaId, ct);
-        var impuestos = await _productos.ListarTiposImpuestoAsync(_session.EmpresaId, ct);
+        var unidades = await _productos.ListarUnidadesMedidaAsync(Session.EmpresaId, ct);
+        var categorias = await _productos.ListarCategoriasAsync(Session.EmpresaId, ct);
+        var tipos = await _productos.ListarTiposProductoAsync(Session.EmpresaId, ct);
+        var impuestos = await _productos.ListarTiposImpuestoAsync(Session.EmpresaId, ct);
 
         UnidadesMedida.Clear();
         foreach (var u in unidades) UnidadesMedida.Add(u);
@@ -304,14 +306,14 @@ public sealed partial class ProductosViewModel : ObservableObject
     [RelayCommand]
     public async Task RefrescarAsync(CancellationToken ct = default)
     {
-        if (_session.EmpresaId == 0) return;
+        if (Session.EmpresaId == 0) return;
 
         IsLoading = true;
         ErrorMessage = string.Empty;
 
         try
         {
-            _todosLosProductos = await _productos.ListarPorEmpresaAsync(_session.EmpresaId, SoloActivos, ct);
+            _todosLosProductos = await _productos.ListarPorEmpresaAsync(Session.EmpresaId, SoloActivos, ct);
             AplicarFiltro();
         }
         catch (OperationCanceledException) { }
@@ -336,7 +338,7 @@ public sealed partial class ProductosViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(HaySeleccion))]
     private async Task ClonarAsync(CancellationToken ct = default)
     {
-        if (ProductoSeleccionado is null || _session.Usuario is null) return;
+        if (ProductoSeleccionado is null || Session.Usuario is null) return;
 
         IsBusy = true;
         ErrorMessage = string.Empty;
@@ -349,7 +351,7 @@ public sealed partial class ProductosViewModel : ObservableObject
                 NuevoCodigo: $"{ProductoSeleccionado.Codigo}-COPIA",
                 NuevoNombre: $"{ProductoSeleccionado.Nombre} (copia)");
 
-            var result = await _productos.ClonarAsync(dto, _session.Usuario.Id, ct);
+            var result = await _productos.ClonarAsync(dto, Session.Usuario.Id, ct);
             if (result.Success)
             {
                 SuccessMessage = $"Clonado como '{result.Value!.Nombre}'.";
@@ -366,7 +368,7 @@ public sealed partial class ProductosViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(HaySeleccion))]
     private async Task CambiarActivoAsync(CancellationToken ct = default)
     {
-        if (ProductoSeleccionado is null || _session.Usuario is null) return;
+        if (ProductoSeleccionado is null || Session.Usuario is null) return;
 
         IsBusy = true;
         ErrorMessage = string.Empty;
@@ -375,7 +377,7 @@ public sealed partial class ProductosViewModel : ObservableObject
         try
         {
             var nuevoEstado = !ProductoSeleccionado.Activo;
-            var result = await _productos.CambiarActivoAsync(ProductoSeleccionado.Id, nuevoEstado, _session.Usuario.Id, ct);
+            var result = await _productos.CambiarActivoAsync(ProductoSeleccionado.Id, nuevoEstado, Session.Usuario.Id, ct);
             if (result.Success)
             {
                 SuccessMessage = nuevoEstado ? "Producto activado." : "Producto desactivado.";
@@ -392,7 +394,7 @@ public sealed partial class ProductosViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(HaySeleccion))]
     private async Task EliminarAsync(CancellationToken ct = default)
     {
-        if (ProductoSeleccionado is null || _session.Usuario is null) return;
+        if (ProductoSeleccionado is null || Session.Usuario is null) return;
 
         IsBusy = true;
         ErrorMessage = string.Empty;
@@ -400,7 +402,7 @@ public sealed partial class ProductosViewModel : ObservableObject
 
         try
         {
-            var result = await _productos.EliminarAsync(ProductoSeleccionado.Id, _session.Usuario.Id, ct);
+            var result = await _productos.EliminarAsync(ProductoSeleccionado.Id, Session.Usuario.Id, ct);
             if (result.Success)
             {
                 SuccessMessage = "Producto eliminado.";
@@ -423,9 +425,10 @@ public sealed partial class ProductosViewModel : ObservableObject
 
     // ── Métodos públicos para ProductoDetailWindow ───────────────────────────
 
-    public async Task CrearDesdeVentanaAsync(CrearProductoDto dto, CancellationToken ct = default)
+    public async Task CrearDesdeVentanaAsync(
+        CrearProductoDto dto, IReadOnlyList<int> categoriaIds, CancellationToken ct = default)
     {
-        if (_session.Usuario is null) return;
+        if (Session.Usuario is null) return;
 
         IsBusy = true;
         ErrorMessage = string.Empty;
@@ -433,10 +436,20 @@ public sealed partial class ProductosViewModel : ObservableObject
 
         try
         {
-            var result = await _productos.CrearAsync(dto, _session.Usuario.Id, ct);
-            if (result.Success)
+            var result = await _productos.CrearAsync(dto, Session.Usuario.Id, ct);
+            if (result.Success && result.Value is not null)
             {
-                SuccessMessage = $"Producto '{result.Value!.Nombre}' creado.";
+                if (categoriaIds.Count > 0)
+                {
+                    var catResult = await _productos.ReemplazarCategoriasAsync(
+                        result.Value.Id, categoriaIds, Session.Usuario.Id, ct);
+                    if (!catResult.Success)
+                    {
+                        ErrorMessage = catResult.Error ?? "Error al guardar categorías.";
+                        return;
+                    }
+                }
+                SuccessMessage = $"Producto '{result.Value.Nombre}' creado.";
                 await RefrescarAsync(ct);
             }
             else
@@ -447,9 +460,10 @@ public sealed partial class ProductosViewModel : ObservableObject
         finally { IsBusy = false; }
     }
 
-    public async Task ActualizarDesdeVentanaAsync(int productoId, ActualizarProductoDto dto, CancellationToken ct = default)
+    public async Task ActualizarDesdeVentanaAsync(
+        int productoId, ActualizarProductoDto dto, IReadOnlyList<int> categoriaIds, CancellationToken ct = default)
     {
-        if (_session.Usuario is null) return;
+        if (Session.Usuario is null) return;
 
         IsBusy = true;
         ErrorMessage = string.Empty;
@@ -457,10 +471,17 @@ public sealed partial class ProductosViewModel : ObservableObject
 
         try
         {
-            var result = await _productos.ActualizarAsync(productoId, dto, _session.Usuario.Id, ct);
-            if (result.Success)
+            var result = await _productos.ActualizarAsync(productoId, dto, Session.Usuario.Id, ct);
+            if (result.Success && result.Value is not null)
             {
-                SuccessMessage = $"Producto '{result.Value!.Nombre}' actualizado.";
+                var catResult = await _productos.ReemplazarCategoriasAsync(
+                    productoId, categoriaIds, Session.Usuario.Id, ct);
+                if (!catResult.Success)
+                {
+                    ErrorMessage = catResult.Error ?? "Error al guardar categorías.";
+                    return;
+                }
+                SuccessMessage = $"Producto '{result.Value.Nombre}' actualizado.";
                 await RefrescarAsync(ct);
             }
             else

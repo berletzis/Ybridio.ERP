@@ -180,7 +180,7 @@ public sealed partial class PosViewModel : ObservableObject
 
             var dto = new RegistrarVentaDto(
                 _session.EmpresaId,
-                _session.TiendaId,
+                _session.SucursalId,
                 cajaActiva.CajaId,
                 cajaActiva.Id,
                 DateTime.UtcNow,

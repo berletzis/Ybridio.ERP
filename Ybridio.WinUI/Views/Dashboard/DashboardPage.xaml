@@ -93,7 +93,7 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="{Binding TiendaNombre}"
+                            <TextBlock Grid.Column="0" Text="{Binding SucursalNombre}"
                                        VerticalAlignment="Center" />
                             <TextBlock Grid.Column="1" Text="{Binding Fecha}"
                                        Style="{StaticResource CaptionTextBlockStyle}"

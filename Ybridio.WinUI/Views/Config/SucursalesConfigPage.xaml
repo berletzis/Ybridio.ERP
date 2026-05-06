@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page x:Class="Ybridio.WinUI.Views.Config.SucursalesConfigPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:dto="using:Ybridio.Application.DTOs.Core"
+      Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Toolbar -->
+        <CommandBar Grid.Row="0" DefaultLabelPosition="Right" HorizontalAlignment="Left" Margin="8,0,0,0">
+            <AppBarButton Label="Nueva" Click="BtnNueva_Click">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE710;"/></AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarButton Label="Editar" Click="BtnEditar_Click">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE70F;"/></AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarButton Label="Eliminar" Command="{x:Bind ViewModel.EliminarCommand}">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE74D;"/></AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarButton Label="Actualizar" Command="{x:Bind ViewModel.LoadCommand}">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE72C;"/></AppBarButton.Icon>
+            </AppBarButton>
+        </CommandBar>
+
+        <!-- Grid -->
+        <Border Grid.Row="1" Margin="20,8,20,0" Background="White" BorderBrush="#E5E5E5" BorderThickness="1">
+            <Grid>
+                <ListView x:Name="ListaSucursales"
+                          Style="{StaticResource OutlookDataGridStyle}"
+                          ItemsSource="{x:Bind ViewModel.Sucursales, Mode=OneWay}"
+                          SelectedItem="{x:Bind ViewModel.SucursalSeleccionada, Mode=TwoWay}"
+                          DoubleTapped="Lista_DoubleTapped">
+                    <ListView.Header>
+                        <Border Background="#FAFAFA" BorderBrush="#E8E8E8" BorderThickness="0,0,0,1">
+                            <Grid Padding="{StaticResource ErpHeaderPadding}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="1" Text="Nombre"
+                                           Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                            </Grid>
+                        </Border>
+                    </ListView.Header>
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="dto:SucursalDto">
+                            <Grid Height="{StaticResource ErpRowHeight}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="1" Text="{x:Bind Nombre}"
+                                           Style="{StaticResource ErpCellPrimaryStyle}"
+                                           VerticalAlignment="Center"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+                <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
+                              Width="48" Height="48"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!-- StatusBar -->
+        <Border Grid.Row="2" Style="{StaticResource ErpGridStatusBarStyle}" Margin="20,0,20,16">
+            <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                <TextBlock Style="{StaticResource ErpGridStatusTextStyle}">
+                    <Run Text="{x:Bind ViewModel.Sucursales.Count, Mode=OneWay}"/>
+                    <Run Text="sucursal(es)"/>
+                </TextBlock>
+                <TextBlock Style="{StaticResource ErpGridErrorTextStyle}"
+                           Text="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"/>
+                <TextBlock Style="{StaticResource ErpGridSuccessTextStyle}"
+                           Text="{x:Bind ViewModel.SuccessMessage, Mode=OneWay}"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Page>

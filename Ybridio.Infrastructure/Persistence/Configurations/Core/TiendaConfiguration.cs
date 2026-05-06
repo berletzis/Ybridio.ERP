@@ -4,11 +4,11 @@ using Ybridio.Domain.Core;
 
 namespace Ybridio.Infrastructure.Persistence.Configurations.Core;
 
-internal sealed class TiendaConfiguration : IEntityTypeConfiguration<Tienda>
+internal sealed class SucursalConfiguration : IEntityTypeConfiguration<Sucursal>
 {
-    public void Configure(EntityTypeBuilder<Tienda> builder)
+    public void Configure(EntityTypeBuilder<Sucursal> builder)
     {
-        builder.ToTable("Tienda", "core");
+        builder.ToTable("Sucursal", "core");
 
         builder.HasKey(e => e.Id);
         builder.Property(e => e.Id).UseIdentityColumn();
@@ -22,8 +22,8 @@ internal sealed class TiendaConfiguration : IEntityTypeConfiguration<Tienda>
         builder.Property(e => e.RowVersion).IsRowVersion();
 
         builder.HasOne(e => e.Empresa)
-            .WithMany(e => e.Tiendas)
+            .WithMany(e => e.Sucursales)
             .HasForeignKey(e => e.EmpresaId)
-            .HasConstraintName("FK_Tienda_Empresa");
+            .HasConstraintName("FK_Sucursal_Empresa");
     }
 }

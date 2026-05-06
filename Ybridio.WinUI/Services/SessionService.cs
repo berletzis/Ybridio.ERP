@@ -1,25 +1,33 @@
+using System;
 using Ybridio.Application.DTOs.Finanzas;
 using Ybridio.Application.DTOs.Seguridad;
+using Ybridio.Infrastructure.Persistence;
 
 namespace Ybridio.WinUI.Services;
 
 /// <summary>
 /// Mantiene el estado de la sesión activa del usuario en toda la aplicación.
 /// Es un singleton que se resetea al hacer logout.
+/// Implementa ISessionContext para que ErpDbContext pueda aplicar filtros globales.
 /// </summary>
-public sealed class SessionService
+public sealed class SessionService : ISessionContext
 {
+    /// <summary>
+    /// Se dispara cuando el usuario cambia la sucursal activa.
+    /// Los ViewModels se suscriben para recargar sus datos automáticamente.
+    /// </summary>
+    public event Action<int>? SucursalChanged;
     /// <summary>Usuario autenticado. Null si no hay sesión activa.</summary>
     public UsuarioDto? Usuario { get; private set; }
 
     /// <summary>ID de la empresa activa (tomado del usuario o selección posterior).</summary>
     public int EmpresaId { get; private set; }
 
-    /// <summary>ID de la tienda activa seleccionada por el usuario.</summary>
-    public int TiendaId { get; private set; }
+    /// <summary>ID de la sucursal activa seleccionada por el usuario.</summary>
+    public int SucursalId { get; private set; }
 
-    /// <summary>Nombre de la tienda activa (para mostrar en TopBar).</summary>
-    public string TiendaNombre { get; private set; } = string.Empty;
+    /// <summary>Nombre de la sucursal activa (para mostrar en TopBar).</summary>
+    public string SucursalNombre { get; private set; } = string.Empty;
 
     /// <summary>Apertura de caja activa. Null si no hay caja abierta.</summary>
     public AperturaCajaDto? CajaActiva { get; private set; }
@@ -41,8 +49,9 @@ public sealed class SessionService
     /// </summary>
     public void SetTienda(int tiendaId, string nombre)
     {
-        TiendaId = tiendaId;
-        TiendaNombre = nombre;
+        SucursalId     = tiendaId;
+        SucursalNombre = nombre;
+        SucursalChanged?.Invoke(tiendaId);
     }
 
     /// <summary>
@@ -57,8 +66,8 @@ public sealed class SessionService
     {
         Usuario = null;
         EmpresaId = 0;
-        TiendaId = 0;
-        TiendaNombre = string.Empty;
+        SucursalId = 0;
+        SucursalNombre = string.Empty;
         CajaActiva = null;
     }
 }

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(head *)",
+      "PowerShell(claude doctor *)",
+      "PowerShell(claude *)",
+      "PowerShell(& \"C:\\\\Users\\\\cberl\\\\AppData\\\\Roaming\\\\npm\\\\claude.cmd\" doctor 2>&1 | Out-String)",
+      "PowerShell(dotnet ef *)"
+    ]
+  }
+}

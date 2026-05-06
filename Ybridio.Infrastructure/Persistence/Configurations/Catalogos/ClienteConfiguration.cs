@@ -8,7 +8,7 @@ internal sealed class ClienteConfiguration : IEntityTypeConfiguration<Cliente>
 {
     public void Configure(EntityTypeBuilder<Cliente> builder)
     {
-        builder.ToTable("Cliente", "catalogos");
+        builder.ToTable("Cliente", "core");
 
         builder.HasKey(e => e.Id);
         builder.Property(e => e.Id).UseIdentityColumn();

@@ -20,6 +20,9 @@ public sealed record CrearUsuarioDto(
     string Email,
     string Password);
 
+/// <summary>DTO para actualizar datos básicos de un usuario.</summary>
+public sealed record ActualizarUsuarioDto(string Nombre, string? Email, bool Activo);
+
 /// <summary>DTO de lectura para un rol.</summary>
 public sealed record RolDto(
     Guid Id,

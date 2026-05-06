@@ -467,6 +467,40 @@ public sealed class ProductoService : IProductoService
 
     // ── Mapeo interno ─────────────────────────────────────────────────────────
 
+    public async Task<ServiceResult> ReemplazarCategoriasAsync(
+        int productoId, IReadOnlyList<int> categoriaIds, Guid usuarioId, CancellationToken ct = default)
+    {
+        try
+        {
+            var existentes = await _context.ProductoCategorias
+                .Where(pc => pc.ProductoId == productoId)
+                .ToListAsync(ct);
+
+            _context.ProductoCategorias.RemoveRange(existentes);
+
+            var ahora = DateTime.UtcNow;
+            for (int i = 0; i < categoriaIds.Count; i++)
+            {
+                _context.ProductoCategorias.Add(new ProductoCategoria
+                {
+                    ProductoId    = productoId,
+                    CategoriaId   = categoriaIds[i],
+                    EsPrincipal   = i == 0,
+                    FechaCreacion = ahora
+                });
+            }
+
+            await _context.SaveChangesAsync(ct);
+            _logger.LogInformation("Categorías del producto {ProductoId} actualizadas: {Count}.", productoId, categoriaIds.Count);
+            return ServiceResult.Ok();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al reemplazar categorías del producto {ProductoId}.", productoId);
+            return ServiceResult.Fail("Error al actualizar categorías.", ErrorCode.Unknown);
+        }
+    }
+
     private static ProductoDto MapToDto(DomainProducto p)
     {
         var categorias  = p.Categorias ?? [];

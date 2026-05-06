@@ -8,7 +8,7 @@ public class Venta : AuditableEntity
 {
     public long Id { get; set; }
     public int EmpresaId { get; set; }
-    public int TiendaId { get; set; }
+    public int SucursalId { get; set; }
     public DateTime Fecha { get; set; }
     public decimal? Total { get; set; }
     public int? CajaId { get; set; }
@@ -16,7 +16,7 @@ public class Venta : AuditableEntity
 
     // Navegación
     public Empresa Empresa { get; set; } = null!;
-    public Tienda Tienda { get; set; } = null!;
+    public Sucursal Sucursal { get; set; } = null!;
     public Caja? Caja { get; set; }
     public AperturaCaja? AperturaCaja { get; set; }
     public ICollection<VentaDetalle> Detalles { get; set; } = [];

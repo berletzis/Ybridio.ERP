@@ -7,7 +7,7 @@ internal sealed class ProductoConfiguration : IEntityTypeConfiguration<Producto>
 {
     public void Configure(EntityTypeBuilder<Producto> builder)
     {
-        builder.ToTable("Producto", "catalogos");
+        builder.ToTable("Producto", "core");
         builder.HasKey(e => e.Id);
         builder.Property(e => e.Id).UseIdentityColumn();
 

@@ -8,7 +8,7 @@ internal sealed class ProveedorConfiguration : IEntityTypeConfiguration<Proveedo
 {
     public void Configure(EntityTypeBuilder<Proveedor> builder)
     {
-        builder.ToTable("Proveedor", "catalogos");
+        builder.ToTable("Proveedor", "core");
 
         builder.HasKey(e => e.Id);
         builder.Property(e => e.Id).UseIdentityColumn();

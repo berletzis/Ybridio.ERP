@@ -26,9 +26,9 @@ internal sealed class AlmacenConfiguration : IEntityTypeConfiguration<Almacen>
             .HasForeignKey(e => e.EmpresaId)
             .HasConstraintName("FK_Almacen_Empresa");
 
-        builder.HasOne(e => e.Tienda)
+        builder.HasOne(e => e.Sucursal)
             .WithMany()
-            .HasForeignKey(e => e.TiendaId)
-            .HasConstraintName("FK_Almacen_Tienda");
+            .HasForeignKey(e => e.SucursalId)
+            .HasConstraintName("FK_Almacen_Sucursal");
     }
 }

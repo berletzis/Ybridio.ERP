@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page x:Class="Ybridio.WinUI.Views.Config.EmpresaPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <ScrollViewer Padding="32,24,32,24">
+        <StackPanel MaxWidth="600" Spacing="16">
+
+            <TextBlock Text="Empresa"
+                       Style="{StaticResource SubtitleTextBlockStyle}"
+                       Margin="0,0,0,8"/>
+
+            <TextBox Header="Nombre *"
+                     PlaceholderText="Nombre de la empresa"
+                     Text="{x:Bind ViewModel.Nombre, Mode=TwoWay}"
+                     HorizontalAlignment="Stretch"/>
+
+            <TextBox Header="RFC"
+                     PlaceholderText="Opcional"
+                     Text="{x:Bind ViewModel.Rfc, Mode=TwoWay}"
+                     HorizontalAlignment="Stretch"/>
+
+            <TextBlock Text="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
+                       Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                       TextWrapping="Wrap"/>
+
+            <TextBlock Text="{x:Bind ViewModel.SuccessMessage, Mode=OneWay}"
+                       Foreground="{ThemeResource AccentFillColorDefaultBrush}"
+                       TextWrapping="Wrap"/>
+
+            <Button Content="Guardar"
+                    Command="{x:Bind ViewModel.GuardarCommand}"
+                    Style="{StaticResource AccentButtonStyle}"
+                    HorizontalAlignment="Left"
+                    Margin="0,8,0,0"/>
+
+            <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
+                          Width="32" Height="32"
+                          HorizontalAlignment="Left"/>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>

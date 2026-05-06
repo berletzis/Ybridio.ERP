@@ -1,10 +1,12 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-
 using System;
+using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
+using Ybridio.Application.DTOs.Core;
 using Ybridio.Application.Services.Caja;
+using Ybridio.Application.Services.Sucursal;
 using Ybridio.WinUI.Services;
 using Ybridio.WinUI.Views;
 using Ybridio.WinUI.Views.Configuracion;
@@ -21,6 +23,10 @@ public sealed partial class ShellViewModel : ObservableObject
     private readonly INavigationService _navigation;
     private readonly SessionService _session;
     private readonly ICajaService _caja;
+    private readonly ISucursalService _sucursalService;
+
+    /// <summary>Sucursales disponibles para el usuario actual. Alimenta el selector del header.</summary>
+    public ObservableCollection<SucursalDto> SucursalesDisponibles { get; } = [];
 
     // ── TopBar ───────────────────────────────────────────────────────────────
 
@@ -28,7 +34,7 @@ public sealed partial class ShellViewModel : ObservableObject
     private string usuarioNombre = string.Empty;
 
     [ObservableProperty]
-    private string tiendaNombre = string.Empty;
+    private string sucursalNombre = string.Empty;
 
     [ObservableProperty]
     private string cajaEstado = "Sin caja";
@@ -39,19 +45,32 @@ public sealed partial class ShellViewModel : ObservableObject
     [ObservableProperty]
     private string seccionActiva = "Ybridio ERP";
 
-    public ShellViewModel(INavigationService navigation, SessionService session, ICajaService caja)
+    public ShellViewModel(
+        INavigationService navigation,
+        SessionService session,
+        ICajaService caja,
+        ISucursalService sucursalService)
     {
-        _navigation = navigation;
-        _session = session;
-        _caja = caja;
+        _navigation      = navigation;
+        _session         = session;
+        _caja            = caja;
+        _sucursalService = sucursalService;
     }
 
     public async Task InitializeAsync(Microsoft.UI.Xaml.Controls.Frame innerFrame, CancellationToken ct = default)
     {
         _navigation.Frame = innerFrame;
 
-        UsuarioNombre = _session.Usuario?.Nombre ?? "—";
-        TiendaNombre = _session.TiendaNombre.Length > 0 ? _session.TiendaNombre : "Sin tienda";
+        UsuarioNombre  = _session.Usuario?.Nombre ?? "—";
+        SucursalNombre = _session.SucursalNombre.Length > 0 ? _session.SucursalNombre : "Sin sucursal";
+
+        // Cargar sucursales disponibles para el selector del header
+        if (_session.Usuario is not null)
+        {
+            var sucursales = await _sucursalService.ListarPorUsuarioAsync(_session.Usuario.Id, ct);
+            SucursalesDisponibles.Clear();
+            foreach (var t in sucursales) SucursalesDisponibles.Add(t);
+        }
 
         await RefreshCajaAsync(ct);
 
@@ -110,8 +129,14 @@ public sealed partial class ShellViewModel : ObservableObject
                 break;
 
             case "Configuracion":
+            case "ConfiguracionGlobal":
                 SeccionActiva = "Configuración";
-                _navigation.NavigateTo(typeof(ConfiguracionPage));
+                _navigation.NavigateTo(typeof(ConfiguracionPage), "Global");
+                break;
+
+            case "ConfiguracionTienda":
+                SeccionActiva = "Config. Tienda";
+                _navigation.NavigateTo(typeof(ConfiguracionPage), "Tienda");
                 break;
         }
     }
@@ -163,6 +188,15 @@ public sealed partial class ShellViewModel : ObservableObject
                 // TODO: navegar a la página correspondiente cuando esté implementada
                 break;
         }
+    }
+
+    // ── Selector de sucursal ─────────────────────────────────────────────────
+
+    [RelayCommand]
+    private void SeleccionarSucursal(SucursalDto sucursal)
+    {
+        _session.SetTienda(sucursal.Id, sucursal.Nombre);
+        SucursalNombre = sucursal.Nombre;
     }
 
     // ── Logout ───────────────────────────────────────────────────────────────

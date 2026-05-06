@@ -26,8 +26,8 @@ internal sealed class CajaConfiguration : IEntityTypeConfiguration<Caja>
             .WithMany()
             .HasForeignKey(e => e.EmpresaId);
 
-        builder.HasOne(e => e.Tienda)
+        builder.HasOne(e => e.Sucursal)
             .WithMany()
-            .HasForeignKey(e => e.TiendaId);
+            .HasForeignKey(e => e.SucursalId);
     }
 }

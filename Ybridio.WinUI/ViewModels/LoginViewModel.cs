@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Ybridio.Application.Common;
 using Ybridio.Application.Services.Auth;
+using Ybridio.Application.Services.Sucursal;
 using Ybridio.WinUI.Services;
 using Ybridio.WinUI.Views;
 
@@ -22,6 +23,7 @@ public sealed partial class LoginViewModel : ObservableObject
     private readonly IAuthService _auth;
     private readonly SessionService _session;
     private readonly INavigationService _navigation;
+    private readonly ISucursalService _sucursales;
 
     [ObservableProperty]
     private string email = string.Empty;
@@ -35,11 +37,16 @@ public sealed partial class LoginViewModel : ObservableObject
     [ObservableProperty]
     private bool isBusy;
 
-    public LoginViewModel(IAuthService auth, SessionService session, INavigationService navigation)
+    public LoginViewModel(
+        IAuthService auth,
+        SessionService session,
+        INavigationService navigation,
+        ISucursalService sucursales)
     {
         _auth = auth;
         _session = session;
         _navigation = navigation;
+        _sucursales = sucursales;
     }
 
     [RelayCommand(CanExecute = nameof(CanLogin))]
@@ -61,7 +68,11 @@ public sealed partial class LoginViewModel : ObservableObject
 
             _session.SetUsuario(result.Value!);
 
-            // Navegar al Shell; el Shell cargará el Dashboard
+            // Auto-seleccionar primera sucursal disponible del usuario
+            var sucursales = await _sucursales.ListarPorUsuarioAsync(result.Value!.Id, ct);
+            if (sucursales.Count > 0)
+                _session.SetTienda(sucursales[0].Id, sucursales[0].Nombre);
+
             _navigation.NavigateTo(typeof(ShellPage));
         }
         finally

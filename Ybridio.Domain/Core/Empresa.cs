@@ -9,5 +9,5 @@ public class Empresa : AuditableEntity
     public string? RFC { get; set; }
 
     // Navegación
-    public ICollection<Tienda> Tiendas { get; set; } = [];
+    public ICollection<Sucursal> Sucursales { get; set; } = [];
 }

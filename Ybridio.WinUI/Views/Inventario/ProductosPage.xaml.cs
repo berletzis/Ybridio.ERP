@@ -7,6 +7,7 @@ using System;
 using System.Linq;
 using Ybridio.Application.DTOs.Catalogos;
 using Ybridio.WinUI.Controls.Navigation;
+using Ybridio.WinUI.Helpers;
 using Ybridio.WinUI.Services.Windowing;
 using Ybridio.WinUI.ViewModels.Inventario;
 
@@ -15,6 +16,7 @@ namespace Ybridio.WinUI.Views.Inventario;
 public sealed partial class ProductosPage : Page
 {
     private readonly IWindowManager _windowManager;
+    private DataGridColumnManager? _columnManager;
 
     public ProductosViewModel ViewModel { get; }
 
@@ -25,6 +27,12 @@ public sealed partial class ProductosPage : Page
         InitializeComponent();
     }
 
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        base.OnNavigatedFrom(e);
+        ViewModel.DetachFromContext();
+    }
+
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
@@ -33,6 +41,9 @@ public sealed partial class ProductosPage : Page
         ViewModel.SolicitarComparar      = AbrirVentanaComparar;
         // Sincronizar panel cuando el filtro se limpia desde el ViewModel
         ViewModel.FiltroLimpiadoCallback = () => ClasificacionPanel.ClearSelection();
+
+        _columnManager ??= DataGridColumnManager.Initialize(
+            ListaProductos, ProductosHeaderGrid, "ProductosGrid");
 
         if (ViewModel.LoadCommand.CanExecute(null))
             await ViewModel.LoadCommand.ExecuteAsync(null);

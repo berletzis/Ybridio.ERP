@@ -45,15 +45,15 @@ public sealed class CajaService : ICajaService
                     ErrorCode.CajaNotFound);
             }
 
-            var perteneceATienda = await _context.UsuariosTiendas
+            var perteneceATienda = await _context.UsuariosSucursales
                 .AsNoTracking()
-                .AnyAsync(ut => ut.UsuarioId == dto.UsuarioId && ut.TiendaId == caja.TiendaId, ct);
+                .AnyAsync(ut => ut.UsuarioId == dto.UsuarioId && ut.SucursalId == caja.SucursalId, ct);
 
             if (!perteneceATienda)
             {
                 _logger.LogWarning(
-                    "{OperationId} Usuario {UsuarioId} no pertenece a tienda {TiendaId} de caja {CajaId}.",
-                    opId, dto.UsuarioId, caja.TiendaId, dto.CajaId);
+                    "{OperationId} Usuario {UsuarioId} no pertenece a tienda {SucursalId} de caja {CajaId}.",
+                    opId, dto.UsuarioId, caja.SucursalId, dto.CajaId);
                 return ServiceResult<AperturaCajaDto>.Fail(
                     "El usuario no pertenece a la tienda de esta caja.",
                     ErrorCode.CajaTiendaMismatch);
@@ -193,7 +193,7 @@ public sealed class CajaService : ICajaService
         return await _context.Cajas
             .AsNoTracking()
             .Where(c => c.EmpresaId == empresaId)
-            .Select(c => new CajaDto(c.Id, c.EmpresaId, c.TiendaId, c.Nombre, c.Saldo))
+            .Select(c => new CajaDto(c.Id, c.EmpresaId, c.SucursalId, c.Nombre, c.Saldo))
             .ToListAsync(ct);
     }
 

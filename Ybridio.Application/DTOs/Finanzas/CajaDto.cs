@@ -4,7 +4,7 @@ namespace Ybridio.Application.DTOs.Finanzas;
 public sealed record CajaDto(
     int Id,
     int EmpresaId,
-    int TiendaId,
+    int SucursalId,
     string Nombre,
     decimal Saldo);
 

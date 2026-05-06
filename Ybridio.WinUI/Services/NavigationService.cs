@@ -25,7 +25,9 @@ public sealed class NavigationService : INavigationService
         if (Frame is null)
             return false;
 
-        if (Frame.CurrentSourcePageType == pageType)
+        // Permite re-navegación a la misma página cuando se pasa parámetro distinto
+        // (p.ej. ConfiguracionPage con "Global" vs "Tienda")
+        if (Frame.CurrentSourcePageType == pageType && parameter is null)
             return false;
 
         return Frame.Navigate(pageType, parameter);

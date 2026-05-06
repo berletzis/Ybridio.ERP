@@ -34,8 +34,8 @@ public sealed class VentaService : IVentaService
 
         var opId = OperationContext.CurrentId;
         _logger.LogInformation(
-            "Venta iniciada {OperationId} Usuario:{UsuarioId} Tienda:{TiendaId} Empresa:{EmpresaId}",
-            opId, usuarioId, dto.TiendaId, dto.EmpresaId);
+            "Venta iniciada {OperationId} Usuario:{UsuarioId} Tienda:{SucursalId} Empresa:{EmpresaId}",
+            opId, usuarioId, dto.SucursalId, dto.EmpresaId);
 
         try
         {
@@ -53,15 +53,15 @@ public sealed class VentaService : IVentaService
                     $"ProductoId:{itemInvalido.ProductoId}");
 
             // ── 1. Validar que el usuario pertenece a la tienda ───────────────────
-            var perteneceATienda = await _context.UsuariosTiendas
+            var perteneceATienda = await _context.UsuariosSucursales
                 .AsNoTracking()
-                .AnyAsync(ut => ut.UsuarioId == usuarioId && ut.TiendaId == dto.TiendaId, ct);
+                .AnyAsync(ut => ut.UsuarioId == usuarioId && ut.SucursalId == dto.SucursalId, ct);
 
             if (!perteneceATienda)
             {
                 _logger.LogWarning(
-                    "{OperationId} Usuario {UsuarioId} no pertenece a la tienda {TiendaId}.",
-                    opId, usuarioId, dto.TiendaId);
+                    "{OperationId} Usuario {UsuarioId} no pertenece a la tienda {SucursalId}.",
+                    opId, usuarioId, dto.SucursalId);
                 return ServiceResult<VentaDto>.Fail(
                     "El usuario no pertenece a la tienda indicada.",
                     ErrorCode.VentaUsuarioTiendaMismatch);
@@ -70,22 +70,22 @@ public sealed class VentaService : IVentaService
             // ── 2. Validar que la caja pertenece a la misma tienda ────────────────
             if (dto.CajaId.HasValue)
             {
-                var cajaTiendaId = await _context.Cajas
+                var cajaSucursalId = await _context.Cajas
                     .AsNoTracking()
                     .Where(c => c.Id == dto.CajaId.Value)
-                    .Select(c => (int?)c.TiendaId)
+                    .Select(c => (int?)c.SucursalId)
                     .FirstOrDefaultAsync(ct);
 
-                if (cajaTiendaId is null)
+                if (cajaSucursalId is null)
                     return ServiceResult<VentaDto>.Fail(
                         $"Caja {dto.CajaId} no encontrada.",
                         ErrorCode.CajaNotFound);
 
-                if (cajaTiendaId != dto.TiendaId)
+                if (cajaSucursalId != dto.SucursalId)
                 {
                     _logger.LogWarning(
                         "{OperationId} Caja {CajaId} pertenece a tienda {CajaTienda}, no a tienda {VentaTienda}.",
-                        opId, dto.CajaId, cajaTiendaId, dto.TiendaId);
+                        opId, dto.CajaId, cajaSucursalId, dto.SucursalId);
                     return ServiceResult<VentaDto>.Fail(
                         "La caja no pertenece a la tienda de la venta.",
                         ErrorCode.VentaCajaTiendaMismatch);
@@ -121,7 +121,7 @@ public sealed class VentaService : IVentaService
                 var venta = new DomainVenta
                 {
                     EmpresaId = dto.EmpresaId,
-                    TiendaId = dto.TiendaId,
+                    SucursalId = dto.SucursalId,
                     CajaId = dto.CajaId,
                     AperturaCajaId = dto.AperturaCajaId,
                     Fecha = dto.Fecha,
@@ -249,8 +249,8 @@ public sealed class VentaService : IVentaService
             {
                 await transaction.RollbackAsync(ct);
                 _logger.LogWarning(ex,
-                    "{OperationId} Conflicto de concurrencia. Usuario:{UsuarioId} Tienda:{TiendaId}",
-                    opId, usuarioId, dto.TiendaId);
+                    "{OperationId} Conflicto de concurrencia. Usuario:{UsuarioId} Tienda:{SucursalId}",
+                    opId, usuarioId, dto.SucursalId);
                 return ServiceResult<VentaDto>.Fail(
                     "Conflicto de concurrencia: el inventario fue modificado por otro proceso. Intenta de nuevo.",
                     ErrorCode.ConcurrencyConflict);
@@ -259,8 +259,8 @@ public sealed class VentaService : IVentaService
             {
                 await transaction.RollbackAsync(ct);
                 _logger.LogError(ex,
-                    "{OperationId} Error inesperado al crear venta. Usuario:{UsuarioId} Tienda:{TiendaId}",
-                    opId, usuarioId, dto.TiendaId);
+                    "{OperationId} Error inesperado al crear venta. Usuario:{UsuarioId} Tienda:{SucursalId}",
+                    opId, usuarioId, dto.SucursalId);
                 return ServiceResult<VentaDto>.Fail(
                     "Error inesperado al procesar la venta.",
                     ErrorCode.Unknown);
@@ -308,8 +308,8 @@ public sealed class VentaService : IVentaService
             .Select(v => new VentaDto(
                 v.Id,
                 v.EmpresaId,
-                v.TiendaId,
-                v.Tienda.Nombre,
+                v.SucursalId,
+                v.Sucursal.Nombre,
                 v.Fecha,
                 v.Total ?? 0,
                 v.CajaId,
@@ -320,5 +320,5 @@ public sealed class VentaService : IVentaService
     // ── mapeo interno ──────────────────────────────────────────────────────────
 
     private static VentaDto MapToDto(DomainVenta v) =>
-        new(v.Id, v.EmpresaId, v.TiendaId, string.Empty, v.Fecha, v.Total ?? 0, v.CajaId, v.AperturaCajaId);
+        new(v.Id, v.EmpresaId, v.SucursalId, string.Empty, v.Fecha, v.Total ?? 0, v.CajaId, v.AperturaCajaId);
 }

@@ -5,6 +5,9 @@ using Ybridio.Application.Services.Caja;
 using Ybridio.Application.Services.Inventario;
 using Ybridio.Application.Services.Permisos;
 using Ybridio.Application.Services.Producto;
+using Ybridio.Application.Services.Empresa;
+using Ybridio.Application.Services.Seguridad;
+using Ybridio.Application.Services.Sucursal;
 using Ybridio.Application.Services.Venta;
 
 namespace Ybridio.Application.Extensions;
@@ -21,7 +24,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IVentaService, VentaService>();
         services.AddScoped<IInventarioService, InventarioService>();
         services.AddScoped<IPermisoService, PermisoService>();
-        services.AddScoped<IProductoService, ProductoService>();  // ← NUEVO
+        services.AddScoped<IProductoService, ProductoService>();
+        services.AddScoped<ISucursalService, SucursalService>();
+        services.AddScoped<IEmpresaService, EmpresaService>();
+        services.AddScoped<IUsuarioService, UsuarioService>();
+        services.AddScoped<IRolService, RolService>();
 
         // Caché de permisos: NullCache por defecto
         services.AddSingleton<IPermissionCache, NullPermissionCache>();

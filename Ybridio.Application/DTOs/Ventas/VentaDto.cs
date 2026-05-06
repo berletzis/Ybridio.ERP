@@ -4,8 +4,8 @@ namespace Ybridio.Application.DTOs.Ventas;
 public sealed record VentaDto(
     long Id,
     int EmpresaId,
-    int TiendaId,
-    string TiendaNombre,
+    int SucursalId,
+    string SucursalNombre,
     DateTime Fecha,
     decimal Total,
     int? CajaId,
@@ -14,7 +14,7 @@ public sealed record VentaDto(
 /// <summary>DTO para registrar una Venta (input POS).</summary>
 public sealed record RegistrarVentaDto(
     int EmpresaId,
-    int TiendaId,
+    int SucursalId,
     int? CajaId,
     int? AperturaCajaId,
     DateTime Fecha,
