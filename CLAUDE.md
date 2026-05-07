@@ -26,7 +26,7 @@ No unit test projects exist yet.
 - **Typography**: `ErpCellFontSize=14`, `ErpHeaderFontSize=13`, `ErpRowHeight=56` — defined in `Styles/DataGrid/DataGridBase.xaml`
 - **DataGrid container**: wrap the ListView in `<Border Margin="20,8,20,0" Background="White" BorderBrush="#E5E5E5" BorderThickness="1">` — consistent across all modules
 - **Tabs**: `OutlookTabItemStyle` in `App.xaml` — FontSize=14, MinHeight=40, blue underline indicator, SemiBold when active
-- **Shell TopBar**: shows only section title + tienda/caja + user; search lives inside each module page
+- **Shell TopBar**: shows only section title + sucursal/caja + user; search lives inside each module page
 
 ## Architecture
 
@@ -51,13 +51,50 @@ Ybridio.WinUI           → WinUI 3 presentation (Windows App SDK 2.0.1)
 - Connection string is hardcoded in `App.xaml.cs` (dev environment only)
 - **Global soft-delete filter**: `OnModelCreating` applies `!Borrado` automatically to all `AuditableEntity` and `CreationAuditEntity` subclasses. Plain entities (e.g., `ProductoCategoria`) have NO filter.
 
-### Domain — Producto↔Categoría (N:N)
-`Producto` no longer has a direct `CategoriaId` FK. The relationship is **many-to-many via `ProductoCategoria`**:
+### DB Schema layout
+
+Schemas after reclassification:
 
 ```
-catalogos.Producto
-catalogos.CategoriaProducto   ← self-referencing via CategoriaPadreId (hierarchy)
-catalogos.ProductoCategoria   ← join table: Id, ProductoId, CategoriaId, EsPrincipal, FechaCreacion
+core/           → business entities (transactional / operational)
+  Empresa, Sucursal, Cliente, Proveedor
+  Producto, ProductoCategoria, ProductoSucursal
+  (previously: Tienda renamed to Sucursal; Producto/Cliente/Proveedor moved from catalogos)
+
+catalogos/      → reference / lookup data only
+  CategoriaProducto, TipoProducto, TipoImpuesto, UnidadMedida
+  Moneda, FormaPago, MetodoPago, TipoDocumento, EstatusGeneral
+  Pais, Estado, Ciudad
+
+inventario/     → Almacen, Existencia, MovimientoInventario, TipoMovimientoInventario
+finanzas/       → Caja, AperturaCaja, MovimientoCaja, TipoMovimientoCaja
+ventas/         → Venta, VentaDetalle, Factura
+compras/        → OrdenCompra, OrdenCompraDetalle, RecepcionCompra, RecepcionCompraDetalle
+seguridad/      → Usuario, Rol, UsuarioSucursal, UsuarioPermiso, Modulo, Permiso, RolPermiso
+                   + Identity tables (UsuarioClaim, UsuarioLogin, UsuarioToken, UsuarioRol, RolClaim)
+```
+
+**Rule**: never add transactional/business tables to `catalogos`. Only lookup/reference data belongs there.
+
+### Domain — Tienda → Sucursal (completed rename)
+
+The entity formerly known as `Tienda` is now `Sucursal` everywhere:
+- `Ybridio.Domain.Core.Sucursal` (was `Tienda`)
+- `ISucursalService` / `SucursalService` / `SucursalDto` (was `ITiendaService` etc.)
+- `SessionService.SucursalId`, `SucursalNombre`, `SucursalChanged` event
+- `BaseContextViewModel` subscribes to `SucursalChanged` via `HandleSucursalChanged`
+- `ShellViewModel.SucursalesDisponibles`, `SeleccionarSucursalCommand`
+- DB table: `core.Sucursal` (was `core.Tienda`)
+- Join table: `core.ProductoSucursal` (was `catalogos.ProductoTienda`)
+- Security table: `seguridad.UsuarioSucursal` (was `seguridad.UsuarioTienda`)
+
+### Domain — Producto↔Categoría (N:N)
+`Produto` no longer has a direct `CategoriaId` FK. The relationship is **many-to-many via `ProductoCategoria`**:
+
+```
+core.Produto                   ← moved from catalogos
+catalogos.CategoriaProducto    ← self-referencing via CategoriaPadreId (hierarchy) — stays in catalogos
+core.ProductoCategoria         ← join table: Id, ProductoId, CategoriaId, EsPrincipal, FechaCreacion
 ```
 
 - `ProductoCategoria` is NOT an `AuditableEntity` (no `Borrado` column) — no global filter applies
@@ -84,7 +121,7 @@ return lista.Select(MapToDto).ToList();
 - **MVVM**: CommunityToolkit.Mvvm 8.4.0 — `ObservableObject`, `[ObservableProperty]`, `[RelayCommand]`
 - **DI**: `Microsoft.Extensions.DependencyInjection` via `App.Services` static property
 - **Navigation**: `INavigationService` (singleton) wraps a WinUI `Frame`; prevents duplicate navigation to the same page type
-- **Session**: `SessionService` (singleton) holds logged-in user, tienda, caja activa
+- **Session**: `SessionService` (singleton) holds logged-in user, sucursal activa (`SucursalId`, `SucursalNombre`), caja activa. Event `SucursalChanged` notifica cambio de sucursal.
 
 ## Key Patterns
 
@@ -217,6 +254,54 @@ lista.Where(p => p.CategoriaIds.Any(id => _categoriaFiltroIds.Contains(id)))
 
 `MainWindow` is registered as **singleton** (`services.AddSingleton<MainWindow>()`); `OnLaunched` retrieves it via `Services.GetRequiredService<MainWindow>()`.
 
+### Shell sidebar (Outlook style)
+
+The shell sidebar uses icon-on-top + label-below buttons (72×64px, transparent background) in a `Grid` named `NavButtonsPanel`. The Grid uses a `*` spacer row to push config buttons to the bottom:
+
+```
+[Dashboard] [POS] [Inventario] [Ventas] [Contactos]
+            ────────── spacer * ──────────
+            ──── separator 1px ────
+[Global]  [Sucursal]  [Salir]
+```
+
+- `ModuleButton_Click` → `ViewModel.SelectModuleCommand.Execute(tag)`
+- `SetActiveNavButton(btn)` iterates `NavButtonsPanel.Children` and highlights the active button
+- Tags for config: `"ConfiguracionGlobal"` → `ConfiguracionPage` with param `"Global"` | `"ConfiguracionTienda"` → param `"Tienda"` (legacy tag — kept for nav routing, opens Sucursal config tabs)
+
+### ConfiguracionPage — dual-mode (Global / Sucursal)
+
+`ConfiguracionPage` shows two different `TabView` sets based on the navigation parameter:
+
+| Parámetro | TabView visible | Tabs |
+|---|---|---|
+| `"Global"` (default) | `TabsGlobal` | Empresa · Sucursales · Auditoría del Sistema · Seguridad |
+| `"Tienda"` | `TabsTienda` | Usuarios · Cajas · Dispositivos · Promociones · Almacenes · Permisos · Facturación · Personalización |
+
+`NavigationService` allows re-navigation to the same page when a parameter is passed (guard bypassed). The page determines visibility in `OnNavigatedTo`.
+
+### Audit services
+
+Two independent audit services in `Ybridio.Infrastructure.Persistence.Audit/`:
+
+**`ISchemaAuditService`** — compares EF model vs actual DB schema (structural audit):
+- Detects missing tables, missing columns, type mismatches, pending migrations, orphan FK constraints
+- Severities: `Critical` (FK/type mismatch) · `Error` (missing table/column) · `Warning` (orphan) · `Info`
+
+**`IDatabaseAuditService`** — validates data integrity post-migration (data audit):
+- `GetInvalidForeignKeysAsync()` — FK integrity in `core.Produto` (TipoProductoId, UnidadMedidaId, TipoImpuestoId)
+- `GetOrphanRecordsAsync()` — migmap tables integrity
+- `GetLegacyDependenciesAsync()` — FK constraints still pointing to `dbo` schema
+- `GetUnmigratedRecordsAsync()` — dbo records without migmap entry
+- `GetDuplicateCatalogsAsync()` — duplicate Nombre/Clave per catalog
+- `GetDataIssuesAsync()` → hierarchy, impuesto % range, abreviatura truncation, geography
+
+Both services are registered `Transient` and exposed in **Config Global → Auditoría del Sistema** tab.
+
+SQL queries in `DatabaseAuditService` use **schema-qualified table names** that must match the actual DB:
+- `core.Produto` (NOT `catalogos.Produto` — moved!)
+- `catalogos.TipoProducto`, `catalogos.CategoriaProducto` — stay in catalogos
+
 ---
 
 ## Conventions (obligatorias en todo código nuevo)
@@ -226,7 +311,7 @@ lista.Where(p => p.CategoriaIds.Any(id => _categoriaFiltroIds.Contains(id)))
 | Elemento | Regla | Ejemplo |
 |---|---|---|
 | Clases | PascalCase | `ProductoService`, `UsuarioDto` |
-| Interfaces | Prefijo `I` + PascalCase | `IProductoService`, `ITiendaService` |
+| Interfaces | Prefijo `I` + PascalCase | `IProductoService`, `ISucursalService` |
 | Métodos | PascalCase; async → sufijo `Async` | `ObtenerProductosAsync`, `GuardarAsync` |
 | Propiedades | PascalCase | `FechaCreacion`, `EmpresaId` |
 | Campos privados | `_camelCase` | `_session`, `_roleManager` |
@@ -299,10 +384,10 @@ public async Task<ServiceResult<ProductoDto>> CrearAsync(
 
 | Type | Required in `<summary>` |
 |---|---|
-| Service / interface | What it does, which business rules it enforces, which context (Empresa/Tienda) it uses |
+| Service / interface | What it does, which business rules it enforces, which context (Empresa/Sucursal) it uses |
 | DTO / record | Purpose, which operation it belongs to, nullable semantics |
 | Entity | Business meaning, key relationships, soft-delete / audit behavior |
-| ViewModel | Which page it serves, which events it reacts to (e.g. `TiendaChanged`) |
+| ViewModel | Which page it serves, which events it reacts to (e.g. `SucursalChanged`) |
 | Migration | Why it exists (drift fix, new feature, schema change) |
 
 **Rules:**

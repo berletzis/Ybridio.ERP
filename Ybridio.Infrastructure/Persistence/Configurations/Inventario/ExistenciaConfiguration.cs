@@ -15,8 +15,7 @@ internal sealed class ExistenciaConfiguration : IEntityTypeConfiguration<Existen
 
         builder.Property(e => e.Cantidad).IsRequired().HasColumnType("decimal(18,6)");
 
-        builder.Property(e => e.FechaCreacion).IsRequired()
-            .HasDefaultValueSql("getdate()");
+        builder.Property(e => e.FechaCreacion).IsRequired().HasDefaultValueSql("getdate()");
         builder.Property(e => e.UsuarioCreacionId).IsRequired();
         builder.Property(e => e.Borrado).IsRequired().HasDefaultValue(false);
         builder.Property(e => e.RowVersion).IsRowVersion();
@@ -36,7 +35,11 @@ internal sealed class ExistenciaConfiguration : IEntityTypeConfiguration<Existen
             .HasForeignKey(e => e.ProductoId)
             .HasConstraintName("FK_Existencia_Producto");
 
-        // Un producto solo puede tener un registro de existencia por almacén y empresa
+        builder.HasOne(e => e.Sucursal)
+            .WithMany()
+            .HasForeignKey(e => e.SucursalId)
+            .HasConstraintName("FK_Existencia_Sucursal");
+
         builder.HasIndex(e => new { e.EmpresaId, e.AlmacenId, e.ProductoId })
             .IsUnique()
             .HasDatabaseName("UX_Existencia_EmpresaId_AlmacenId_ProductoId");

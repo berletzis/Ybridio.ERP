@@ -5,7 +5,22 @@
       "PowerShell(claude doctor *)",
       "PowerShell(claude *)",
       "PowerShell(& \"C:\\\\Users\\\\cberl\\\\AppData\\\\Roaming\\\\npm\\\\claude.cmd\" doctor 2>&1 | Out-String)",
-      "PowerShell(dotnet ef *)"
+      "PowerShell(dotnet ef *)",
+      "PowerShell(Test-Path \"D:\\\\Users\\\\berletzis\\\\Source\\\\Repos\\\\Ybridio.ERP\\\\Ybridio.WinUI\\\\ViewModels\\\\Inventario\" && \\(Get-ChildItem \"D:\\\\Users\\\\berletzis\\\\Source\\\\Repos\\\\Ybridio.ERP\\\\Ybridio.WinUI\\\\ViewModels\\\\Inventario\\\\\" | Select-Object Name\\) || \"No existe\")",
+      "PowerShell(Get-ChildItem -Path \"D:\\\\Users\\\\berletzis\\\\Source\\\\Repos\\\\Ybridio.ERP\\\\Ybridio.WinUI\\\\ViewModels\\\\Inventario\" -Force 2>$null | Select-Object Name, @{N=\"Type\";E={$_.PSIsContainer ? \"Folder\" : \"File\"}})",
+      "PowerShell(Get-ChildItem -Path \"D:\\\\Users\\\\berletzis\\\\Source\\\\Repos\\\\Ybridio.ERP\\\\Ybridio.WinUI\\\\ViewModels\\\\Inventario\" -File | Select-Object Name, @{N=\"Size\";E={$_.Length}})",
+      "PowerShell(Get-ChildItem -Path \"D:\\\\Users\\\\berletzis\\\\Source\\\\Repos\\\\Ybridio.ERP\\\\Ybridio.WinUI\\\\Views\\\\Inventario\" -File | Select-Object Name, @{N=\"Type\";E={$_.Extension}} | Sort-Object Name)",
+      "PowerShell(ls -Force \"D:\\\\Users\\\\berletzis\\\\Source\\\\Repos\\\\Ybridio.ERP\\\\Ybridio.WinUI\\\\Views\\\\Inventario\" | where {!$_.PSIsContainer} | Select-Object Name)",
+      "PowerShell([System.IO.Directory]::GetFiles\\(\"D:\\\\Users\\\\berletzis\\\\Source\\\\Repos\\\\Ybridio.ERP\\\\Ybridio.WinUI\\\\Views\\\\Inventario\"\\) | ForEach-Object { [System.IO.Path]::GetFileName\\($_\\) })",
+      "PowerShell(dotnet build *)",
+      "PowerShell($json = Get-Content \"D:\\\\Users\\\\berletzis\\\\Source\\\\Repos\\\\Ybridio.ERP\\\\Ybridio.WinUI\\\\obj\\\\x64\\\\Debug\\\\net8.0-windows10.0.19041.0\\\\win-x64\\\\output.json\" | ConvertFrom-Json; $json.MSBuildLogEntries | Where-Object { $_.ErrorCode -ne \"\" -or $_.Message -match \"error|Error|WMC\" } | Select-Object File, LineNumber, Message | Format-List)",
+      "PowerShell($json = Get-Content \"D:\\\\Users\\\\berletzis\\\\Source\\\\Repos\\\\Ybridio.ERP\\\\Ybridio.WinUI\\\\obj\\\\x64\\\\Debug\\\\net8.0-windows10.0.19041.0\\\\win-x64\\\\output.json\" | ConvertFrom-Json; $json.MSBuildLogEntries | Where-Object { $_.Message -match \"WMC[0-9]|cannot be|not found|does not|invalid|Failed|fail\" } | Select-Object File, LineNumber, Message | Format-List | Out-String -Width 300)",
+      "PowerShell($json = Get-Content \"D:\\\\Users\\\\berletzis\\\\Source\\\\Repos\\\\Ybridio.ERP\\\\Ybridio.WinUI\\\\obj\\\\x64\\\\Debug\\\\net8.0-windows10.0.19041.0\\\\win-x64\\\\output.json\" | ConvertFrom-Json; $json.MSBuildLogEntries | Where-Object { $_.File -ne \"\" } | Select-Object File, LineNumber, Message | Format-List | Out-String -Width 300 | Select-Object -First 80)",
+      "PowerShell($json = Get-Content \"D:\\\\Users\\\\berletzis\\\\Source\\\\Repos\\\\Ybridio.ERP\\\\Ybridio.WinUI\\\\obj\\\\x64\\\\Debug\\\\net8.0-windows10.0.19041.0\\\\win-x64\\\\output.json\" | ConvertFrom-Json; $json.MSBuildLogEntries | Where-Object { $_.Message -notmatch \"perfXC|Marker\" } | Select-Object File, LineNumber, Message | Format-List | Out-String -Width 300)",
+      "PowerShell(Get-ChildItem \"D:\\\\Users\\\\berletzis\\\\Source\\\\Repos\\\\Ybridio.ERP\\\\Ybridio.Domain\\\\Inventario\\\\\" -File | Select-Object FullName | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem \"D:\\\\Users\\\\berletzis\\\\Source\\\\Repos\\\\Ybridio.ERP\\\\Ybridio.Infrastructure\\\\Persistence\\\\Configurations\\\\\" -File | Select-Object FullName | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem \"D:\\\\Users\\\\berletzis\\\\Source\\\\Repos\\\\Ybridio.ERP\\\\Ybridio.Infrastructure\\\\Persistence\\\\Configurations\" | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem \"D:\\\\Users\\\\berletzis\\\\Source\\\\Repos\\\\Ybridio.ERP\\\\Ybridio.Infrastructure\\\\Persistence\\\\Configurations\\\\Inventario\\\\\" | ForEach-Object { $_.FullName })"
     ]
   }
 }

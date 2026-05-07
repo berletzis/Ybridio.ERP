@@ -1,5 +1,7 @@
-﻿using Microsoft.UI.Xaml.Controls;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
+using Ybridio.WinUI.Services.Diagnostic;
 
 namespace Ybridio.WinUI.Views.Inventario;
 
@@ -14,9 +16,12 @@ public sealed partial class InventarioPage : Page
     private bool _ordenesCompraLoaded;
     private bool _productosLoaded;
 
+    private readonly ICurrentContextTracker _contextTracker;
+
     public InventarioPage()
     {
         InitializeComponent();
+        _contextTracker = App.Services.GetRequiredService<ICurrentContextTracker>();
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -35,7 +40,10 @@ public sealed partial class InventarioPage : Page
     {
         if (tab is null) return;
 
-        // Solo navega si el frame de ese tab aún no ha cargado
+        // Notificar el sub-módulo activo antes de cargar/activar
+        var subModule = tab.Header?.ToString() ?? "—";
+        _contextTracker.SetModuleContext("Inventario", subModule);
+
         if (tab == TabExistencias && !_existenciasLoaded)
         {
             FrameExistencias.Navigate(typeof(ExistenciasPage));
@@ -71,5 +79,24 @@ public sealed partial class InventarioPage : Page
             FrameProductos.Navigate(typeof(ProductosPage));
             _productosLoaded = true;
         }
+        else
+        {
+            // Tab ya cargado — pedir al contenido que re-reporte su contexto vivo
+            var frame = GetFrameForTab(tab);
+            if (frame?.Content is ILiveContextReporter reporter)
+                reporter.ReportLiveContext();
+        }
+    }
+
+    private Frame? GetFrameForTab(TabViewItem tab)
+    {
+        if (tab == TabExistencias)    return FrameExistencias;
+        if (tab == TabEntradas)       return FrameEntradas;
+        if (tab == TabSalidas)        return FrameSalidas;
+        if (tab == TabKardex)         return FrameKardex;
+        if (tab == TabConteo)         return FrameConteo;
+        if (tab == TabOrdenesCompra)  return FrameOrdenesCompra;
+        if (tab == TabProductos)      return FrameProductos;
+        return null;
     }
 }

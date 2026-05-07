@@ -15,7 +15,9 @@
 
             <!--
                 OutlookTabItemStyle — tabs planos estilo Outlook/Fluent
-                Uso: <Page.Resources><Style TargetType="TabViewItem" BasedOn="{StaticResource OutlookTabItemStyle}"/></Page.Resources>
+                Incluye botón de cerrar auto-wired por TabViewItem (parte "CloseButton")
+                y estados DataContextStates para Closable/NotClosable.
+                Uso implícito: declarar en TabView.Resources sin x:Key.
             -->
             <Style x:Key="OutlookTabItemStyle" TargetType="TabViewItem">
                 <Setter Property="Background"       Value="Transparent"/>
@@ -31,12 +33,15 @@
                                   MinHeight="40"
                                   Background="Transparent">
                                 <VisualStateManager.VisualStateGroups>
+
+                                    <!-- Estados comunes de interacción -->
                                     <VisualStateGroup x:Name="CommonStates">
                                         <VisualState x:Name="Normal"/>
                                         <VisualState x:Name="PointerOver">
                                             <VisualState.Setters>
                                                 <Setter Target="HeaderPresenter.Foreground"
                                                         Value="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                                <Setter Target="CloseButton.Opacity" Value="1"/>
                                             </VisualState.Setters>
                                         </VisualState>
                                         <VisualState x:Name="Pressed">
@@ -53,6 +58,7 @@
                                                         Value="SemiBold"/>
                                                 <Setter Target="SelectionBar.Visibility"
                                                         Value="Visible"/>
+                                                <Setter Target="CloseButton.Opacity" Value="1"/>
                                             </VisualState.Setters>
                                         </VisualState>
                                         <VisualState x:Name="Disabled">
@@ -62,16 +68,35 @@
                                             </VisualState.Setters>
                                         </VisualState>
                                     </VisualStateGroup>
+
+                                    <!-- Estados de cierre — usados por TabViewItem.OnApplyTemplate -->
+                                    <VisualStateGroup x:Name="DataContextStates">
+                                        <VisualState x:Name="Closable">
+                                            <VisualState.Setters>
+                                                <Setter Target="CloseButton.Visibility" Value="Visible"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="NotClosable">
+                                            <VisualState.Setters>
+                                                <Setter Target="CloseButton.Visibility" Value="Collapsed"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+
                                 </VisualStateManager.VisualStateGroups>
 
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="*"/>
                                     <RowDefinition Height="3"/>
                                 </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
 
-                                <!-- Texto del tab -->
+                                <!-- Título del tab -->
                                 <ContentPresenter x:Name="HeaderPresenter"
-                                                  Grid.Row="0"
+                                                  Grid.Row="0" Grid.Column="0"
                                                   Content="{TemplateBinding Header}"
                                                   ContentTemplate="{TemplateBinding HeaderTemplate}"
                                                   FontSize="{TemplateBinding FontSize}"
@@ -79,11 +104,27 @@
                                                   Foreground="{TemplateBinding Foreground}"
                                                   HorizontalAlignment="Center"
                                                   VerticalAlignment="Center"
-                                                  Margin="16,8"/>
+                                                  Margin="16,8,4,8"/>
+
+                                <!-- Botón cerrar: nombre "CloseButton" es requerido por TabViewItem.OnApplyTemplate -->
+                                <Button x:Name="CloseButton"
+                                        Grid.Row="0" Grid.Column="1"
+                                        Width="20" Height="20"
+                                        Margin="0,0,6,0"
+                                        Padding="0"
+                                        Opacity="0"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        CornerRadius="4"
+                                        VerticalAlignment="Center"
+                                        ToolTipService.ToolTip="Cerrar">
+                                    <FontIcon Glyph="&#xE711;" FontSize="10"/>
+                                </Button>
 
                                 <!-- Indicador de selección (underline azul) -->
                                 <Border x:Name="SelectionBar"
                                         Grid.Row="1"
+                                        Grid.ColumnSpan="2"
                                         Background="#0078D4"
                                         CornerRadius="1"
                                         Visibility="Collapsed"

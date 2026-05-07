@@ -36,6 +36,18 @@ public sealed partial class ConfiguracionPage : Page
 
     public ConfiguracionPage() => InitializeComponent();
 
+    /// <summary>
+    /// Establece el modo de visualización de la página desde el WorkspaceService.
+    /// Llamar inmediatamente después de instanciar la página, antes de añadirla al workspace.
+    /// </summary>
+    /// <param name="mode">"Global" muestra configuración global; "Tienda" muestra configuración de sucursal.</param>
+    public void SetMode(string mode)
+    {
+        bool esTienda = mode == "Tienda";
+        TabsGlobal.Visibility = esTienda ? Visibility.Collapsed : Visibility.Visible;
+        TabsTienda.Visibility = esTienda ? Visibility.Visible   : Visibility.Collapsed;
+    }
+
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);

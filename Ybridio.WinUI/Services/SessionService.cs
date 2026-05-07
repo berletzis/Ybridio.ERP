@@ -36,6 +36,15 @@ public sealed class SessionService : ISessionContext
     public bool IsAuthenticated => Usuario is not null;
 
     /// <summary>
+    /// Activa/desactiva el modo desarrollador para el Runtime Diagnostic Panel.
+    /// Solo accesible mediante Ctrl+Shift+D en ShellPage — invisible para usuarios finales.
+    /// </summary>
+    public bool IsDeveloperMode { get; private set; }
+
+    /// <summary>Alterna el modo desarrollador.</summary>
+    public void ToggleDeveloperMode() => IsDeveloperMode = !IsDeveloperMode;
+
+    /// <summary>
     /// Establece la sesión tras un login exitoso.
     /// </summary>
     public void SetUsuario(UsuarioDto usuario)

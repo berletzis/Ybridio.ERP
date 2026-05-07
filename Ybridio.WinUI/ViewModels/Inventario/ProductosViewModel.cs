@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,13 +12,16 @@ using Ybridio.Application.DTOs.Catalogos;
 using Ybridio.Application.Services.Producto;
 using Ybridio.WinUI.Controls.Navigation;
 using Ybridio.WinUI.Services;
+using Ybridio.WinUI.Services.Diagnostic;
 using Ybridio.WinUI.ViewModels;
 
 namespace Ybridio.WinUI.ViewModels.Inventario;
 
 public sealed partial class ProductosViewModel : BaseContextViewModel
 {
-    private readonly IProductoService _productos;
+    private readonly IProductoService                _productos;
+    private readonly IOperationalObservabilityService _observability;
+    private readonly ICurrentContextTracker           _contextTracker;
 
     // ── Clasificación (panel tipo Outlook) ───────────────────────────────────
 
@@ -237,6 +241,14 @@ public sealed partial class ProductosViewModel : BaseContextViewModel
     [ObservableProperty]
     private bool soloActivos;
 
+    /// <summary>
+    /// Filtro temporal seleccionado. Stub: ProductoDto no expone FechaCreacion.
+    /// La propiedad se incluye para mantener UX consistente con Entradas/Salidas;
+    /// el filtrado por fecha se activará cuando el DTO exponga el campo.
+    /// </summary>
+    [ObservableProperty]
+    private string filtroTemporal = "Todo";
+
     [ObservableProperty]
     private ProductoDto? productoSeleccionado;
 
@@ -247,10 +259,16 @@ public sealed partial class ProductosViewModel : BaseContextViewModel
     public Action<ProductoDto?>? SolicitarAbrirDetalle;
     public Action<(ProductoDto A, ProductoDto B)>? SolicitarComparar;
 
-    public ProductosViewModel(IProductoService productos, SessionService session)
+    public ProductosViewModel(
+        IProductoService                productos,
+        SessionService                  session,
+        IOperationalObservabilityService observability,
+        ICurrentContextTracker          contextTracker)
         : base(session)
     {
-        _productos = productos;
+        _productos      = productos;
+        _observability  = observability;
+        _contextTracker = contextTracker;
     }
 
     protected override Task OnContextChangedAsync() => RefrescarAsync();
@@ -271,6 +289,8 @@ public sealed partial class ProductosViewModel : BaseContextViewModel
             _todosLosProductos = await _productos.ListarPorEmpresaAsync(Session.EmpresaId, SoloActivos, ct);
             await CargarClasificacionAsync(ct);
             AplicarFiltro();
+            // Reportar contexto inmediatamente tras carga inicial
+            _contextTracker.SetViewModelContext(BuildCurrentContext());
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -310,11 +330,15 @@ public sealed partial class ProductosViewModel : BaseContextViewModel
 
         IsLoading = true;
         ErrorMessage = string.Empty;
+        var sw = Stopwatch.StartNew();
 
         try
         {
             _todosLosProductos = await _productos.ListarPorEmpresaAsync(Session.EmpresaId, SoloActivos, ct);
             AplicarFiltro();
+            sw.Stop();
+            _observability.Report(BuildOperationalContext(sw.Elapsed));
+            _contextTracker.SetViewModelContext(BuildCurrentContext());
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -326,6 +350,55 @@ public sealed partial class ProductosViewModel : BaseContextViewModel
             IsLoading = false;
         }
     }
+
+    private GridOperationContext BuildOperationalContext(TimeSpan duration) =>
+        new(
+            Module:           "Inventario",
+            SubModule:        "Productos",
+            ViewModel:        nameof(ProductosViewModel),
+            Entity:           "catalogos.Producto",
+            RecordCount:      Productos.Count,
+            Duration:         duration,
+            EmpresaFilter:    new(Session.EmpresaId != 0 ? FilterState.Applied : FilterState.Missing,
+                                  Session.EmpresaId.ToString()),
+            SucursalFilter:   new(FilterState.OmittedExpected,
+                                  Note: "Catálogo global por empresa — SucursalId no aplica"),
+            AlmacenFilter:    new(FilterState.OmittedExpected,
+                                  Note: "Catálogo global — Productos no tiene dimensión de almacén"),
+            SoftDeleteFilter: new(FilterState.Applied, "Borrado = false (global)"),
+            SearchTerm:       string.IsNullOrWhiteSpace(Busqueda) ? null : Busqueda,
+            SoloActivos:      SoloActivos,
+            CategoriaFiltro:  FiltroActivoNombre,
+            FiltroTemporal:   FiltroTemporal,
+            Notes:            ["SucursalId omitido — diseño intencional (catálogo empresa)"],
+            Timestamp:        DateTime.Now
+        );
+
+    /// <summary>
+    /// Construye el contexto activo VIVO sin ejecutar queries.
+    /// Llamado tras cada carga para que el panel diagnóstico refleje el estado actual.
+    /// </summary>
+    private CurrentOperationalContext BuildCurrentContext() =>
+        new(
+            Module:           "Inventario",
+            SubModule:        "Productos",
+            ViewModel:        nameof(ProductosViewModel),
+            Entity:           "catalogos.Producto",
+            RecordCount:      Productos.Count,
+            SearchTerm:       string.IsNullOrWhiteSpace(Busqueda) ? null : Busqueda,
+            SoloActivos:      SoloActivos,
+            CategoriaFiltro:  FiltroActivoNombre,
+            FiltroTemporal:   FiltroTemporal,
+            EmpresaFilter:    new(Session.EmpresaId != 0 ? FilterState.Applied : FilterState.Missing,
+                                  Session.EmpresaId.ToString()),
+            SucursalFilter:   new(FilterState.OmittedExpected,
+                                  Note: "Catálogo global por empresa"),
+            AlmacenFilter:    new(FilterState.OmittedExpected,
+                                  Note: "Catálogo global — sin dimensión de almacén"),
+            SoftDeleteFilter: new(FilterState.Applied, "Borrado = false"),
+            Source:           "ModuleFrame",
+            UpdatedAt:        DateTime.Now
+        );
 
     // ── Comandos ─────────────────────────────────────────────────────────────
 
@@ -507,6 +580,7 @@ public sealed partial class ProductosViewModel : BaseContextViewModel
 
     partial void OnBusquedaChanged(string value) => AplicarFiltro();
     partial void OnSoloActivosChanged(bool value) => _ = RefrescarAsync();
+    partial void OnFiltroTemporalChanged(string value) => AplicarFiltro();
 
     // Notifica IsEmptyState cada vez que IsLoading cambia
     partial void OnIsLoadingChanged(bool value) => OnPropertyChanged(nameof(IsEmptyState));
@@ -534,5 +608,16 @@ public sealed partial class ProductosViewModel : BaseContextViewModel
             Productos.Add(p);
 
         OnPropertyChanged(nameof(IsEmptyState));
+
+        // Actualizar contexto con el conteo REAL post-filtro (sin query adicional)
+        if (_contextTracker.GetCurrent()?.ViewModel == nameof(ProductosViewModel))
+            _contextTracker.SetViewModelContext(BuildCurrentContext());
     }
+
+    /// <summary>
+    /// Reporta el contexto vivo actual sin ejecutar queries.
+    /// Llamado por ProductosPage cuando el tab se activa (ya cargado).
+    /// </summary>
+    public void ReportLiveContext()
+        => _contextTracker.SetViewModelContext(BuildCurrentContext());
 }

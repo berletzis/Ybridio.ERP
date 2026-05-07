@@ -61,10 +61,21 @@ public class ErpDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
     public DbSet<TipoMovimientoCaja>  TiposMovimientoCaja => Set<TipoMovimientoCaja>();
 
     // ── inventario ────────────────────────────────────────────────────────────
-    public DbSet<Almacen>                Almacenes               => Set<Almacen>();
-    public DbSet<Existencia>             Existencias             => Set<Existencia>();
-    public DbSet<MovimientoInventario>   MovimientosInventario   => Set<MovimientoInventario>();
-    public DbSet<TipoMovimientoInventario> TiposMovimientoInventario => Set<TipoMovimientoInventario>();
+    public DbSet<Almacen>                    Almacenes                  => Set<Almacen>();
+    public DbSet<Existencia>                 Existencias                => Set<Existencia>();
+    public DbSet<MovimientoInventario>       MovimientosInventario      => Set<MovimientoInventario>();
+    public DbSet<TipoMovimientoInventario>   TiposMovimientoInventario  => Set<TipoMovimientoInventario>();
+    public DbSet<ConceptoEntrada>            ConceptosEntrada           => Set<ConceptoEntrada>();
+    public DbSet<ConceptoSalida>             ConceptosSalida            => Set<ConceptoSalida>();
+    public DbSet<EstatusEntrada>             EstatusEntrada             => Set<EstatusEntrada>();
+    public DbSet<EstatusSalida>              EstatusSalida              => Set<EstatusSalida>();
+    public DbSet<Entrada>                    Entradas                   => Set<Entrada>();
+    public DbSet<EntradaDetalle>             EntradasDetalle            => Set<EntradaDetalle>();
+    public DbSet<Salida>                     Salidas                    => Set<Salida>();
+    public DbSet<SalidaDetalle>              SalidasDetalle             => Set<SalidaDetalle>();
+    public DbSet<Traspaso>                   Traspasos                  => Set<Traspaso>();
+    public DbSet<AjusteInventario>           AjustesInventario          => Set<AjusteInventario>();
+    public DbSet<AjusteInventarioDetalle>    AjustesInventarioDetalle   => Set<AjusteInventarioDetalle>();
 
     // ── seguridad ─────────────────────────────────────────────────────────────
     public DbSet<Modulo>        Modulos          => Set<Modulo>();

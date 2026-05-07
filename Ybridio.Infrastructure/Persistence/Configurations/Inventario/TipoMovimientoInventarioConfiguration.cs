@@ -15,5 +15,7 @@ internal sealed class TipoMovimientoInventarioConfiguration : IEntityTypeConfigu
 
         builder.Property(e => e.Nombre).IsRequired().HasMaxLength(100);
         builder.Property(e => e.AfectaExistencia).IsRequired();
+        builder.Property(e => e.Signo).IsRequired().HasDefaultValue((short)1);
+        builder.Property(e => e.Descripcion).HasMaxLength(300);
     }
 }

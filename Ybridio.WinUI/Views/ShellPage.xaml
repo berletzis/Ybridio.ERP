@@ -4,10 +4,20 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:dto="using:Ybridio.Application.DTOs.Core"
+    xmlns:diag="using:Ybridio.WinUI.Views.Diagnostic"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <!--
+        Ctrl+Shift+D → activa/desactiva el Runtime Diagnostic Panel.
+        KeyboardAccelerator funciona independientemente del elemento que tenga foco.
+    -->
+    <Page.KeyboardAccelerators>
+        <KeyboardAccelerator Modifiers="Control,Shift" Key="D"
+                             Invoked="DevMode_Invoked"/>
+    </Page.KeyboardAccelerators>
 
     <Page.Resources>
         <!-- Botón de módulo estilo Outlook: icono arriba, texto abajo, centrado, sin borde -->
@@ -29,6 +39,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="48"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- ═══════════════════════════════════════════════════════════════════ -->
@@ -258,9 +269,42 @@
                 </Grid>
             </Grid>
 
-            <!-- ── CONTENIDO PRINCIPAL (Col 1) ───────────────────────────── -->
-            <Frame x:Name="InnerFrame" Grid.Column="1"/>
+            <!--
+                ── ÁREA DE CONTENIDO (Col 1): arquitectura de dos capas ─────────
+                Capa 1 (ModuleFrame): módulos raíz — Dashboard, Inventario, Ventas, POS…
+                  Navegación directa por Frame; NO genera tabs superiores.
+                Capa 2 (WorkspaceTabView): ítems de trabajo — Productos, registros
+                  específicos, documentos abiertos. Se superpone al ModuleFrame y solo
+                  es visible cuando existen pestañas de workspace activas.
+            -->
+            <Grid Grid.Column="1">
+
+                <!-- Capa 1: módulo activo (siempre renderizado en segundo plano) -->
+                <Frame x:Name="ModuleFrame"/>
+
+                <!-- Capa 2: workspace persistente (se superpone cuando hay tabs) -->
+                <TabView x:Name="WorkspaceTabView"
+                         IsAddTabButtonVisible="False"
+                         TabWidthMode="SizeToContent"
+                         Visibility="Collapsed"
+                         TabCloseRequested="WorkspaceTabView_TabCloseRequested"
+                         SelectionChanged="WorkspaceTabView_SelectionChanged">
+                    <TabView.Resources>
+                        <Style TargetType="TabViewItem" BasedOn="{StaticResource OutlookTabItemStyle}"/>
+                    </TabView.Resources>
+                </TabView>
+
+            </Grid>
 
         </Grid>
+
+        <!-- ── RUNTIME DIAGNOSTIC PANEL (Row 2, full-width) ─────────────────────
+             Solo visible en Developer Mode (Ctrl+Shift+D).
+             No afecta WorkspaceService ni la navegación principal.
+        ──────────────────────────────────────────────────────────────────────── -->
+        <diag:DiagnosticPanel x:Name="DiagnosticPanelCtrl"
+                              Grid.Row="2"
+                              Visibility="Collapsed"/>
+
     </Grid>
 </Page>

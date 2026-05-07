@@ -17,10 +17,15 @@ public class MovimientoInventario : AuditableEntity
     public string? Referencia { get; set; }
     public long? ReferenciaId { get; set; }
     public DateTime Fecha { get; set; }
+    public int? SucursalId { get; set; }
+    public decimal SaldoAcumulado { get; set; }
+    public string? Folio { get; set; }
+    public string? Observaciones { get; set; }
 
     // Navegación
     public Empresa Empresa { get; set; } = null!;
     public Almacen Almacen { get; set; } = null!;
     public Producto Producto { get; set; } = null!;
+    public Sucursal? Sucursal { get; set; }
     public TipoMovimientoInventario TipoMovimiento { get; set; } = null!;
 }

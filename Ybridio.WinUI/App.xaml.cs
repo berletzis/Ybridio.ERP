@@ -8,9 +8,12 @@ using Ybridio.Infrastructure.Persistence.Audit;
 using Ybridio.Infrastructure.Persistence.Identity;
 using Ybridio.WinUI.Services;
 using Ybridio.WinUI.Services.Windowing;
+using Ybridio.WinUI.Services.Workspace;
 using Ybridio.WinUI.ViewModels;
 using Ybridio.WinUI.ViewModels.Config;
 using Ybridio.WinUI.ViewModels.Dashboard;
+using Ybridio.WinUI.Services.Diagnostic;
+using Ybridio.WinUI.ViewModels.Diagnostic;
 using Ybridio.WinUI.ViewModels.Inventario;
 using Ybridio.WinUI.ViewModels.POS;
 using Ybridio.WinUI.Views;
@@ -69,6 +72,11 @@ public partial class App : Microsoft.UI.Xaml.Application
         services.AddSingleton<ISessionContext>(sp => sp.GetRequiredService<SessionService>());
         services.AddSingleton<INavigationService, NavigationService>();
         services.AddSingleton<IWindowManager, WindowManager>();
+        services.AddSingleton<IWorkspaceService, WorkspaceService>();
+        services.AddSingleton<IOperationalObservabilityService, OperationalObservabilityService>();
+        services.AddSingleton<ICurrentContextTracker, CurrentContextTracker>();
+        services.AddSingleton<RuntimeDiagnosticService>();
+        services.AddTransient<DiagnosticPanelViewModel>();
 
         // ── ViewModels ────────────────────────────────────────────────────────
         services.AddTransient<LoginViewModel>();
@@ -76,6 +84,8 @@ public partial class App : Microsoft.UI.Xaml.Application
         services.AddTransient<DashboardViewModel>();
         services.AddTransient<PosViewModel>();
         services.AddTransient<ProductosViewModel>();
+        services.AddTransient<EntradasViewModel>();
+        services.AddTransient<SalidasViewModel>();
         services.AddTransient<EmpresaViewModel>();
         services.AddTransient<SucursalesConfigViewModel>();
         services.AddTransient<UsuariosViewModel>();

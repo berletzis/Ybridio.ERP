@@ -8,12 +8,13 @@ using System.Linq;
 using Ybridio.Application.DTOs.Catalogos;
 using Ybridio.WinUI.Controls.Navigation;
 using Ybridio.WinUI.Helpers;
+using Ybridio.WinUI.Services.Diagnostic;
 using Ybridio.WinUI.Services.Windowing;
 using Ybridio.WinUI.ViewModels.Inventario;
 
 namespace Ybridio.WinUI.Views.Inventario;
 
-public sealed partial class ProductosPage : Page
+public sealed partial class ProductosPage : Page, ILiveContextReporter
 {
     private readonly IWindowManager _windowManager;
     private DataGridColumnManager? _columnManager;
@@ -32,6 +33,9 @@ public sealed partial class ProductosPage : Page
         base.OnNavigatedFrom(e);
         ViewModel.DetachFromContext();
     }
+
+    /// <inheritdoc/>
+    public void ReportLiveContext() => ViewModel.ReportLiveContext();
 
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {

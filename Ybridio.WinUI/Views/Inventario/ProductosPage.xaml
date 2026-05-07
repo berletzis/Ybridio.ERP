@@ -122,6 +122,7 @@
                             <ColumnDefinition Width="Auto"/>  <!-- hamburger -->
                             <ColumnDefinition Width="*"/>     <!-- buscador -->
                             <ColumnDefinition Width="Auto"/>  <!-- checkbox -->
+                            <ColumnDefinition Width="Auto"/>  <!-- filtro temporal -->
                         </Grid.ColumnDefinitions>
 
                         <!-- Botón hamburger: solo toggle de visibilidad -->
@@ -147,6 +148,21 @@
                                   Content="Solo activos"
                                   IsChecked="{x:Bind ViewModel.SoloActivos, Mode=TwoWay}"
                                   VerticalAlignment="Center"/>
+
+                        <!-- Filtro temporal: UI preparada; no filtra hasta que ProductoDto exponga FechaCreacion -->
+                        <ComboBox Grid.Column="3"
+                                  MinWidth="130"
+                                  VerticalAlignment="Center"
+                                  SelectedItem="{x:Bind ViewModel.FiltroTemporal, Mode=TwoWay}"
+                                  ToolTipService.ToolTip="Filtro por período">
+                            <x:String>Hoy</x:String>
+                            <x:String>7 días</x:String>
+                            <x:String>30 días</x:String>
+                            <x:String>90 días</x:String>
+                            <x:String>6 meses</x:String>
+                            <x:String>1 año</x:String>
+                            <x:String>Todo</x:String>
+                        </ComboBox>
                     </Grid>
 
                     <!-- ── Chip: filtro de categoría activo ─────────────── -->

@@ -11,9 +11,11 @@ public class Existencia : AuditableEntity
     public int AlmacenId { get; set; }
     public int ProductoId { get; set; }
     public decimal Cantidad { get; set; }
+    public int? SucursalId { get; set; }
 
     // Navegación
     public Empresa Empresa { get; set; } = null!;
     public Almacen Almacen { get; set; } = null!;
     public Producto Producto { get; set; } = null!;
+    public Sucursal? Sucursal { get; set; }
 }
