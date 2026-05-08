@@ -8,7 +8,8 @@ namespace Ybridio.WinUI.Services;
 /// <summary>
 /// Mantiene el estado de la sesión activa del usuario en toda la aplicación.
 /// Es un singleton que se resetea al hacer logout.
-/// Implementa ISessionContext para que ErpDbContext pueda aplicar filtros globales.
+/// Implementa <see cref="ISessionContext"/> para que ErpDbContext pueda aplicar filtros globales
+/// y los servicios de Application puedan acceder al usuario y empresa activos.
 /// </summary>
 public sealed class SessionService : ISessionContext
 {
@@ -17,6 +18,7 @@ public sealed class SessionService : ISessionContext
     /// Los ViewModels se suscriben para recargar sus datos automáticamente.
     /// </summary>
     public event Action<int>? SucursalChanged;
+
     /// <summary>Usuario autenticado. Null si no hay sesión activa.</summary>
     public UsuarioDto? Usuario { get; private set; }
 
@@ -36,6 +38,12 @@ public sealed class SessionService : ISessionContext
     public bool IsAuthenticated => Usuario is not null;
 
     /// <summary>
+    /// ID del usuario autenticado. Implementa <see cref="ISessionContext.UsuarioId"/>
+    /// para que los servicios de Application puedan evaluar permisos del usuario activo.
+    /// </summary>
+    public Guid? UsuarioId => Usuario?.Id;
+
+    /// <summary>
     /// Activa/desactiva el modo desarrollador para el Runtime Diagnostic Panel.
     /// Solo accesible mediante Ctrl+Shift+D en ShellPage — invisible para usuarios finales.
     /// </summary>
@@ -44,18 +52,14 @@ public sealed class SessionService : ISessionContext
     /// <summary>Alterna el modo desarrollador.</summary>
     public void ToggleDeveloperMode() => IsDeveloperMode = !IsDeveloperMode;
 
-    /// <summary>
-    /// Establece la sesión tras un login exitoso.
-    /// </summary>
+    /// <summary>Establece la sesión tras un login exitoso.</summary>
     public void SetUsuario(UsuarioDto usuario)
     {
-        Usuario = usuario;
+        Usuario   = usuario;
         EmpresaId = usuario.EmpresaId;
     }
 
-    /// <summary>
-    /// Establece la tienda activa (puede cambiarse en configuración).
-    /// </summary>
+    /// <summary>Establece la sucursal activa (puede cambiarse en configuración).</summary>
     public void SetTienda(int tiendaId, string nombre)
     {
         SucursalId     = tiendaId;
@@ -63,20 +67,16 @@ public sealed class SessionService : ISessionContext
         SucursalChanged?.Invoke(tiendaId);
     }
 
-    /// <summary>
-    /// Registra la apertura de caja activa.
-    /// </summary>
+    /// <summary>Registra la apertura de caja activa.</summary>
     public void SetCajaActiva(AperturaCajaDto? apertura) => CajaActiva = apertura;
 
-    /// <summary>
-    /// Limpia toda la sesión (logout).
-    /// </summary>
+    /// <summary>Limpia toda la sesión (logout).</summary>
     public void Clear()
     {
-        Usuario = null;
-        EmpresaId = 0;
-        SucursalId = 0;
+        Usuario        = null;
+        EmpresaId      = 0;
+        SucursalId     = 0;
         SucursalNombre = string.Empty;
-        CajaActiva = null;
+        CajaActiva     = null;
     }
 }

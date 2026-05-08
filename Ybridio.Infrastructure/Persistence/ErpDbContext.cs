@@ -78,11 +78,15 @@ public class ErpDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
     public DbSet<AjusteInventarioDetalle>    AjustesInventarioDetalle   => Set<AjusteInventarioDetalle>();
 
     // ── seguridad ─────────────────────────────────────────────────────────────
-    public DbSet<Modulo>        Modulos          => Set<Modulo>();
-    public DbSet<Permiso>       Permisos         => Set<Permiso>();
-    public DbSet<RolPermiso>    RolesPermisos    => Set<RolPermiso>();
-    public DbSet<UsuarioPermiso> UsuariosPermisos => Set<UsuarioPermiso>();
-    public DbSet<UsuarioSucursal> UsuariosSucursales  => Set<UsuarioSucursal>();
+    public DbSet<Modulo>         Modulos             => Set<Modulo>();
+    public DbSet<Permiso>        Permisos            => Set<Permiso>();
+    public DbSet<RolPermiso>     RolesPermisos       => Set<RolPermiso>();
+    public DbSet<UsuarioPermiso> UsuariosPermisos    => Set<UsuarioPermiso>();
+    public DbSet<UsuarioSucursal> UsuariosSucursales => Set<UsuarioSucursal>();
+    public DbSet<Perfil>         Perfiles            => Set<Perfil>();
+    public DbSet<PerfilPermiso>  PerfilPermisos      => Set<PerfilPermiso>();
+    public DbSet<UsuarioPerfil>  UsuariosPerfiles    => Set<UsuarioPerfil>();
+    public DbSet<UsuarioAlmacen> UsuariosAlmacenes   => Set<UsuarioAlmacen>();
 
     // ── ventas ────────────────────────────────────────────────────────────────
     public DbSet<Venta>       Ventas       => Set<Venta>();

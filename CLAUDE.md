@@ -71,6 +71,7 @@ finanzas/       → Caja, AperturaCaja, MovimientoCaja, TipoMovimientoCaja
 ventas/         → Venta, VentaDetalle, Factura
 compras/        → OrdenCompra, OrdenCompraDetalle, RecepcionCompra, RecepcionCompraDetalle
 seguridad/      → Usuario, Rol, UsuarioSucursal, UsuarioPermiso, Modulo, Permiso, RolPermiso
+                   Perfil, PerfilPermiso, UsuarioPerfil, UsuarioAlmacen   ← Security Foundation (added 2026-05-07)
                    + Identity tables (UsuarioClaim, UsuarioLogin, UsuarioToken, UsuarioRol, RolClaim)
 ```
 
@@ -106,6 +107,7 @@ core.ProductoCategoria         ← join table: Id, ProductoId, CategoriaId, EsPr
 - `ServiceResult<T>` / `ServiceResult` return type for all write operations (has `.Success`, `.Value`, `.Error`, `.ErrorCode`)
 - DTOs are `sealed record` types in `DTOs/` subfolders matching domain namespaces
 - `ErrorCode` enum for typed error mapping in the UI
+- New folder `Services/Autorizacion/` — security foundation runtime services
 
 **`ProductoDto`** has two category fields:
 - `CategoriaId` / `CategoriaNombre` — the *principal* category (EsPrincipal=true), for display
@@ -122,6 +124,7 @@ return lista.Select(MapToDto).ToList();
 - **DI**: `Microsoft.Extensions.DependencyInjection` via `App.Services` static property
 - **Navigation**: `INavigationService` (singleton) wraps a WinUI `Frame`; prevents duplicate navigation to the same page type
 - **Session**: `SessionService` (singleton) holds logged-in user, sucursal activa (`SucursalId`, `SucursalNombre`), caja activa. Event `SucursalChanged` notifica cambio de sucursal.
+- **ISessionContext**: exposes `EmpresaId`, `SucursalId`, **and `UsuarioId` (Guid?)**. `UsuarioId` is consumed by Application-layer security services — do not bypass it.
 
 ## Key Patterns
 
@@ -301,6 +304,80 @@ Both services are registered `Transient` and exposed in **Config Global → Audi
 SQL queries in `DatabaseAuditService` use **schema-qualified table names** that must match the actual DB:
 - `core.Produto` (NOT `catalogos.Produto` — moved!)
 - `catalogos.TipoProducto`, `catalogos.CategoriaProducto` — stay in catalogos
+
+---
+
+### Security Foundation Runtime Architecture (added 2026-05-07)
+
+RBAC + Profiles + Security Context Scopes construido sobre ASP.NET Identity existente.
+Ver `docs/SECURITY_FOUNDATION.md` para documentación completa.
+
+#### Modelo de evaluación de permisos (3 niveles, en orden de prioridad)
+
+```
+1. UsuarioPermiso.Permitido = true/false  → override explícito (gana siempre)
+                              null        → hereda hacia abajo
+2. UsuarioPerfil → PerfilPermiso          → perfiles asignados al usuario
+3. UsuarioRol   → RolPermiso              → herencia desde roles
+```
+
+Un denegado explícito (`Permitido = false`) veta cualquier permiso de los niveles inferiores.
+
+#### Nuevas entidades de dominio (`Ybridio.Domain/Seguridad/`)
+
+| Entidad | Tabla | Notas |
+|---|---|---|
+| `Perfil` | `seguridad.Perfil` | Hereda `CreationAuditEntity` — soft-delete global aplicado |
+| `PerfilPermiso` | `seguridad.PerfilPermiso` | Join table sin soft-delete (eliminación directa) |
+| `UsuarioPerfil` | `seguridad.UsuarioPerfil` | Join table sin soft-delete |
+| `UsuarioAlmacen` | `seguridad.UsuarioAlmacen` | Scope de almacén; sin almacenes = accede a todos los de sus sucursales |
+
+#### Servicios Application nuevos (`Services/Autorizacion/`)
+
+| Interfaz | Propósito |
+|---|---|
+| `IErpAuthorizationService` | Motor principal: `PuedeAsync(clave)`, `ObtenerContextoSeguridad()` |
+| `ISecurityContextService` | Snapshot completo: roles + perfiles + permisos + scopes |
+| `ISecurityScopeResolver` | Qué sucursales/almacenes puede ver el usuario; `EsSuperAdminAsync()` |
+| `IPerfilService` | CRUD de perfiles + asignación a usuarios |
+
+`MemoryPermissionCache` (Singleton, TTL 10 min) reemplaza `NullPermissionCache`. Invalidar tras cambio de rol/permiso: `await _cache.InvalidateAsync(userId)`.
+
+#### PermisosClave — constantes tipadas (`Common/PermisosClave.cs`)
+
+```csharp
+// SIEMPRE usar constantes. NUNCA strings literales en código.
+await _auth.PuedeAsync(PermisosClave.Salida.Autorizar);   // "salida.autorizar"
+await _auth.PuedeAsync(PermisosClave.Venta.Crear);        // "venta.crear"
+await _auth.PuedeAsync(PermisosClave.Caja.Abrir);         // "caja.abrir"
+```
+
+Categorías: `Venta`, `Entrada`, `Salida`, `Traspaso`, `Ajuste`, `Existencia`, `Producto`, `Caja`, `Compra`, `Cliente`, `Proveedor`, `Configuracion`, `Seguridad`, `Reporte`.
+
+#### Regla crítica de autorización
+
+```
+NUNCA:   if (rol == "Admin") { ... }
+SIEMPRE: if (await _auth.PuedeAsync(PermisosClave.Xxx.Yyy)) { ... }
+```
+
+#### Scopes de seguridad (SecurityScopeResolver)
+
+- **SuperAdmin** (rol): bypass total de scopes sucursal/almacén
+- `UsuarioSucursal`: lista de sucursales permitidas (vacía en SuperAdmin = sin restricción)
+- `UsuarioAlmacen`: lista de almacenes permitidos; vacía = todos los almacenes de sus sucursales
+
+#### Datos seed en BD (seguridad schema)
+
+- **10 módulos**: ventas, inventario, caja, compras, productos, clientes, proveedores, configuracion, seguridad, reportes
+- **51 permisos** con claves formato `entidad.accion`
+- **8 roles**: SuperAdmin (51), AdministradorEmpresa (50), GerenteSucursal (33), SupervisorInventario (25), SupervisorVentas (11), Cajero (10), OperadorInventario (8), Vendedor (7)
+- **5 perfiles**: POS Básico, Inventario Operativo, Inventario Supervisor, Ventas Operativo, Ventas Supervisor
+
+#### Observabilidad integrada
+
+`RuntimeDiagnosticService.GetSnapshot(securityCtx?)` acepta `SecurityContextDto?` opcional.
+Cuando se provee, el snapshot incluye `SecurityRuntimeSnapshot` (roles, perfiles, permisos count, scopes, EsSuperAdmin).
 
 ---
 

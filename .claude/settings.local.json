@@ -7,7 +7,11 @@
       "PowerShell(tree *)",
       "Skill(update-config)",
       "PowerShell(Get-Item *)",
-      "PowerShell(Get-Command *)"
+      "PowerShell(Get-Command *)",
+      "PowerShell(New-Item *)",
+      "PowerShell(Get-Content \"C:\\\\Users\\\\cberl\\\\.claude\\\\projects\\\\D--Users-berletzis-Source-Repos-Ybridio-ERP\\\\3af6feb9-ef2a-46a1-8c54-1a5b7fa34989\\\\tool-results\\\\byhn9sgrm.txt\" | Select-String -Pattern \"error\" | Where-Object { $_ -notmatch \"CS8\" } | Select-Object -Last 30)",
+      "PowerShell(tail *)",
+      "PowerShell(Invoke-Sqlcmd *)"
     ]
   }
 }

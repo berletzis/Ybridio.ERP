@@ -13,9 +13,24 @@ public sealed record WorkspaceTabInfo(string Key, string Title, bool IsClosable,
 public sealed record DiagnosticAlert(string Icon, string Message, AlertLevel Level);
 
 /// <summary>
+/// Snapshot de seguridad runtime: roles, perfiles y permisos efectivos del usuario activo.
+/// Se incluye en <see cref="RuntimeContextSnapshot"/> sin ejecutar queries adicionales
+/// cuando ya se calculó previamente; de lo contrario queda como null.
+/// </summary>
+public sealed record SecurityRuntimeSnapshot(
+    string               UsuarioNombre,
+    IReadOnlyList<string> Roles,
+    IReadOnlyList<string> Perfiles,
+    int                  CantidadPermisos,
+    bool                 EsSuperAdmin,
+    IReadOnlyList<int>   SucursalesPermitidas,
+    IReadOnlyList<int>   AlmacentesPermitidos,
+    DateTime             GeneradoEn);
+
+/// <summary>
 /// Snapshot inmutable del estado runtime del ERP capturado en un instante.
 /// Incluye contexto de sesión, workspace activo, filtros EF aplicados,
-/// última operación de grid reportada y alertas derivadas.
+/// última operación de grid reportada, contexto de seguridad y alertas derivadas.
 /// </summary>
 public sealed record RuntimeContextSnapshot(
     // ── Sesión / Contexto ────────────────────────────────────────────────────
@@ -44,6 +59,9 @@ public sealed record RuntimeContextSnapshot(
     string? ActiveModuleKey,
     GridOperationContext? LastOperation,
     IReadOnlyList<GridOperationContext> RecentOperations,
+    // ── Seguridad runtime ────────────────────────────────────────────────────
+    /// <summary>Snapshot de seguridad precalculado. Null si no se cargó o no hay sesión.</summary>
+    SecurityRuntimeSnapshot? SecuritySnapshot,
     // ── Alertas ──────────────────────────────────────────────────────────────
     IReadOnlyList<DiagnosticAlert> Alerts,
     DateTime Timestamp

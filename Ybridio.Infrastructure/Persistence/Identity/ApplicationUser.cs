@@ -22,6 +22,8 @@ public class ApplicationUser : IdentityUser<Guid>
 
     // Navegación
     public Empresa Empresa { get; set; } = null!;
-    public ICollection<UsuarioSucursal> UsuarioSucursales { get; set; } = [];
-    public ICollection<UsuarioPermiso> UsuarioPermisos { get; set; } = [];
+    public ICollection<UsuarioSucursal> UsuarioSucursales  { get; set; } = [];
+    public ICollection<UsuarioPermiso>  UsuarioPermisos    { get; set; } = [];
+    public ICollection<UsuarioPerfil>   UsuarioPerfiles    { get; set; } = [];
+    public ICollection<UsuarioAlmacen>  UsuarioAlmacenes   { get; set; } = [];
 }
