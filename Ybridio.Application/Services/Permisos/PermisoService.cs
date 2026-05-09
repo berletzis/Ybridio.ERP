@@ -64,18 +64,30 @@ public sealed class PermisoService : IPermisoService
         var rolesUsuario = await _userManager.GetRolesAsync(usuario);
         if (rolesUsuario.Count == 0) return false;
 
+        //var permitidoPorRol = await _context.RolesPermisos
+        //    .AsNoTracking()
+        //    .Where(rp => rp.Permiso.Clave == clave
+        //              && !rp.Permiso.Borrado
+        //              && rp.Permitido)
+        //    .Join(
+        //        _context.Set<Microsoft.AspNetCore.Identity.IdentityRole<Guid>>()
+        //            .Where(r => rolesUsuario.Contains(r.Name!)),
+        //        rp => rp.RolId,
+        //        r => r.Id,
+        //        (rp, _) => rp.Id)
+        //    .AnyAsync(ct);
         var permitidoPorRol = await _context.RolesPermisos
-            .AsNoTracking()
-            .Where(rp => rp.Permiso.Clave == clave
-                      && !rp.Permiso.Borrado
-                      && rp.Permitido)
-            .Join(
-                _context.Set<Microsoft.AspNetCore.Identity.IdentityRole<Guid>>()
-                    .Where(r => rolesUsuario.Contains(r.Name!)),
-                rp => rp.RolId,
-                r => r.Id,
-                (rp, _) => rp.Id)
-            .AnyAsync(ct);
+    .AsNoTracking()
+    .Where(rp => rp.Permiso.Clave == clave
+              && !rp.Permiso.Borrado
+              && rp.Permitido)
+    .Join(
+        _context.Roles
+            .Where(r => rolesUsuario.Contains(r.Name!)),
+        rp => rp.RolId,
+        r => r.Id,
+        (rp, _) => rp.Id)
+    .AnyAsync(ct);
 
         return permitidoPorRol;
     }
