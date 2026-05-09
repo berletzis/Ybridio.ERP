@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page x:Class="Ybridio.WinUI.Views.Config.PermisosPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:dto="using:Ybridio.Application.DTOs.Seguridad"
+      Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Toolbar: solo Actualizar (grid de solo lectura) -->
+        <CommandBar Grid.Row="0" DefaultLabelPosition="Right" HorizontalAlignment="Left" Margin="8,0,0,0">
+            <AppBarButton Label="Actualizar" Command="{x:Bind ViewModel.LoadCommand}">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE72C;"/></AppBarButton.Icon>
+            </AppBarButton>
+        </CommandBar>
+
+        <!-- Buscador -->
+        <Grid Grid.Row="1" Padding="8,8,20,4">
+            <AutoSuggestBox PlaceholderText="Buscar por clave, nombre o módulo..."
+                            QueryIcon="Find"
+                            Text="{x:Bind ViewModel.Busqueda, Mode=TwoWay}"/>
+        </Grid>
+
+        <!-- Grid (solo lectura) -->
+        <Border Grid.Row="2" Margin="20,4,20,0" Background="White" BorderBrush="#E5E5E5" BorderThickness="1">
+            <Grid>
+                <ListView Style="{StaticResource OutlookDataGridStyle}"
+                          ItemsSource="{x:Bind ViewModel.Permisos, Mode=OneWay}"
+                          SelectedItem="{x:Bind ViewModel.PermisoSeleccionado, Mode=TwoWay}">
+                    <ListView.Header>
+                        <Border Background="#FAFAFA" BorderBrush="#E8E8E8" BorderThickness="0,0,0,1">
+                            <Grid Padding="{StaticResource ErpHeaderPadding}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="2*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="1" Text="Clave"   Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                <TextBlock Grid.Column="2" Text="Módulo"  Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                <TextBlock Grid.Column="3" Text="Nombre"  Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                            </Grid>
+                        </Border>
+                    </ListView.Header>
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="dto:PermisoAdminDto">
+                            <Grid Height="{StaticResource ErpRowHeight}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="2*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="1" Text="{x:Bind Clave}"
+                                           Style="{StaticResource ErpCellPrimaryStyle}" VerticalAlignment="Center"
+                                           FontFamily="Cascadia Code, Consolas, monospace" FontSize="12"/>
+                                <TextBlock Grid.Column="2" Text="{x:Bind ModuloNombre}"
+                                           Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="3" Text="{x:Bind Nombre}"
+                                           Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+                <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
+                              Width="48" Height="48"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!-- StatusBar -->
+        <Border Grid.Row="3" Style="{StaticResource ErpGridStatusBarStyle}" Margin="20,0,20,16">
+            <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                <TextBlock Style="{StaticResource ErpGridStatusTextStyle}">
+                    <Run Text="{x:Bind ViewModel.Permisos.Count, Mode=OneWay}"/>
+                    <Run Text="permiso(s)  ·  Solo lectura"/>
+                </TextBlock>
+                <TextBlock Style="{StaticResource ErpGridErrorTextStyle}"
+                           Text="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Page>

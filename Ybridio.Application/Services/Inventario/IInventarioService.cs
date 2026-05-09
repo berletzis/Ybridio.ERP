@@ -56,6 +56,16 @@ public interface IInventarioService
         int? almacenId = null,
         CancellationToken ct = default);
 
+    /// <summary>
+    /// Lista las existencias con enforcement de autorización y scope de almacén.
+    /// Valida permiso <c>existencia.ver</c> y que el usuario tenga acceso al almacén indicado.
+    /// Si <paramref name="almacenId"/> es nulo, filtra automáticamente por los almacenes permitidos del usuario.
+    /// </summary>
+    Task<ServiceResult<IReadOnlyList<ExistenciaDto>>> ListarExistenciasSeguraAsync(
+        int empresaId,
+        int? almacenId = null,
+        CancellationToken ct = default);
+
     /// <summary>Lista el kardex (movimientos) de un producto en un rango de fechas.</summary>
     Task<IReadOnlyList<MovimientoInventarioDto>> ListarKardexAsync(
         int empresaId,

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Ybridio.Application.Common;
 using Ybridio.Application.DTOs.Catalogos;
+using Ybridio.Application.Services.Autorizacion;
 using Ybridio.Domain.Catalogos;
 using Ybridio.Infrastructure.Persistence;
 using DomainProducto = Ybridio.Domain.Catalogos.Producto;
@@ -12,13 +13,18 @@ namespace Ybridio.Application.Services.Producto;
 
 public sealed class ProductoService : IProductoService
 {
-    private readonly ErpDbContext _context;
+    private readonly ErpDbContext             _context;
     private readonly ILogger<ProductoService> _logger;
+    private readonly IErpAuthorizationService _auth;
 
-    public ProductoService(ErpDbContext context, ILogger<ProductoService> logger)
+    public ProductoService(
+        ErpDbContext             context,
+        ILogger<ProductoService> logger,
+        IErpAuthorizationService auth)
     {
         _context = context;
-        _logger = logger;
+        _logger  = logger;
+        _auth    = auth;
     }
 
     // ── Consultas ─────────────────────────────────────────────────────────────
@@ -98,6 +104,10 @@ public sealed class ProductoService : IProductoService
     {
         ArgumentNullException.ThrowIfNull(dto);
 
+        if (!await _auth.PuedeAsync(PermisosClave.Producto.Crear, ct))
+            return ServiceResult<ProductoDto>.Fail(
+                "Sin permiso para crear productos (producto.crear).", ErrorCode.Unauthorized);
+
         var opId = OperationContext.CurrentId;
         _logger.LogInformation("{OperationId} Creando producto {Codigo} Empresa:{EmpresaId}",
             opId, dto.Codigo, dto.EmpresaId);
@@ -173,6 +183,10 @@ public sealed class ProductoService : IProductoService
         int productoId, ActualizarProductoDto dto, Guid usuarioId, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(dto);
+
+        if (!await _auth.PuedeAsync(PermisosClave.Producto.Editar, ct))
+            return ServiceResult<ProductoDto>.Fail(
+                "Sin permiso para editar productos (producto.editar).", ErrorCode.Unauthorized);
 
         var opId = OperationContext.CurrentId;
         try
@@ -266,6 +280,10 @@ public sealed class ProductoService : IProductoService
     {
         ArgumentNullException.ThrowIfNull(dto);
 
+        if (!await _auth.PuedeAsync(PermisosClave.Producto.Crear, ct))
+            return ServiceResult<ProductoDto>.Fail(
+                "Sin permiso para clonar productos (producto.crear).", ErrorCode.Unauthorized);
+
         var opId = OperationContext.CurrentId;
         try
         {
@@ -353,6 +371,10 @@ public sealed class ProductoService : IProductoService
     public async Task<ServiceResult> CambiarActivoAsync(
         int productoId, bool activo, Guid usuarioId, CancellationToken ct = default)
     {
+        if (!await _auth.PuedeAsync(PermisosClave.Producto.Editar, ct))
+            return ServiceResult.Fail(
+                "Sin permiso para editar productos (producto.editar).", ErrorCode.Unauthorized);
+
         try
         {
             var producto = await _context.Productos
@@ -378,6 +400,10 @@ public sealed class ProductoService : IProductoService
     public async Task<ServiceResult> EliminarAsync(
         int productoId, Guid usuarioId, CancellationToken ct = default)
     {
+        if (!await _auth.PuedeAsync(PermisosClave.Producto.Eliminar, ct))
+            return ServiceResult.Fail(
+                "Sin permiso para eliminar productos (producto.eliminar).", ErrorCode.Unauthorized);
+
         try
         {
             var producto = await _context.Productos

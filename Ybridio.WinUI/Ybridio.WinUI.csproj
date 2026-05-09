@@ -22,6 +22,13 @@
     <None Remove="Views\Configuracion\ConfiguracionPage.xaml" />
     <None Remove="Views\Contactos\ContactosPage.xaml" />
     <None Remove="Views\Ventas\VentasPage.xaml" />
+    <None Remove="Views\Ventas\ClientesPage.xaml" />
+    <None Remove="Views\Ventas\CotizacionesPage.xaml" />
+    <None Remove="Views\Ventas\PedidosPage.xaml" />
+    <None Remove="Views\Ventas\OrdenesTrabajoPage.xaml" />
+    <None Remove="Views\Ventas\CotizacionDocumentoPage.xaml" />
+    <None Remove="Views\Ventas\PedidoDocumentoPage.xaml" />
+    <None Remove="Views\Ventas\OrdenTrabajoDocumentoPage.xaml" />
     <None Remove="Views\Inventario\ConteoPage.xaml" />
     <None Remove="Views\Inventario\EntradasPage.xaml" />
     <None Remove="Views\Inventario\ExistenciasPage.xaml" />
@@ -33,6 +40,15 @@
     <None Remove="Views\Config\UsuariosPage.xaml" />
     <None Remove="Views\Config\RolesPage.xaml" />
     <None Remove="Views\Config\AuditoriaPage.xaml" />
+    <None Remove="Views\Config\PerfilesPage.xaml" />
+    <None Remove="Views\Config\PermisosPage.xaml" />
+    <None Remove="Views\Config\ScopesPage.xaml" />
+    <None Remove="Views\Config\ArquitecturaSegPage.xaml" />
+    <None Remove="Views\Finanzas\FinanzasPage.xaml" />
+    <None Remove="Views\Finanzas\GastosPage.xaml" />
+    <None Remove="Views\Finanzas\IngresosPage.xaml" />
+    <None Remove="Views\Finanzas\CxCPage.xaml" />
+    <None Remove="Views\Finanzas\CxPPage.xaml" />
     <None Remove="Views\Inventario\ProductosPage.xaml" />
     <None Remove="Views\Inventario\SalidasPage.xaml" />
     <None Remove="Views\LoginPage.xaml" />
@@ -106,6 +122,27 @@
     <Page Update="Views\Ventas\VentasPage.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Update="Views\Ventas\ClientesPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Ventas\CotizacionesPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Ventas\PedidosPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Ventas\OrdenesTrabajoPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Ventas\CotizacionDocumentoPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Ventas\PedidoDocumentoPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Ventas\OrdenTrabajoDocumentoPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Update="Views\Inventario\ExistenciasPage.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -122,6 +159,33 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Update="Views\Config\AuditoriaPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Config\PerfilesPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Config\PermisosPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Config\ScopesPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Config\ArquitecturaSegPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Finanzas\FinanzasPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Finanzas\GastosPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Finanzas\IngresosPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Finanzas\CxCPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Finanzas\CxPPage.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Update="Views\Inventario\ProductosPage.xaml">

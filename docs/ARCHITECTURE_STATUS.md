@@ -1,6 +1,7 @@
 # Architecture Status — Ybridio ERP
 
-> Última actualización: 2026-05-07
+> Última actualización: 2026-05-08  
+> Build: ✅ 0 errores | BD: YBRIDIO-26 | Docs relacionados: `DECISIONS.md` · `ROADMAP.md` · `KNOWN_ISSUES.md` · `CLAUDE_RULES.md`
 
 ## Estado general
 
@@ -25,6 +26,10 @@
 | Caja | ✅ | ✅ | ✅ | ✅ |
 | Configuración Global / Sucursal | ✅ | ✅ | ✅ | ✅ |
 | Seguridad (Usuarios, Roles) | ✅ | ✅ | ✅ | ✅ |
+| **Security Admin Module** (Perfiles, Permisos, Scopes, Arquitectura) | ✅ | ✅ | ✅ | ✅ |
+| **Runtime Security Enforcement** (Productos, Entradas, Salidas, Existencias) | ✅ | ✅ | ✅ | ✅ |
+| **Finanzas Operativas PYME** (Gastos, Ingresos, CxC, CxP) | ✅ | ✅ | ✅ | ✅ |
+| **Sales Core** (Clientes+, Cotizaciones, Pedidos, OT ligeras) | ✅ | ✅ | ✅ | ✅ |
 
 ---
 
@@ -67,6 +72,71 @@
 - **8 roles** nuevos (SuperAdmin, AdministradorEmpresa, GerenteSucursal, SupervisorInventario, OperadorInventario, Cajero, Vendedor, SupervisorVentas)
 - **5 perfiles** iniciales con permisos asignados
 - RolPermiso configurado para todos los roles
+
+---
+
+## Security Administration Module (implementado 2026-05-08)
+
+### Ubicación en UI
+
+`Configuración Global → Seguridad` — 6 tabs:
+
+| Tab | Página | ViewModel | Propósito |
+|---|---|---|---|
+| Usuarios | `UsuariosPage` | `UsuariosViewModel` | Grid con Roles+Perfiles; Asignar Roles/Perfiles/Scopes |
+| Roles | `RolesPage` | `RolesViewModel` | Grid con CantidadPermisos+CantidadUsuarios; Asignar Permisos |
+| Perfiles | `PerfilesPage` | `PerfilesViewModel` | CRUD completo; Administrar Permisos por perfil |
+| Permisos | `PermisosPage` | `PermisosViewModel` | Solo lectura; todos los permisos del sistema |
+| Scopes | `ScopesPage` | `ScopesViewModel` | Asignación de sucursales+almacenes por usuario |
+| Arquitectura Seguridad | `ArquitecturaSegPage` | *(static)* | Guía técnica viva integrada |
+
+### Nuevos DTOs Application
+
+| DTO | Propósito |
+|---|---|
+| `UsuarioResumenDto` | Usuario con RolesTexto + PerfilesTexto para grid admin |
+| `RolAdminDto` | Rol con CantidadPermisos + CantidadUsuarios |
+| `PermisoAdminDto` | Permiso con ModuloNombre para vista de solo lectura |
+| `ScopeUsuarioDto` | Scopes del usuario: sucursales + almacenes como texto |
+| `SucursalScopeItem` / `AlmacenScopeItem` | Items para selectores de scope |
+
+### Nuevo servicio Application
+
+**`ISecurityAdminService`** / **`SecurityAdminService`** (`Scoped`) — servicio dedicado a la UI de administración. NO reemplaza el motor de autorización runtime.
+
+Operaciones disponibles:
+- `ListarUsuariosConDetalleAsync` — usuarios con roles/perfiles precargados
+- `ListarRolesConDetalleAsync` — roles con conteos de permisos y usuarios
+- `ListarPermisosAsync` — todos los permisos del sistema (solo lectura)
+- `ObtenerPermisosDePerfilAsync` — IDs de permisos de un perfil (para diálogos)
+- `ObtenerPermisosDeRolAsync` / `AsignarPermisosARolAsync` — gestión de permisos por rol
+- `ListarScopesUsuariosAsync` — resumen de scopes de todos los usuarios
+- `ListarSucursalesDisponiblesAsync` / `ListarAlmacenesDisponiblesAsync`
+- `ObtenerSucursalesDeUsuarioAsync` / `AsignarSucursalesAUsuarioAsync`
+- `ObtenerAlmacenesDeUsuarioAsync` / `AsignarAlmacenesAUsuarioAsync`
+- `ObtenerPerfilesDeUsuarioAsync` / `AsignarPerfilesAUsuarioAsync`
+
+### Diálogos (ContentDialog inline, requieren XamlRoot)
+
+| Diálogo | Acceso desde | Descripción |
+|---|---|---|
+| Nuevo/Editar Perfil | PerfilesPage | Form: Nombre, Descripción, Activo |
+| Administrar Permisos (perfil) | PerfilesPage | Checklist agrupado por módulo |
+| Asignar Permisos (rol) | RolesPage | Checklist agrupado por módulo |
+| Asignar Roles (usuario) | UsuariosPage | Checklist de roles disponibles |
+| Asignar Perfiles (usuario) | UsuariosPage | Checklist de perfiles activos |
+| Asignar Scopes (usuario) | UsuariosPage + ScopesPage | Sucursales + Almacenes |
+
+### Tab Arquitectura Seguridad
+
+Página estática (`ArquitecturaSegPage`) integrada como documentación viva:
+- Flujo de autorización runtime (diagrama ASCII)
+- Ejemplos CORRECTO vs INCORRECTO de implementación
+- Scopes de seguridad con ejemplos de código
+- Developer Guidance Panel por módulo (Productos, Salida, Venta)
+- Tabla de módulos y claves de permisos
+- Tabla de roles predefinidos
+- Modelo de evaluación de permisos (3 niveles)
 
 ---
 
@@ -114,7 +184,9 @@
 core/        → Empresa, Sucursal, Cliente, Proveedor, Producto, ProductoCategoria, ProductoSucursal
 catalogos/   → CategoriaProducto, TipoProducto, TipoImpuesto, UnidadMedida, ...
 inventario/  → Almacen, Existencia, Entrada, Salida, Traspaso, AjusteInventario, Movimiento...
-finanzas/    → Caja, AperturaCaja, MovimientoCaja, ...
+finanzas/    → Caja, AperturaCaja, MovimientoCaja, TipoMovimientoCaja
+               CategoriaFinanciera, MovimientoFinanciero
+               CuentaPorCobrar, CuentaPorPagar
 ventas/      → Venta, VentaDetalle, Factura
 compras/     → OrdenCompra, RecepcionCompra, ...
 seguridad/   → Usuario, Rol, UsuarioRol, Modulo, Permiso, RolPermiso, UsuarioPermiso,

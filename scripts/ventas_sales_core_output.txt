@@ -1,0 +1,31 @@
+Changed database context to 'YBRIDIO-26'.
+core.Cliente ampliado con Telefono, Direccion, Notas, LimiteCredito.
+ventas.Cotizacion CREADA.
+ventas.CotizacionDetalle CREADA.
+ventas.Pedido CREADA.
+ventas.PedidoDetalle CREADA.
+ventas.OrdenTrabajo CREADA.
+ventas.OrdenTrabajoMaterial CREADA.
+
+(1 rows affected)
+
+(1 rows affected)
+
+(1 rows affected)
+
+(4 rows affected)
+
+(4 rows affected)
+
+(4 rows affected)
+Permisos Sales Core insertados.
+
+(24 rows affected)
+
+(10 rows affected)
+
+(5 rows affected)
+
+(12 rows affected)
+RolPermiso Sales Core asignados.
+SALES CORE — SQL COMPLETADO.

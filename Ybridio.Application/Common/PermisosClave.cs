@@ -112,10 +112,56 @@ public static class PermisosClave
         public const string PermisosGestionar = "seguridad.permisos.gestionar";
     }
 
+    public static class Cotizacion
+    {
+        public const string Ver      = "cotizacion.ver";
+        public const string Crear    = "cotizacion.crear";
+        public const string Editar   = "cotizacion.editar";
+        public const string Cancelar = "cotizacion.cancelar";
+    }
+
+    public static class Pedido
+    {
+        public const string Ver      = "pedido.ver";
+        public const string Crear    = "pedido.crear";
+        public const string Editar   = "pedido.editar";
+        public const string Cancelar = "pedido.cancelar";
+    }
+
+    public static class OrdenTrabajo
+    {
+        public const string Ver        = "ordentrabajo.ver";
+        public const string Crear      = "ordentrabajo.crear";
+        public const string Actualizar = "ordentrabajo.actualizar";
+        public const string Cerrar     = "ordentrabajo.cerrar";
+    }
+
     public static class Reporte
     {
         public const string Ver      = "reporte.ver";
         public const string Exportar = "reporte.exportar";
+    }
+
+    public static class Finanzas
+    {
+        public const string Ver      = "finanzas.ver";
+        public const string Crear    = "finanzas.crear";
+        public const string Editar   = "finanzas.editar";
+        public const string Eliminar = "finanzas.eliminar";
+    }
+
+    public static class CxC
+    {
+        public const string Ver    = "cxc.ver";
+        public const string Crear  = "cxc.crear";
+        public const string Editar = "cxc.editar";
+    }
+
+    public static class CxP
+    {
+        public const string Ver    = "cxp.ver";
+        public const string Crear  = "cxp.crear";
+        public const string Editar = "cxp.editar";
     }
 
     /// <summary>
@@ -140,5 +186,11 @@ public static class PermisosClave
         Seguridad.RolesVer, Seguridad.RolesGestionar,
         Seguridad.PermisosVer, Seguridad.PermisosGestionar,
         Reporte.Ver, Reporte.Exportar,
+        Cotizacion.Ver, Cotizacion.Crear, Cotizacion.Editar, Cotizacion.Cancelar,
+        Pedido.Ver, Pedido.Crear, Pedido.Editar, Pedido.Cancelar,
+        OrdenTrabajo.Ver, OrdenTrabajo.Crear, OrdenTrabajo.Actualizar, OrdenTrabajo.Cerrar,
+        Finanzas.Ver, Finanzas.Crear, Finanzas.Editar, Finanzas.Eliminar,
+        CxC.Ver, CxC.Crear, CxC.Editar,
+        CxP.Ver, CxP.Crear, CxP.Editar,
     ];
 }

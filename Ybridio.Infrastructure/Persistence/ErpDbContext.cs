@@ -55,10 +55,14 @@ public class ErpDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
     public DbSet<RecepcionCompraDetalle> RecepcionesCompraDetalle => Set<RecepcionCompraDetalle>();
 
     // ── finanzas ──────────────────────────────────────────────────────────────
-    public DbSet<Caja>                Cajas               => Set<Caja>();
-    public DbSet<AperturaCaja>        AperturasCaja       => Set<AperturaCaja>();
-    public DbSet<MovimientoCaja>      MovimientosCaja     => Set<MovimientoCaja>();
-    public DbSet<TipoMovimientoCaja>  TiposMovimientoCaja => Set<TipoMovimientoCaja>();
+    public DbSet<Caja>                    Cajas                     => Set<Caja>();
+    public DbSet<AperturaCaja>            AperturasCaja             => Set<AperturaCaja>();
+    public DbSet<MovimientoCaja>          MovimientosCaja           => Set<MovimientoCaja>();
+    public DbSet<TipoMovimientoCaja>      TiposMovimientoCaja       => Set<TipoMovimientoCaja>();
+    public DbSet<CategoriaFinanciera>     CategoriasFinancieras     => Set<CategoriaFinanciera>();
+    public DbSet<MovimientoFinanciero>    MovimientosFinancieros    => Set<MovimientoFinanciero>();
+    public DbSet<CuentaPorCobrar>         CuentasPorCobrar          => Set<CuentaPorCobrar>();
+    public DbSet<CuentaPorPagar>          CuentasPorPagar           => Set<CuentaPorPagar>();
 
     // ── inventario ────────────────────────────────────────────────────────────
     public DbSet<Almacen>                    Almacenes                  => Set<Almacen>();
@@ -89,9 +93,15 @@ public class ErpDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
     public DbSet<UsuarioAlmacen> UsuariosAlmacenes   => Set<UsuarioAlmacen>();
 
     // ── ventas ────────────────────────────────────────────────────────────────
-    public DbSet<Venta>       Ventas       => Set<Venta>();
-    public DbSet<VentaDetalle> VentasDetalle => Set<VentaDetalle>();
-    public DbSet<Factura>     Facturas     => Set<Factura>();
+    public DbSet<Venta>                  Ventas                   => Set<Venta>();
+    public DbSet<VentaDetalle>           VentasDetalle            => Set<VentaDetalle>();
+    public DbSet<Factura>                Facturas                 => Set<Factura>();
+    public DbSet<Cotizacion>             Cotizaciones             => Set<Cotizacion>();
+    public DbSet<CotizacionDetalle>      CotizacionesDetalle      => Set<CotizacionDetalle>();
+    public DbSet<Pedido>                 Pedidos                  => Set<Pedido>();
+    public DbSet<PedidoDetalle>          PedidosDetalle           => Set<PedidoDetalle>();
+    public DbSet<OrdenTrabajo>           OrdenesTrabajo           => Set<OrdenTrabajo>();
+    public DbSet<OrdenTrabajoMaterial>   OrdenTrabajoMateriales   => Set<OrdenTrabajoMaterial>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

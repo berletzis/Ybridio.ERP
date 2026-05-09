@@ -16,6 +16,7 @@ using Ybridio.WinUI.ViewModels;
 using Ybridio.WinUI.Views.Configuracion;
 using Ybridio.WinUI.Views.Contactos;
 using Ybridio.WinUI.Views.Dashboard;
+using Ybridio.WinUI.Views.Finanzas;
 using Ybridio.WinUI.Views.Inventario;
 using Ybridio.WinUI.Views.POS;
 using Ybridio.WinUI.Views.Ventas;
@@ -90,6 +91,7 @@ public sealed partial class ShellPage : Page
             "Inventario"                             => (typeof(InventarioPage),            null),
             "Ventas"                                 => (typeof(VentasPage),               null),
             "Contactos"                              => (typeof(ContactosPage),             null),
+            "Finanzas"                               => (typeof(FinanzasPage),              null),
             "Configuracion" or "ConfiguracionGlobal" => (typeof(ConfiguracionPage),        "Global"),
             "ConfiguracionTienda"                    => (typeof(ConfiguracionPage),        "Tienda"),
             _                                        => (null, null)
@@ -108,6 +110,7 @@ public sealed partial class ShellPage : Page
             "Inventario"                             => "Inventario",
             "Ventas"                                 => "Ventas",
             "Contactos"                              => "Contactos",
+            "Finanzas"                               => "Finanzas",
             "Configuracion" or "ConfiguracionGlobal" => "Configuración",
             "ConfiguracionTienda"                    => "Config. Tienda",
             _                                        => tag

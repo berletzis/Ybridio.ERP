@@ -1,0 +1,216 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Microsoft.UI.Xaml;
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Ybridio.Application.Common;
+using Ybridio.Application.DTOs.Finanzas;
+using Ybridio.Application.Services.Autorizacion;
+using Ybridio.Application.Services.Finanzas;
+using Ybridio.WinUI.Services;
+using Ybridio.WinUI.Services.Diagnostic;
+using Ybridio.WinUI.ViewModels;
+
+namespace Ybridio.WinUI.ViewModels.Finanzas;
+
+/// <summary>
+/// ViewModel del sub-módulo Finanzas > Cuentas por Cobrar.
+/// Lista CxC con saldo pendiente y vencimiento. Permite registro de pagos.
+/// </summary>
+public sealed partial class CxCViewModel : BaseContextViewModel
+{
+    private readonly ICxCService                      _service;
+    private readonly IErpAuthorizationService         _auth;
+    private readonly IOperationalObservabilityService _observability;
+    private readonly ICurrentContextTracker           _contextTracker;
+
+    [ObservableProperty] private bool    isBusy;
+    [ObservableProperty] private string  errorMessage   = string.Empty;
+    [ObservableProperty] private string  successMessage = string.Empty;
+    [ObservableProperty] private string  busqueda       = string.Empty;
+    [ObservableProperty] private string  filtroTemporal = "30 días";
+    [ObservableProperty] private bool    soloVigentes   = true;
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(EliminarCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RegistrarPagoCommand))]
+    private CxCDto? cxcSeleccionada;
+
+    private IReadOnlyList<CxCDto> _todas = [];
+    public ObservableCollection<CxCDto> CxCItems { get; } = [];
+
+    public Visibility IsEmptyState => CxCItems.Count == 0 && !IsBusy ? Visibility.Visible : Visibility.Collapsed;
+
+    public Action<CxCDto?>?  SolicitarNuevo;
+    public Action<CxCDto>?   SolicitarRegistrarPago;
+
+    public CxCViewModel(
+        ICxCService                      service,
+        IErpAuthorizationService         auth,
+        SessionService                   session,
+        IOperationalObservabilityService observability,
+        ICurrentContextTracker           contextTracker)
+        : base(session)
+    {
+        _service        = service;
+        _auth           = auth;
+        _observability  = observability;
+        _contextTracker = contextTracker;
+        CxCItems.CollectionChanged += (_, _) => OnPropertyChanged(nameof(IsEmptyState));
+    }
+
+    private bool HaySeleccion     => CxcSeleccionada is not null;
+    private bool TieneSaldo       => CxcSeleccionada is { SaldoPendiente: > 0 };
+
+    partial void OnBusquedaChanged(string value)       => AplicarFiltro();
+    partial void OnFiltroTemporalChanged(string value) => _ = RefrescarAsync();
+    partial void OnSoloVigentesChanged(bool value)     => _ = RefrescarAsync();
+    partial void OnIsBusyChanged(bool value)           => OnPropertyChanged(nameof(IsEmptyState));
+
+    [RelayCommand] private void Nuevo() => SolicitarNuevo?.Invoke(null);
+    [RelayCommand(CanExecute = nameof(TieneSaldo))] private void RegistrarPago() => SolicitarRegistrarPago?.Invoke(CxcSeleccionada!);
+
+    [RelayCommand(CanExecute = nameof(HaySeleccion))]
+    private async Task EliminarAsync(CancellationToken ct = default)
+    {
+        if (CxcSeleccionada is null || Session.Usuario is null) return;
+        IsBusy = true;
+        ErrorMessage = SuccessMessage = string.Empty;
+        try
+        {
+            var r = await _service.EliminarAsync(CxcSeleccionada.Id, Session.Usuario.Id, ct);
+            if (r.Success) { SuccessMessage = "CxC eliminada."; await RefrescarAsync(ct); }
+            else           { ErrorMessage   = r.Error ?? "No se pudo eliminar."; }
+        }
+        finally { IsBusy = false; }
+    }
+
+    [RelayCommand]
+    public async Task RefrescarAsync(CancellationToken ct = default)
+    {
+        if (Session.EmpresaId == 0) return;
+        IsBusy       = true;
+        ErrorMessage = string.Empty;
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            if (!await _auth.PuedeAsync(PermisosClave.CxC.Ver, ct))
+            {
+                sw.Stop();
+                ErrorMessage = "Sin permiso para ver cuentas por cobrar (cxc.ver).";
+                ReportContext(sw.Elapsed, denied: true);
+                return;
+            }
+
+            var (desde, hasta) = ParseFiltroTemporal();
+            var result = await _service.ListarAsync(Session.EmpresaId, null, SoloVigentes, desde, hasta, ct);
+
+            if (!result.Success) { sw.Stop(); ErrorMessage = result.Error ?? "Error al cargar CxC."; ReportContext(sw.Elapsed, denied: result.ErrorCode == ErrorCode.Unauthorized); return; }
+
+            _todas = result.Value!;
+            AplicarFiltro();
+            sw.Stop();
+            ReportContext(sw.Elapsed);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { ErrorMessage = $"Error: {ex.Message}"; }
+        finally { IsBusy = false; }
+    }
+
+    public async Task<bool> CrearCxCAsync(CrearCxCDto dto, CancellationToken ct = default)
+    {
+        if (Session.Usuario is null) return false;
+        IsBusy = true;
+        ErrorMessage = SuccessMessage = string.Empty;
+        try
+        {
+            var r = await _service.CrearAsync(dto with { EmpresaId = Session.EmpresaId }, Session.Usuario.Id, ct);
+            if (!r.Success) { ErrorMessage = r.Error ?? "No se pudo crear."; return false; }
+            SuccessMessage = "Cuenta por cobrar registrada.";
+            await RefrescarAsync(ct);
+            return true;
+        }
+        finally { IsBusy = false; }
+    }
+
+    public async Task<bool> PagarAsync(long cxcId, decimal monto, CancellationToken ct = default)
+    {
+        if (Session.Usuario is null) return false;
+        IsBusy = true;
+        ErrorMessage = SuccessMessage = string.Empty;
+        try
+        {
+            var r = await _service.RegistrarPagoAsync(new(cxcId, monto), Session.Usuario.Id, ct);
+            if (!r.Success) { ErrorMessage = r.Error ?? "No se pudo registrar el pago."; return false; }
+            SuccessMessage = "Pago registrado.";
+            await RefrescarAsync(ct);
+            return true;
+        }
+        finally { IsBusy = false; }
+    }
+
+    protected override Task OnContextChangedAsync() => RefrescarAsync();
+    public void ReportLiveContext() => _contextTracker.SetViewModelContext(BuildCurrentContext());
+
+    private void AplicarFiltro()
+    {
+        CxCItems.Clear();
+        var t = Busqueda.Trim();
+        var lista = string.IsNullOrWhiteSpace(t) ? _todas
+            : _todas.Where(c => c.NombreDeudor.Contains(t, StringComparison.OrdinalIgnoreCase) ||
+                                 c.Concepto.Contains(t, StringComparison.OrdinalIgnoreCase));
+        foreach (var c in lista) CxCItems.Add(c);
+        OnPropertyChanged(nameof(IsEmptyState));
+    }
+
+    private (DateTime? desde, DateTime? hasta) ParseFiltroTemporal()
+    {
+        var ahora = DateTime.Now;
+        return FiltroTemporal switch
+        {
+            "Hoy"     => (ahora.Date, ahora.Date.AddDays(1).AddTicks(-1)),
+            "7 días"  => (ahora.AddDays(-7), null),
+            "30 días" => (ahora.AddDays(-30), null),
+            "90 días" => (ahora.AddDays(-90), null),
+            "6 meses" => (ahora.AddMonths(-6), null),
+            "1 año"   => (ahora.AddYears(-1), null),
+            _         => (null, null)
+        };
+    }
+
+    private void ReportContext(TimeSpan duration, bool denied = false)
+    {
+        _contextTracker.SetViewModelContext(BuildCurrentContext(denied));
+        _observability.Report(new GridOperationContext(
+            Module: "Finanzas", SubModule: "CxC", ViewModel: nameof(CxCViewModel),
+            Entity: "finanzas.CuentaPorCobrar",
+            RecordCount: CxCItems.Count, Duration: duration,
+            EmpresaFilter:    new(Session.EmpresaId != 0 ? FilterState.Applied : FilterState.Missing, Session.EmpresaId.ToString()),
+            SucursalFilter:   new(FilterState.OmittedExpected, Note: "CxC filtran por empresa"),
+            AlmacenFilter:    new(FilterState.OmittedExpected, Note: "No aplica"),
+            SoftDeleteFilter: new(FilterState.Applied, "Borrado = false (global)"),
+            SearchTerm: string.IsNullOrWhiteSpace(Busqueda) ? null : Busqueda,
+            SoloActivos: SoloVigentes, CategoriaFiltro: null, FiltroTemporal: FiltroTemporal,
+            Notes: denied ? [$"ACCESO DENEGADO — permiso requerido: {PermisosClave.CxC.Ver}"]
+                          : [$"SoloVigentes={SoloVigentes} | Empresa={Session.EmpresaId}"],
+            Timestamp: DateTime.Now));
+    }
+
+    private CurrentOperationalContext BuildCurrentContext(bool denied = false) =>
+        new(Module: "Finanzas", SubModule: "CxC", ViewModel: nameof(CxCViewModel),
+            Entity: "finanzas.CuentaPorCobrar",
+            RecordCount: CxCItems.Count,
+            SearchTerm: string.IsNullOrWhiteSpace(Busqueda) ? null : Busqueda,
+            SoloActivos: SoloVigentes,
+            CategoriaFiltro: denied ? $"DENEGADO ({PermisosClave.CxC.Ver})" : null,
+            FiltroTemporal: FiltroTemporal,
+            EmpresaFilter:    new(Session.EmpresaId != 0 ? FilterState.Applied : FilterState.Missing, Session.EmpresaId.ToString()),
+            SucursalFilter:   new(FilterState.OmittedExpected, Note: "Finanzas Empresa"),
+            AlmacenFilter:    new(FilterState.OmittedExpected, Note: "No aplica"),
+            SoftDeleteFilter: new(FilterState.Applied, "Borrado = false"),
+            Source: "ModuleFrame", UpdatedAt: DateTime.Now);
+}

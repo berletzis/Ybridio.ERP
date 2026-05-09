@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Navigation;
 using Ybridio.WinUI.Views.Config;
 using XamlApp = Microsoft.UI.Xaml.Application;
 using AuditoriaViewPage = Ybridio.WinUI.Views.Config.AuditoriaPage;
+using ArqSegViewPage    = Ybridio.WinUI.Views.Config.ArquitecturaSegPage;
 
 namespace Ybridio.WinUI.Views.Configuracion;
 
@@ -23,6 +24,9 @@ public sealed partial class ConfiguracionPage : Page
     private bool _usuariosGlobalLoaded;
     private bool _rolesGlobalLoaded;
     private bool _perfilesGlobalLoaded;
+    private bool _permisosGlobalLoaded;
+    private bool _scopesGlobalLoaded;
+    private bool _arquitecturaGlobalLoaded;
 
     // ── Lazy-load flags — Tienda ─────────────────────────────────────────────
     private bool _usuariosTiendaLoaded;
@@ -99,7 +103,13 @@ public sealed partial class ConfiguracionPage : Page
         else if (tab == TabRolesGlobal)
             LoadFrame(ref _rolesGlobalLoaded, FrameRolesGlobal, typeof(RolesPage));
         else if (tab == TabPerfilesGlobal)
-            LoadPlaceholder(ref _perfilesGlobalLoaded, FramePerfilesGlobal, "Perfiles");
+            LoadFrame(ref _perfilesGlobalLoaded, FramePerfilesGlobal, typeof(PerfilesPage));
+        else if (tab == TabPermisosGlobal)
+            LoadFrame(ref _permisosGlobalLoaded, FramePermisosGlobal, typeof(PermisosPage));
+        else if (tab == TabScopesGlobal)
+            LoadFrame(ref _scopesGlobalLoaded, FrameScopesGlobal, typeof(ScopesPage));
+        else if (tab == TabArquitecturaGlobal)
+            LoadFrame(ref _arquitecturaGlobalLoaded, FrameArquitecturaGlobal, typeof(ArqSegViewPage));
     }
 
     // ── Carga de tabs — Tienda ───────────────────────────────────────────────

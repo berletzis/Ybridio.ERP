@@ -8,7 +8,9 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Ybridio.Application.Common;
 using Ybridio.Application.DTOs.Catalogos;
+using Ybridio.Application.Services.Autorizacion;
 using Ybridio.Application.Services.Producto;
 using Ybridio.WinUI.Controls.Navigation;
 using Ybridio.WinUI.Services;
@@ -22,6 +24,7 @@ public sealed partial class ProductosViewModel : BaseContextViewModel
     private readonly IProductoService                _productos;
     private readonly IOperationalObservabilityService _observability;
     private readonly ICurrentContextTracker           _contextTracker;
+    private readonly IErpAuthorizationService         _auth;
 
     // ── Clasificación (panel tipo Outlook) ───────────────────────────────────
 
@@ -263,12 +266,14 @@ public sealed partial class ProductosViewModel : BaseContextViewModel
         IProductoService                productos,
         SessionService                  session,
         IOperationalObservabilityService observability,
-        ICurrentContextTracker          contextTracker)
+        ICurrentContextTracker          contextTracker,
+        IErpAuthorizationService        auth)
         : base(session)
     {
         _productos      = productos;
         _observability  = observability;
         _contextTracker = contextTracker;
+        _auth           = auth;
     }
 
     protected override Task OnContextChangedAsync() => RefrescarAsync();
@@ -285,6 +290,14 @@ public sealed partial class ProductosViewModel : BaseContextViewModel
 
         try
         {
+            // ── Pre-check de autorización ──────────────────────────────────────
+            if (!await _auth.PuedeAsync(PermisosClave.Producto.Ver, ct))
+            {
+                ErrorMessage = "Sin permiso para ver productos (producto.ver).";
+                _contextTracker.SetViewModelContext(BuildCurrentContext(denied: true, permiso: PermisosClave.Producto.Ver));
+                return;
+            }
+
             await CargarCatalogosAsync(ct);
             _todosLosProductos = await _productos.ListarPorEmpresaAsync(Session.EmpresaId, SoloActivos, ct);
             await CargarClasificacionAsync(ct);
@@ -334,6 +347,17 @@ public sealed partial class ProductosViewModel : BaseContextViewModel
 
         try
         {
+            // ── Pre-check de autorización ──────────────────────────────────────
+            if (!await _auth.PuedeAsync(PermisosClave.Producto.Ver, ct))
+            {
+                sw.Stop();
+                ErrorMessage = "Sin permiso para ver productos (producto.ver).";
+                _observability.Report(BuildOperationalContext(sw.Elapsed,
+                    denied: true, permiso: PermisosClave.Producto.Ver));
+                _contextTracker.SetViewModelContext(BuildCurrentContext(denied: true, permiso: PermisosClave.Producto.Ver));
+                return;
+            }
+
             _todosLosProductos = await _productos.ListarPorEmpresaAsync(Session.EmpresaId, SoloActivos, ct);
             AplicarFiltro();
             sw.Stop();
@@ -351,7 +375,8 @@ public sealed partial class ProductosViewModel : BaseContextViewModel
         }
     }
 
-    private GridOperationContext BuildOperationalContext(TimeSpan duration) =>
+    private GridOperationContext BuildOperationalContext(
+        TimeSpan duration, bool denied = false, string? permiso = null) =>
         new(
             Module:           "Inventario",
             SubModule:        "Productos",
@@ -370,7 +395,9 @@ public sealed partial class ProductosViewModel : BaseContextViewModel
             SoloActivos:      SoloActivos,
             CategoriaFiltro:  FiltroActivoNombre,
             FiltroTemporal:   FiltroTemporal,
-            Notes:            ["SucursalId omitido — diseño intencional (catálogo empresa)"],
+            Notes:            denied
+                                ? [$"ACCESO DENEGADO — permiso requerido: {permiso}"]
+                                : ["SucursalId omitido — diseño intencional (catálogo empresa)"],
             Timestamp:        DateTime.Now
         );
 
@@ -378,7 +405,7 @@ public sealed partial class ProductosViewModel : BaseContextViewModel
     /// Construye el contexto activo VIVO sin ejecutar queries.
     /// Llamado tras cada carga para que el panel diagnóstico refleje el estado actual.
     /// </summary>
-    private CurrentOperationalContext BuildCurrentContext() =>
+    private CurrentOperationalContext BuildCurrentContext(bool denied = false, string? permiso = null) =>
         new(
             Module:           "Inventario",
             SubModule:        "Productos",
@@ -387,7 +414,7 @@ public sealed partial class ProductosViewModel : BaseContextViewModel
             RecordCount:      Productos.Count,
             SearchTerm:       string.IsNullOrWhiteSpace(Busqueda) ? null : Busqueda,
             SoloActivos:      SoloActivos,
-            CategoriaFiltro:  FiltroActivoNombre,
+            CategoriaFiltro:  denied ? $"DENEGADO ({permiso})" : FiltroActivoNombre,
             FiltroTemporal:   FiltroTemporal,
             EmpresaFilter:    new(Session.EmpresaId != 0 ? FilterState.Applied : FilterState.Missing,
                                   Session.EmpresaId.ToString()),

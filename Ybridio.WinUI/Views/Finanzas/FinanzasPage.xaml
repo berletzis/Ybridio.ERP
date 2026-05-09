@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page x:Class="Ybridio.WinUI.Views.Finanzas.FinanzasPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      mc:Ignorable="d"
+      Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <Page.Resources>
+        <Style TargetType="TabViewItem" BasedOn="{StaticResource OutlookTabItemStyle}"/>
+    </Page.Resources>
+
+    <TabView x:Name="FinanzasTabs"
+             TabWidthMode="SizeToContent"
+             IsAddTabButtonVisible="False"
+             Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+             SelectionChanged="FinanzasTabs_SelectionChanged">
+
+        <TabViewItem x:Name="TabGastos" Header="Gastos" IsClosable="False">
+            <Frame x:Name="FrameGastos"/>
+        </TabViewItem>
+
+        <TabViewItem x:Name="TabIngresos" Header="Ingresos" IsClosable="False">
+            <Frame x:Name="FrameIngresos"/>
+        </TabViewItem>
+
+        <TabViewItem x:Name="TabCxC" Header="Cuentas por Cobrar" IsClosable="False">
+            <Frame x:Name="FrameCxC"/>
+        </TabViewItem>
+
+        <TabViewItem x:Name="TabCxP" Header="Cuentas por Pagar" IsClosable="False">
+            <Frame x:Name="FrameCxP"/>
+        </TabViewItem>
+
+    </TabView>
+</Page>

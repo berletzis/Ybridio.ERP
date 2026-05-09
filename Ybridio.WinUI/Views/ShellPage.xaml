@@ -159,6 +159,7 @@
                         <RowDefinition Height="Auto"/>  <!-- Inventario -->
                         <RowDefinition Height="Auto"/>  <!-- Ventas -->
                         <RowDefinition Height="Auto"/>  <!-- Contactos -->
+                        <RowDefinition Height="Auto"/>  <!-- Finanzas -->
                         <RowDefinition Height="*"/>     <!-- Espaciador -->
                         <RowDefinition Height="Auto"/>  <!-- Separador visual -->
                         <RowDefinition Height="Auto"/>  <!-- Config Global -->
@@ -224,17 +225,28 @@
                         </StackPanel>
                     </Button>
 
-                    <!-- Row 5: espaciador (* en RowDefinitions, sin hijo) -->
+                    <Button Grid.Row="5"
+                            Tag="Finanzas"
+                            Click="ModuleButton_Click"
+                            Style="{StaticResource ShellNavButtonStyle}"
+                            ToolTipService.ToolTip="Finanzas Operativas">
+                        <StackPanel HorizontalAlignment="Center" Spacing="4">
+                            <FontIcon Glyph="&#xE8C7;" FontSize="20"/>
+                            <TextBlock Text="Finanzas" FontSize="10"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Row 6: espaciador (* en RowDefinitions, sin hijo) -->
 
                     <!-- Separador visual entre módulos y configuración -->
-                    <Border Grid.Row="6"
+                    <Border Grid.Row="7"
                             Height="1"
                             Background="{ThemeResource DividerStrokeColorDefaultBrush}"
                             Margin="12,0"/>
 
                     <!-- ── Configuración (inferior) ─────────────────── -->
 
-                    <Button Grid.Row="7"
+                    <Button Grid.Row="8"
                             Tag="ConfiguracionGlobal"
                             Click="ModuleButton_Click"
                             Style="{StaticResource ShellNavButtonStyle}"
@@ -245,7 +257,7 @@
                         </StackPanel>
                     </Button>
 
-                    <Button Grid.Row="8"
+                    <Button Grid.Row="9"
                             Tag="ConfiguracionTienda"
                             Click="ModuleButton_Click"
                             Style="{StaticResource ShellNavButtonStyle}"
@@ -256,7 +268,7 @@
                         </StackPanel>
                     </Button>
 
-                    <Button Grid.Row="9"
+                    <Button Grid.Row="10"
                             Style="{StaticResource ShellNavButtonStyle}"
                             Command="{x:Bind ViewModel.LogoutCommand}"
                             ToolTipService.ToolTip="Cerrar sesión">

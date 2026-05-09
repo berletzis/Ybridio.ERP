@@ -16,6 +16,10 @@ internal sealed class ClienteConfiguration : IEntityTypeConfiguration<Cliente>
         builder.Property(e => e.Nombre).IsRequired().HasMaxLength(300);
         builder.Property(e => e.RFC).HasMaxLength(20);
         builder.Property(e => e.Email).HasMaxLength(200);
+        builder.Property(e => e.Telefono).HasMaxLength(30);
+        builder.Property(e => e.Direccion).HasMaxLength(300);
+        builder.Property(e => e.Notas).HasMaxLength(500);
+        builder.Property(e => e.LimiteCredito).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
 
         builder.Property(e => e.FechaCreacion).IsRequired()
             .HasDefaultValueSql("getdate()");

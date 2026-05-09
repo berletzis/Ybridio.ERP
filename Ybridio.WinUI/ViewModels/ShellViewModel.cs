@@ -111,6 +111,7 @@ public sealed partial class ShellViewModel : ObservableObject
             "Inventario"                             => "Inventario",
             "Ventas"                                 => "Ventas",
             "Contactos"                              => "Contactos",
+            "Finanzas"                               => "Finanzas",
             "Configuracion" or "ConfiguracionGlobal" => "Configuración",
             "ConfiguracionTienda"                    => "Config. Tienda",
             _                                        => SeccionActiva

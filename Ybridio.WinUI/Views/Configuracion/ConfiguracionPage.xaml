@@ -60,6 +60,18 @@
                         <Frame x:Name="FramePerfilesGlobal"/>
                     </TabViewItem>
 
+                    <TabViewItem x:Name="TabPermisosGlobal" Header="Permisos" IsClosable="False">
+                        <Frame x:Name="FramePermisosGlobal"/>
+                    </TabViewItem>
+
+                    <TabViewItem x:Name="TabScopesGlobal" Header="Scopes" IsClosable="False">
+                        <Frame x:Name="FrameScopesGlobal"/>
+                    </TabViewItem>
+
+                    <TabViewItem x:Name="TabArquitecturaGlobal" Header="Arquitectura Seguridad" IsClosable="False">
+                        <Frame x:Name="FrameArquitecturaGlobal"/>
+                    </TabViewItem>
+
                 </TabView>
             </TabViewItem>
 

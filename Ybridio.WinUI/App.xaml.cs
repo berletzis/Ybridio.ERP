@@ -14,7 +14,9 @@ using Ybridio.WinUI.ViewModels.Config;
 using Ybridio.WinUI.ViewModels.Dashboard;
 using Ybridio.WinUI.Services.Diagnostic;
 using Ybridio.WinUI.ViewModels.Diagnostic;
+using Ybridio.WinUI.ViewModels.Finanzas;
 using Ybridio.WinUI.ViewModels.Inventario;
+using Ybridio.WinUI.ViewModels.Ventas;
 using Ybridio.WinUI.ViewModels.POS;
 using Ybridio.WinUI.Views;
 using Ybridio.WinUI.Views.Configuracion;
@@ -23,6 +25,8 @@ using Ybridio.WinUI.Views.Dashboard;
 using Ybridio.WinUI.Views.Inventario;
 using Ybridio.WinUI.Views.POS;
 using Ybridio.WinUI.Views.Config;
+using Ybridio.WinUI.Views.Finanzas;
+using Ybridio.WinUI.Views.Ventas;
 using Ybridio.WinUI.Views.Ventas;
 using System;
 
@@ -86,11 +90,23 @@ public partial class App : Microsoft.UI.Xaml.Application
         services.AddTransient<ProductosViewModel>();
         services.AddTransient<EntradasViewModel>();
         services.AddTransient<SalidasViewModel>();
+        services.AddTransient<ExistenciasViewModel>();
+        services.AddTransient<ClientesViewModel>();
+        services.AddTransient<CotizacionesViewModel>();
+        services.AddTransient<PedidosViewModel>();
+        services.AddTransient<OrdenesTrabajoViewModel>();
+        services.AddTransient<GastosViewModel>();
+        services.AddTransient<IngresosViewModel>();
+        services.AddTransient<CxCViewModel>();
+        services.AddTransient<CxPViewModel>();
         services.AddTransient<EmpresaViewModel>();
         services.AddTransient<SucursalesConfigViewModel>();
         services.AddTransient<UsuariosViewModel>();
         services.AddTransient<RolesViewModel>();
         services.AddTransient<AuditoriaViewModel>();
+        services.AddTransient<PerfilesViewModel>();
+        services.AddTransient<PermisosViewModel>();
+        services.AddTransient<ScopesViewModel>();
 
         // ── Pages ─────────────────────────────────────────────────────────────
         services.AddTransient<LoginPage>();
@@ -117,6 +133,19 @@ public partial class App : Microsoft.UI.Xaml.Application
         services.AddTransient<UsuariosPage>();
         services.AddTransient<RolesPage>();
         services.AddTransient<AuditoriaPage>();
+        services.AddTransient<PerfilesPage>();
+        services.AddTransient<PermisosPage>();
+        services.AddTransient<ScopesPage>();
+        services.AddTransient<ArquitecturaSegPage>();
+        services.AddTransient<ClientesPage>();
+        services.AddTransient<CotizacionesPage>();
+        services.AddTransient<PedidosPage>();
+        services.AddTransient<OrdenesTrabajoPage>();
+        services.AddTransient<FinanzasPage>();
+        services.AddTransient<GastosPage>();
+        services.AddTransient<IngresosPage>();
+        services.AddTransient<CxCPage>();
+        services.AddTransient<CxPPage>();
 
         // ── Infraestructura técnica ───────────────────────────────────────────
         services.AddTransient<ISchemaAuditService, SchemaAuditService>();

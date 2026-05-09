@@ -8,6 +8,7 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
@@ -20,13 +21,23 @@
             <AppBarButton Label="Eliminar" Command="{x:Bind ViewModel.EliminarCommand}">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE74D;"/></AppBarButton.Icon>
             </AppBarButton>
+            <AppBarSeparator/>
+            <AppBarButton Label="Asignar Permisos" Command="{x:Bind ViewModel.AsignarPermisosCommand}">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE8D7;"/></AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarSeparator/>
             <AppBarButton Label="Actualizar" Command="{x:Bind ViewModel.LoadCommand}">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE72C;"/></AppBarButton.Icon>
             </AppBarButton>
         </CommandBar>
 
+        <!-- Buscador (visual only — RolesViewModel no tiene búsqueda por ahora) -->
+        <Grid Grid.Row="1" Padding="8,8,20,4" Visibility="Collapsed">
+            <AutoSuggestBox PlaceholderText="Buscar rol..." QueryIcon="Find"/>
+        </Grid>
+
         <!-- Grid -->
-        <Border Grid.Row="1" Margin="20,8,20,0" Background="White" BorderBrush="#E5E5E5" BorderThickness="1">
+        <Border Grid.Row="2" Margin="20,8,20,0" Background="White" BorderBrush="#E5E5E5" BorderThickness="1">
             <Grid>
                 <ListView Style="{StaticResource OutlookDataGridStyle}"
                           ItemsSource="{x:Bind ViewModel.Roles, Mode=OneWay}"
@@ -36,23 +47,33 @@
                             <Grid Padding="{StaticResource ErpHeaderPadding}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="8"/>
-                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="3*"/>
+                                    <ColumnDefinition Width="100"/>
+                                    <ColumnDefinition Width="100"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="1" Text="Nombre"
-                                           Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                <TextBlock Grid.Column="1" Text="Nombre"    Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                <TextBlock Grid.Column="2" Text="Permisos"  Style="{StaticResource ErpGridHeaderTextStyle}" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="3" Text="Usuarios"  Style="{StaticResource ErpGridHeaderTextStyle}" TextAlignment="Center"/>
                             </Grid>
                         </Border>
                     </ListView.Header>
                     <ListView.ItemTemplate>
-                        <DataTemplate x:DataType="dto:RolDto">
+                        <DataTemplate x:DataType="dto:RolAdminDto">
                             <Grid Height="{StaticResource ErpRowHeight}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="8"/>
-                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="3*"/>
+                                    <ColumnDefinition Width="100"/>
+                                    <ColumnDefinition Width="100"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="1" Text="{x:Bind Name}"
-                                           Style="{StaticResource ErpCellPrimaryStyle}"
-                                           VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{x:Bind Nombre}"
+                                           Style="{StaticResource ErpCellPrimaryStyle}" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="{x:Bind CantidadPermisos}"
+                                           Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"
+                                           TextAlignment="Center"/>
+                                <TextBlock Grid.Column="3" Text="{x:Bind CantidadUsuarios}"
+                                           Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"
+                                           TextAlignment="Center"/>
                             </Grid>
                         </DataTemplate>
                     </ListView.ItemTemplate>
@@ -64,7 +85,7 @@
         </Border>
 
         <!-- StatusBar -->
-        <Border Grid.Row="2" Style="{StaticResource ErpGridStatusBarStyle}" Margin="20,0,20,16">
+        <Border Grid.Row="3" Style="{StaticResource ErpGridStatusBarStyle}" Margin="20,0,20,16">
             <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
                 <TextBlock Style="{StaticResource ErpGridStatusTextStyle}">
                     <Run Text="{x:Bind ViewModel.Roles.Count, Mode=OneWay}"/>

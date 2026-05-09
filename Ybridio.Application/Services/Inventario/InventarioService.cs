@@ -2,23 +2,35 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Ybridio.Application.Common;
 using Ybridio.Application.DTOs.Inventario;
+using Ybridio.Application.Services.Autorizacion;
 using Ybridio.Domain.Inventario;
 using Ybridio.Infrastructure.Persistence;
 
 namespace Ybridio.Application.Services.Inventario;
 
 /// <summary>
-/// Operaciones de inventario: validación de stock, descuento y registro de kardex.
+/// Operaciones de inventario: validación de stock, descuento, kardex y consulta de existencias con enforcement runtime.
 /// </summary>
 public sealed class InventarioService : IInventarioService
 {
-    private readonly ErpDbContext _context;
+    private readonly ErpDbContext               _context;
     private readonly ILogger<InventarioService> _logger;
+    private readonly IErpAuthorizationService   _auth;
+    private readonly ISecurityScopeResolver     _scopeResolver;
+    private readonly ISessionContext            _session;
 
-    public InventarioService(ErpDbContext context, ILogger<InventarioService> logger)
+    public InventarioService(
+        ErpDbContext               context,
+        ILogger<InventarioService> logger,
+        IErpAuthorizationService   auth,
+        ISecurityScopeResolver     scopeResolver,
+        ISessionContext            session)
     {
-        _context = context;
-        _logger = logger;
+        _context       = context;
+        _logger        = logger;
+        _auth          = auth;
+        _scopeResolver = scopeResolver;
+        _session       = session;
     }
 
     /// <inheritdoc/>
@@ -225,6 +237,77 @@ public sealed class InventarioService : IInventarioService
                 e.Producto.Nombre,
                 e.Cantidad))
             .ToListAsync(ct);
+    }
+
+    /// <inheritdoc/>
+    public async Task<ServiceResult<IReadOnlyList<ExistenciaDto>>> ListarExistenciasSeguraAsync(
+        int empresaId,
+        int? almacenId = null,
+        CancellationToken ct = default)
+    {
+        // ── Permiso ────────────────────────────────────────────────────────────
+        if (!await _auth.PuedeAsync(PermisosClave.Existencia.Ver, ct))
+            return ServiceResult<IReadOnlyList<ExistenciaDto>>.Fail(
+                "Sin permiso para ver existencias (existencia.ver).", ErrorCode.Unauthorized);
+
+        // ── Scope de almacén ───────────────────────────────────────────────────
+        if (_session.UsuarioId is { } uid)
+        {
+            if (almacenId.HasValue)
+            {
+                // Almacén específico solicitado — validar acceso directo
+                if (!await _scopeResolver.TieneAccesoAlmacenAsync(uid, almacenId.Value, ct))
+                    return ServiceResult<IReadOnlyList<ExistenciaDto>>.Fail(
+                        "Sin acceso al almacén indicado.", ErrorCode.Unauthorized);
+            }
+            else
+            {
+                // Sin almacén específico — filtrar por almacenes permitidos del usuario
+                var almacenesPermitidos = await _scopeResolver.ObtenerAlmacentesPermitidosAsync(uid, ct);
+                if (almacenesPermitidos.Count > 0)
+                {
+                    // Hay restricciones de almacén → aplicar filtro
+                    var result = await _context.Existencias
+                        .AsNoTracking()
+                        .Where(e => e.EmpresaId == empresaId
+                                 && almacenesPermitidos.Contains(e.AlmacenId))
+                        .Select(e => new ExistenciaDto(
+                            (int)e.Id,
+                            e.EmpresaId,
+                            e.AlmacenId,
+                            e.Almacen.Nombre,
+                            e.ProductoId,
+                            e.Producto.Codigo,
+                            e.Producto.Nombre,
+                            e.Cantidad))
+                        .ToListAsync(ct);
+                    return ServiceResult<IReadOnlyList<ExistenciaDto>>.Ok(result);
+                }
+                // Lista vacía = sin restricción (SuperAdmin o usuario sin almacenes explícitos)
+            }
+        }
+
+        // ── Consulta sin restricción de almacén (o almacén específico ya validado) ──
+        var query = _context.Existencias
+            .AsNoTracking()
+            .Where(e => e.EmpresaId == empresaId);
+
+        if (almacenId.HasValue)
+            query = query.Where(e => e.AlmacenId == almacenId.Value);
+
+        var lista = await query
+            .Select(e => new ExistenciaDto(
+                (int)e.Id,
+                e.EmpresaId,
+                e.AlmacenId,
+                e.Almacen.Nombre,
+                e.ProductoId,
+                e.Producto.Codigo,
+                e.Producto.Nombre,
+                e.Cantidad))
+            .ToListAsync(ct);
+
+        return ServiceResult<IReadOnlyList<ExistenciaDto>>.Ok(lista);
     }
 
     /// <inheritdoc/>

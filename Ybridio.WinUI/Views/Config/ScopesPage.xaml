@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page x:Class="Ybridio.WinUI.Views.Config.ScopesPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:dto="using:Ybridio.Application.DTOs.Seguridad"
+      Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Toolbar -->
+        <CommandBar Grid.Row="0" DefaultLabelPosition="Right" HorizontalAlignment="Left" Margin="8,0,0,0">
+            <AppBarButton Label="Editar Scopes" Command="{x:Bind ViewModel.EditarScopesCommand}">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE77B;"/></AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarSeparator/>
+            <AppBarButton Label="Actualizar" Command="{x:Bind ViewModel.LoadCommand}">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE72C;"/></AppBarButton.Icon>
+            </AppBarButton>
+        </CommandBar>
+
+        <!-- Buscador -->
+        <Grid Grid.Row="1" Padding="8,8,20,4">
+            <AutoSuggestBox PlaceholderText="Buscar por nombre de usuario..."
+                            QueryIcon="Find"
+                            Text="{x:Bind ViewModel.Busqueda, Mode=TwoWay}"/>
+        </Grid>
+
+        <!-- Grid de scopes -->
+        <Border Grid.Row="2" Margin="20,4,20,0" Background="White" BorderBrush="#E5E5E5" BorderThickness="1">
+            <Grid>
+                <ListView Style="{StaticResource OutlookDataGridStyle}"
+                          ItemsSource="{x:Bind ViewModel.Scopes, Mode=OneWay}"
+                          SelectedItem="{x:Bind ViewModel.ScopeSeleccionado, Mode=TwoWay}"
+                          DoubleTapped="Lista_DoubleTapped">
+                    <ListView.Header>
+                        <Border Background="#FAFAFA" BorderBrush="#E8E8E8" BorderThickness="0,0,0,1">
+                            <Grid Padding="{StaticResource ErpHeaderPadding}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="70"/>
+                                    <ColumnDefinition Width="3*"/>
+                                    <ColumnDefinition Width="3*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="1" Text="Usuario"     Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                <TextBlock Grid.Column="2" Text="SuperAdmin"  Style="{StaticResource ErpGridHeaderTextStyle}" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="3" Text="Sucursales"  Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                <TextBlock Grid.Column="4" Text="Almacenes"   Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                            </Grid>
+                        </Border>
+                    </ListView.Header>
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="dto:ScopeUsuarioDto">
+                            <Grid Height="{StaticResource ErpRowHeight}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="70"/>
+                                    <ColumnDefinition Width="3*"/>
+                                    <ColumnDefinition Width="3*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="1" Text="{x:Bind Nombre}"
+                                           Style="{StaticResource ErpCellPrimaryStyle}" VerticalAlignment="Center"/>
+                                <CheckBox  Grid.Column="2" IsChecked="{x:Bind EsSuperAdmin}" IsEnabled="False"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="3" Text="{x:Bind SucursalesTexto}"
+                                           Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"
+                                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Grid.Column="4" Text="{x:Bind AlmacenesTexto}"
+                                           Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"
+                                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+                <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
+                              Width="48" Height="48"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!-- StatusBar -->
+        <Border Grid.Row="3" Style="{StaticResource ErpGridStatusBarStyle}" Margin="20,0,20,16">
+            <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                <TextBlock Style="{StaticResource ErpGridStatusTextStyle}">
+                    <Run Text="{x:Bind ViewModel.Scopes.Count, Mode=OneWay}"/>
+                    <Run Text="usuario(s)"/>
+                </TextBlock>
+                <TextBlock Style="{StaticResource ErpGridErrorTextStyle}"
+                           Text="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"/>
+                <TextBlock Style="{StaticResource ErpGridSuccessTextStyle}"
+                           Text="{x:Bind ViewModel.SuccessMessage, Mode=OneWay}"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Page>

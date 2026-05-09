@@ -2,6 +2,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Ybridio.Application.Services.Auth;
 using Ybridio.Application.Services.Autorizacion;
 using Ybridio.Application.Services.Caja;
+using Ybridio.Application.Services.Venta;
+using Ybridio.Application.Services.Finanzas;
 using Ybridio.Application.Services.Inventario;
 using Ybridio.Application.Services.Permisos;
 using Ybridio.Application.Services.Producto;
@@ -29,11 +31,21 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IProductoService, ProductoService>();
         services.AddScoped<ISucursalService, SucursalService>();
         services.AddScoped<IEmpresaService, EmpresaService>();
+        services.AddScoped<IEntradaService, EntradaService>();
+        services.AddScoped<ISalidaService, SalidaService>();
+        services.AddScoped<IClienteService, ClienteService>();
+        services.AddScoped<ICotizacionService, CotizacionService>();
+        services.AddScoped<IPedidoService, PedidoService>();
+        services.AddScoped<IOrdenTrabajoService, OrdenTrabajoService>();
+        services.AddScoped<IFinanzasService, FinanzasService>();
+        services.AddScoped<ICxCService, CxCService>();
+        services.AddScoped<ICxPService, CxPService>();
 
         // ── Seguridad (usuarios, roles, perfiles) ─────────────────────────────
         services.AddScoped<IUsuarioService, UsuarioService>();
         services.AddScoped<IRolService, RolService>();
         services.AddScoped<IPerfilService, PerfilService>();
+        services.AddScoped<ISecurityAdminService, SecurityAdminService>();
 
         // ── Security Foundation Runtime ───────────────────────────────────────
         services.AddScoped<IPermisoService, PermisoService>();

@@ -250,6 +250,35 @@ Request: PuedeAsync("salida.autorizar")
 
 6. **`UsuarioAlmacen` vacío = sin restricción**: un usuario sin almacenes explícitos accede a todos los almacenes de sus sucursales asignadas.
 
+7. **Runtime Enforcement activo** (V1): Productos, Entradas, Salidas, Existencias ya tienen guards de autorización. Ver `docs/RUNTIME_SECURITY_ENFORCEMENT.md` para el detalle completo.
+
+---
+
+## Security Administration Module (UI — implementado 2026-05-08)
+
+La UI de administración del motor de seguridad vive en **Configuración Global → Seguridad**.
+
+### Tabs disponibles
+
+| Tab | Descripción |
+|---|---|
+| **Usuarios** | Grid de usuarios con roles y perfiles asignados. Botones: Asignar Roles, Asignar Perfiles, Asignar Scopes (ContentDialogs). |
+| **Roles** | Grid de roles con conteo de permisos y usuarios. Botón: Asignar Permisos (checklist por módulo). |
+| **Perfiles** | CRUD completo de perfiles. Botón: Administrar Permisos (checklist por módulo con pre-marcado). |
+| **Permisos** | Solo lectura — catálogo completo de 51 permisos agrupados por módulo. |
+| **Scopes** | Visualización y asignación de sucursales/almacenes por usuario. Doble clic para editar. |
+| **Arquitectura Seguridad** | Guía técnica viva: flujo de autorización, implementación CORRECTO/INCORRECTO, Developer Guidance. |
+
+### Servicio de administración
+
+`ISecurityAdminService` / `SecurityAdminService` — servicio Application dedicado exclusivamente a las queries y operaciones de la UI de administración. **No modifica la lógica del motor de autorización runtime.**
+
+Registro DI: `Scoped` en `ServiceCollectionExtensions.AddApplicationServices()`.
+
+### Convención de diálogos
+
+Todos los diálogos de asignación son `ContentDialog` inline en la Page (requieren `XamlRoot`). El ViewModel expone callbacks (`Action<T>?`) que la Page asigna en `OnNavigatedTo`. Esto mantiene el ViewModel desacoplado de WinUI.
+
 ---
 
 ## Pendientes futuros

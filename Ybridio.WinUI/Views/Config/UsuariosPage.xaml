@@ -24,6 +24,17 @@
             <AppBarButton Label="Activar/Desactivar" Command="{x:Bind ViewModel.CambiarActivoCommand}">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE7E8;"/></AppBarButton.Icon>
             </AppBarButton>
+            <AppBarSeparator/>
+            <AppBarButton Label="Asignar Roles" Command="{x:Bind ViewModel.AsignarRolesCommand}">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE8D7;"/></AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarButton Label="Asignar Perfiles" Command="{x:Bind ViewModel.AsignarPerfilesCommand}">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE77B;"/></AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarButton Label="Asignar Scopes" Command="{x:Bind ViewModel.AsignarScopesCommand}">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE812;"/></AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarSeparator/>
             <AppBarButton Label="Actualizar" Command="{x:Bind ViewModel.LoadCommand}">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE72C;"/></AppBarButton.Icon>
             </AppBarButton>
@@ -51,28 +62,40 @@
                                     <ColumnDefinition Width="8"/>
                                     <ColumnDefinition Width="2*"/>
                                     <ColumnDefinition Width="2*"/>
-                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="70"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="1" Text="Nombre"  Style="{StaticResource ErpGridHeaderTextStyle}"/>
-                                <TextBlock Grid.Column="2" Text="Email"   Style="{StaticResource ErpGridHeaderTextStyle}"/>
-                                <TextBlock Grid.Column="3" Text="Activo"  Style="{StaticResource ErpGridHeaderTextStyle}" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="Nombre"   Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                <TextBlock Grid.Column="2" Text="Email"    Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                <TextBlock Grid.Column="3" Text="Roles"    Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                <TextBlock Grid.Column="4" Text="Perfiles" Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                <TextBlock Grid.Column="5" Text="Activo"   Style="{StaticResource ErpGridHeaderTextStyle}" TextAlignment="Center"/>
                             </Grid>
                         </Border>
                     </ListView.Header>
                     <ListView.ItemTemplate>
-                        <DataTemplate x:DataType="dto:UsuarioDto">
+                        <DataTemplate x:DataType="dto:UsuarioResumenDto">
                             <Grid Height="{StaticResource ErpRowHeight}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="8"/>
                                     <ColumnDefinition Width="2*"/>
                                     <ColumnDefinition Width="2*"/>
-                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="70"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="1" Text="{x:Bind Nombre}"
                                            Style="{StaticResource ErpCellPrimaryStyle}" VerticalAlignment="Center"/>
                                 <TextBlock Grid.Column="2" Text="{x:Bind Email}"
                                            Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"/>
-                                <CheckBox  Grid.Column="3" IsChecked="{x:Bind Activo}" IsEnabled="False"
+                                <TextBlock Grid.Column="3" Text="{x:Bind RolesTexto}"
+                                           Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"
+                                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Grid.Column="4" Text="{x:Bind PerfilesTexto}"
+                                           Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"
+                                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                                <CheckBox  Grid.Column="5" IsChecked="{x:Bind Activo}" IsEnabled="False"
                                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Grid>
                         </DataTemplate>
