@@ -38,6 +38,8 @@ public sealed partial class OrdenesTrabajoViewModel : BaseContextViewModel
     [NotifyCanExecuteChangedFor(nameof(AgregarMaterialCommand))]
     private OTResumenDto? otSeleccionada;
 
+    private bool _isRefreshing;
+
     private IReadOnlyList<OTResumenDto> _todas = [];
     public ObservableCollection<OTResumenDto> OrdenesTrabajo { get; } = [];
     public Visibility IsEmptyState => OrdenesTrabajo.Count == 0 && !IsBusy ? Visibility.Visible : Visibility.Collapsed;
@@ -107,7 +109,10 @@ public sealed partial class OrdenesTrabajoViewModel : BaseContextViewModel
     [RelayCommand]
     public async Task RefrescarAsync(CancellationToken ct = default)
     {
+        if (_isRefreshing) return;
         if (Session.EmpresaId == 0) return;
+
+        _isRefreshing = true;
         IsBusy = true; ErrorMessage = string.Empty;
         var sw = Stopwatch.StartNew();
         try
@@ -125,7 +130,11 @@ public sealed partial class OrdenesTrabajoViewModel : BaseContextViewModel
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { ErrorMessage = $"Error: {ex.Message}"; }
-        finally { IsBusy = false; }
+        finally
+        {
+            IsBusy = false;
+            _isRefreshing = false;
+        }
     }
 
     public Task<ServiceResult<DetalleLineaDto>> AgregarMaterialAsync(long otId, AgregarOTMaterialDto dto, CancellationToken ct = default)

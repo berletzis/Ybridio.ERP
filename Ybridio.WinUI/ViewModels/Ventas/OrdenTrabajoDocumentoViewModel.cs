@@ -254,6 +254,34 @@ public sealed partial class OrdenTrabajoDocumentoViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(PuedeEditar)); OnPropertyChanged(nameof(PuedeAvanzar));
         OnPropertyChanged(nameof(PuedeCerrar)); OnPropertyChanged(nameof(PuedeCancelar));
+        OnPropertyChanged(nameof(PuedeMarcarEntregada));
         OnPropertyChanged(nameof(EstatusTextoDisplay)); OnPropertyChanged(nameof(SiguienteEstatus));
+    }
+
+    /// <summary>
+    /// True cuando la OT está Terminada y puede marcarse como Entregada.
+    /// Validación de workflow: solo OTs terminadas pueden entregarse.
+    /// </summary>
+    public bool PuedeMarcarEntregada => Estatus == EstatusOrdenTrabajo.Terminada && !IsNuevo;
+
+    /// <summary>
+    /// Marca la OT como Entregada. Solo válido desde estado Terminada.
+    /// Registra el timestamp de entrega vía servicio.
+    /// </summary>
+    [RelayCommand]
+    public async Task MarcarEntregadaAsync(CancellationToken ct = default)
+    {
+        if (_documento is null || _session.Usuario is null) return;
+        if (Estatus != EstatusOrdenTrabajo.Terminada) { ErrorMessage = "Solo se puede entregar una OT en estado Terminada."; return; }
+        IsBusy = true; ErrorMessage = SuccessMessage = string.Empty;
+        try
+        {
+            var r = await _service.CambiarEstatusAsync(_documento.Id, EstatusOrdenTrabajo.Entregada, _session.Usuario.Id, ct);
+            if (!r.Success) { ErrorMessage = r.Error ?? "No se pudo marcar como entregada."; return; }
+            Estatus = EstatusOrdenTrabajo.Entregada; _documento = _documento with { Estatus = Estatus };
+            SuccessMessage = $"OT #{_documento.Id} marcada como Entregada — {DateTime.Now:dd/MM/yyyy HH:mm}";
+            OnPropertyChanged(nameof(EsUrgente)); RefrescarPermisosUI();
+        }
+        finally { IsBusy = false; }
     }
 }

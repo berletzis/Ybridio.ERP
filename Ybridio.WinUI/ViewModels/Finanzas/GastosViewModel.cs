@@ -40,6 +40,8 @@ public sealed partial class GastosViewModel : BaseContextViewModel
     [NotifyCanExecuteChangedFor(nameof(EliminarCommand))]
     private MovimientoFinancieroDto? gastoSeleccionado;
 
+    private bool _isRefreshing;
+
     private IReadOnlyList<MovimientoFinancieroDto> _todos = [];
     public ObservableCollection<MovimientoFinancieroDto> Gastos { get; } = [];
     public IReadOnlyList<CategoriaFinancieraDto> Categorias { get; private set; } = [];
@@ -91,7 +93,10 @@ public sealed partial class GastosViewModel : BaseContextViewModel
     [RelayCommand]
     public async Task RefrescarAsync(CancellationToken ct = default)
     {
+        if (_isRefreshing) return;
         if (Session.EmpresaId == 0) return;
+
+        _isRefreshing = true;
         IsBusy       = true;
         ErrorMessage = string.Empty;
         var sw = Stopwatch.StartNew();
@@ -119,7 +124,11 @@ public sealed partial class GastosViewModel : BaseContextViewModel
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { ErrorMessage = $"Error: {ex.Message}"; }
-        finally { IsBusy = false; }
+        finally
+        {
+            IsBusy = false;
+            _isRefreshing = false;
+        }
     }
 
     /// <summary>Guarda un gasto nuevo o actualizado desde el diálogo.</summary>

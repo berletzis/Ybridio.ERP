@@ -4,6 +4,17 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
+  <Folder Name="/Documentation/">
+    <File Path="docs/ARCHITECTURE_STATUS.md" />
+    <File Path="docs/CLAUDE_RULES.md" />
+    <File Path="docs/DECISIONS.md" />
+    <File Path="docs/FINANZAS_OPERATIVAS.md" />
+    <File Path="docs/KNOWN_ISSUES.md" />
+    <File Path="docs/ROADMAP.md" />
+    <File Path="docs/RUNTIME_SECURITY_ENFORCEMENT.md" />
+    <File Path="docs/SECURITY_FOUNDATION.md" />
+    <File Path="docs/VENTAS_OPERATIVAS.md" />
+  </Folder>
   <Project Path="Ybridio.Application/Ybridio.Application.csproj" />
   <Project Path="Ybridio.Domain/Ybridio.Domain.csproj" />
   <Project Path="Ybridio.Infrastructure/Ybridio.Infrastructure.csproj" />

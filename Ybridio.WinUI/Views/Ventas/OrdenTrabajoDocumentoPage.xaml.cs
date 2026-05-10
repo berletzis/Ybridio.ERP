@@ -67,4 +67,18 @@ public sealed partial class OrdenTrabajoDocumentoPage : Page
         if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             await ViewModel.CancelarAsync();
     }
+
+    private async void BtnMarcarEntregada_Click(object sender, RoutedEventArgs e)
+    {
+        if (!ViewModel.PuedeMarcarEntregada) { ViewModel.ErrorMessage = "Solo se puede entregar una OT en estado Terminada."; return; }
+        var dialog = new ContentDialog
+        {
+            Title = "Marcar OT como Entregada",
+            Content = $"¿Confirmar la entrega de la OT #{ViewModel.DocumentoId}? Esta acción registra la entrega al cliente.",
+            PrimaryButtonText = "Sí, entregar", SecondaryButtonText = "Cancelar",
+            DefaultButton = ContentDialogButton.Primary, XamlRoot = XamlRoot
+        };
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            await ViewModel.MarcarEntregadaCommand.ExecuteAsync(null);
+    }
 }

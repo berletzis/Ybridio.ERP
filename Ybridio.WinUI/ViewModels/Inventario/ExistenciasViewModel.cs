@@ -36,12 +36,26 @@ public sealed partial class ExistenciasViewModel : BaseContextViewModel
     [ObservableProperty] private string             busqueda       = string.Empty;
     [ObservableProperty] private ExistenciaDto?     existenciaSeleccionada;
 
+    private bool _isLoading;
+
     private IReadOnlyList<ExistenciaDto> _todas = [];
 
     public ObservableCollection<ExistenciaDto> Existencias { get; } = [];
 
     public Visibility IsEmptyState =>
         Existencias.Count == 0 && !IsBusy ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>Cantidad de productos con stock por debajo del mínimo definido.</summary>
+    public int ConteoStockBajo =>
+        Existencias.Count(e => e.StockMinimo.HasValue && e.Cantidad <= e.StockMinimo.Value && e.Cantidad > 0);
+
+    /// <summary>Cantidad de productos agotados (existencia cero o negativa).</summary>
+    public int ConteoAgotados =>
+        Existencias.Count(e => e.Cantidad <= 0);
+
+    /// <summary>Visible cuando hay al menos un producto bajo en stock o agotado.</summary>
+    public Visibility AlertaStockVisible =>
+        ConteoStockBajo > 0 || ConteoAgotados > 0 ? Visibility.Visible : Visibility.Collapsed;
 
     public ExistenciasViewModel(
         IInventarioService               inventario,
@@ -55,16 +69,29 @@ public sealed partial class ExistenciasViewModel : BaseContextViewModel
         _auth           = auth;
         _observability  = observability;
         _contextTracker = contextTracker;
-        Existencias.CollectionChanged += (_, _) => OnPropertyChanged(nameof(IsEmptyState));
+        Existencias.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(IsEmptyState));
+            OnPropertyChanged(nameof(ConteoStockBajo));
+            OnPropertyChanged(nameof(ConteoAgotados));
+            OnPropertyChanged(nameof(AlertaStockVisible));
+        };
     }
 
     partial void OnBusquedaChanged(string value) => AplicarFiltro();
-    partial void OnIsBusyChanged(bool value)     => OnPropertyChanged(nameof(IsEmptyState));
+    partial void OnIsBusyChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsEmptyState));
+        OnPropertyChanged(nameof(AlertaStockVisible));
+    }
 
     [RelayCommand]
     public async Task LoadAsync(CancellationToken ct = default)
     {
+        if (_isLoading) return;
         if (Session.EmpresaId == 0) return;
+
+        _isLoading = true;
 
         IsBusy       = true;
         ErrorMessage = string.Empty;
@@ -102,7 +129,11 @@ public sealed partial class ExistenciasViewModel : BaseContextViewModel
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { ErrorMessage = $"Error: {ex.Message}"; }
-        finally { IsBusy = false; }
+        finally
+        {
+            IsBusy = false;
+            _isLoading = false;
+        }
     }
 
     protected override Task OnContextChangedAsync() => LoadAsync();

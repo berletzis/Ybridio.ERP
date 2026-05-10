@@ -244,6 +244,8 @@ public sealed partial class ProductosViewModel : BaseContextViewModel
     [ObservableProperty]
     private bool soloActivos;
 
+    private bool _isRefreshing;
+
     /// <summary>
     /// Filtro temporal seleccionado. Stub: ProductoDto no expone FechaCreacion.
     /// La propiedad se incluye para mantener UX consistente con Entradas/Salidas;
@@ -339,7 +341,10 @@ public sealed partial class ProductosViewModel : BaseContextViewModel
     [RelayCommand]
     public async Task RefrescarAsync(CancellationToken ct = default)
     {
+        if (_isRefreshing) return;
         if (Session.EmpresaId == 0) return;
+
+        _isRefreshing = true;
 
         IsLoading = true;
         ErrorMessage = string.Empty;
@@ -372,6 +377,7 @@ public sealed partial class ProductosViewModel : BaseContextViewModel
         finally
         {
             IsLoading = false;
+            _isRefreshing = false;
         }
     }
 

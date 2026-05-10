@@ -73,4 +73,17 @@ public interface IInventarioService
         DateTime desde,
         DateTime hasta,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Lista el kardex operacional con filtros múltiples para el grid de KardexPage.
+    /// Valida permiso <c>kardex.ver</c> y scope de almacén del usuario.
+    /// </summary>
+    Task<ServiceResult<IReadOnlyList<KardexLineaDto>>> ListarKardexFiltradoAsync(
+        int      empresaId,
+        int?     productoId       = null,
+        int?     almacenId        = null,
+        int?     tipoMovimientoId = null,
+        DateTime? desde           = null,
+        DateTime? hasta           = null,
+        CancellationToken ct      = default);
 }

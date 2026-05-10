@@ -27,6 +27,7 @@ namespace Ybridio.WinUI.ViewModels.Ventas;
 public sealed partial class PedidoDocumentoViewModel : ObservableObject
 {
     private readonly IPedidoService                   _service;
+    private readonly IVentaDocumentalService          _ventaService;
     private readonly IErpAuthorizationService         _auth;
     private readonly SessionService                   _session;
     private readonly IOperationalObservabilityService _observability;
@@ -82,6 +83,7 @@ public sealed partial class PedidoDocumentoViewModel : ObservableObject
     public bool PuedeAvanzar   => Estatus is EstatusPedido.Nuevo or EstatusPedido.Confirmado or EstatusPedido.EnProceso;
     public bool PuedeGenerarOT => Estatus is EstatusPedido.Confirmado or EstatusPedido.EnProceso && !IsNuevo;
     public bool PuedeCancelar  => Estatus is not (EstatusPedido.Completado or EstatusPedido.Cancelado) && !IsNuevo;
+    public bool PuedeGenerarVenta => !IsNuevo && Estatus is EstatusPedido.Nuevo or EstatusPedido.Confirmado or EstatusPedido.EnProceso or EstatusPedido.Completado;
 
     public EstatusPedido SiguienteEstatus => Estatus switch
     {
@@ -95,16 +97,19 @@ public sealed partial class PedidoDocumentoViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(EliminarDetalleCommand))]
     private DetalleLineaEditable? detalleSeleccionado;
 
-    public Action<OrdenTrabajoDto>? NotificarOTGenerada;
+    public Action<OrdenTrabajoDto>?    NotificarOTGenerada;
+    public Action<VentaDocumentalDto>? NotificarVentaGenerada;
 
     public PedidoDocumentoViewModel(
         IPedidoService                   service,
+        IVentaDocumentalService          ventaService,
         IErpAuthorizationService         auth,
         SessionService                   session,
         IOperationalObservabilityService observability,
         ICurrentContextTracker           contextTracker)
     {
         _service        = service;
+        _ventaService   = ventaService;
         _auth           = auth;
         _session        = session;
         _observability  = observability;
@@ -255,6 +260,27 @@ public sealed partial class PedidoDocumentoViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(PuedeEditar)); OnPropertyChanged(nameof(PuedeAvanzar));
         OnPropertyChanged(nameof(PuedeGenerarOT)); OnPropertyChanged(nameof(PuedeCancelar));
+        OnPropertyChanged(nameof(PuedeGenerarVenta));
         OnPropertyChanged(nameof(EstatusTextoDisplay)); OnPropertyChanged(nameof(SiguienteEstatus));
+    }
+
+    /// <summary>
+    /// Genera una Venta Documental desde este pedido, copiando cliente, detalles y observaciones.
+    /// Valida que el pedido no esté cancelado. Abre la venta en el workspace vía callback.
+    /// </summary>
+    [RelayCommand]
+    public async Task GenerarVentaAsync(CancellationToken ct = default)
+    {
+        if (_documento is null || _session.Usuario is null) return;
+        if (Estatus == EstatusPedido.Cancelado) { ErrorMessage = "No se puede generar una venta desde un pedido cancelado."; return; }
+        IsBusy = true; ErrorMessage = SuccessMessage = string.Empty;
+        try
+        {
+            var r = await _ventaService.GenerarDesdePedidoAsync(_documento.Id, _session.Usuario.Id, ct);
+            if (!r.Success) { ErrorMessage = r.Error ?? "No se pudo generar la venta."; return; }
+            SuccessMessage = $"Venta #{r.Value!.Id} generada desde Pedido #{_documento.Id}.";
+            NotificarVentaGenerada?.Invoke(r.Value);
+        }
+        finally { IsBusy = false; }
     }
 }

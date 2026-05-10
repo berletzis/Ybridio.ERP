@@ -140,11 +140,15 @@ public sealed class PermisoService : IPermisoService
 
             if (rolesUsuario.Count > 0)
             {
+                // Usar _context.Roles (ApplicationRole) NO _context.Set<IdentityRole<Guid>>()
+                // ErpDbContext registra ApplicationRole, no el tipo genérico base de Identity.
+                // Usar el tipo genérico causa: "Cannot create a DbSet for 'IdentityRole<Guid>'
+                // because this type is not included in the model for the context."
                 var permisosDeRol = await _context.RolesPermisos
                     .AsNoTracking()
                     .Where(rp => rp.Permitido && !rp.Permiso.Borrado)
                     .Join(
-                        _context.Set<Microsoft.AspNetCore.Identity.IdentityRole<Guid>>()
+                        _context.Roles
                             .Where(r => rolesUsuario.Contains(r.Name!)),
                         rp => rp.RolId,
                         r => r.Id,

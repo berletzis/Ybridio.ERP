@@ -1,0 +1,470 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Ybridio.Application.Common;
+using Ybridio.Application.DTOs.Ventas;
+using Ybridio.Application.Services.Autorizacion;
+using Ybridio.Application.Services.Finanzas;
+using Ybridio.Domain.Ventas;
+using Ybridio.Infrastructure.Persistence;
+using DomainVenta       = Ybridio.Domain.Ventas.Venta;
+using DomainVentaDet    = Ybridio.Domain.Ventas.VentaDetalle;
+using DomainPagoVenta   = Ybridio.Domain.Ventas.PagoVenta;
+
+namespace Ybridio.Application.Services.Venta;
+
+/// <summary>
+/// Orquesta el flujo de venta documental PYME:
+/// Borrador → Confirmar (descuenta inventario, genera CxC si Crédito) → RegistrarPago → Cancelar.
+/// </summary>
+public sealed class VentaDocumentalService : IVentaDocumentalService
+{
+    private readonly ErpDbContext             _context;
+    private readonly IErpAuthorizationService _auth;
+    private readonly ICxCService              _cxcService;
+    private readonly ILogger<VentaDocumentalService> _logger;
+
+    public VentaDocumentalService(
+        ErpDbContext             context,
+        IErpAuthorizationService auth,
+        ICxCService              cxcService,
+        ILogger<VentaDocumentalService> logger)
+    {
+        _context    = context;
+        _auth       = auth;
+        _cxcService = cxcService;
+        _logger     = logger;
+    }
+
+    /// <inheritdoc/>
+    public async Task<ServiceResult<IReadOnlyList<VentaDocumentalResumenDto>>> ListarAsync(
+        int empresaId, DateTime? desde = null, DateTime? hasta = null, CancellationToken ct = default)
+    {
+        if (!await _auth.PuedeAsync(PermisosClave.Venta.Ver, ct))
+            return ServiceResult<IReadOnlyList<VentaDocumentalResumenDto>>.Fail(
+                "Sin permiso (venta.ver).", ErrorCode.Unauthorized);
+
+        var query = _context.Ventas.AsNoTracking()
+            .Where(v => v.EmpresaId == empresaId && v.NombreCliente != null); // solo documentales
+
+        if (desde.HasValue) query = query.Where(v => v.Fecha >= desde.Value);
+        if (hasta.HasValue) query = query.Where(v => v.Fecha <= hasta.Value);
+
+        var lista = await query.OrderByDescending(v => v.Fecha).ThenByDescending(v => v.Id).ToListAsync(ct);
+        return ServiceResult<IReadOnlyList<VentaDocumentalResumenDto>>.Ok(lista.Select(MapToResumen).ToList());
+    }
+
+    /// <inheritdoc/>
+    public async Task<ServiceResult<VentaDocumentalDto>> ObtenerConDetallesAsync(long ventaId, CancellationToken ct = default)
+    {
+        if (!await _auth.PuedeAsync(PermisosClave.Venta.Ver, ct))
+            return ServiceResult<VentaDocumentalDto>.Fail("Sin permiso (venta.ver).", ErrorCode.Unauthorized);
+
+        var v = await _context.Ventas.AsNoTracking()
+            .Include(x => x.Detalles)
+            .FirstOrDefaultAsync(x => x.Id == ventaId, ct);
+
+        if (v is null)
+            return ServiceResult<VentaDocumentalDto>.Fail("Venta no encontrada.", ErrorCode.NotFound);
+
+        var pagos = await _context.Set<DomainPagoVenta>().AsNoTracking()
+            .Where(p => p.VentaId == ventaId).OrderBy(p => p.Fecha).ToListAsync(ct);
+
+        return ServiceResult<VentaDocumentalDto>.Ok(MapToDto(v, pagos));
+    }
+
+    /// <inheritdoc/>
+    public async Task<ServiceResult<VentaDocumentalDto>> CrearAsync(
+        CrearVentaDocumentalDto dto, Guid usuarioId, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(dto);
+        if (!await _auth.PuedeAsync(PermisosClave.Venta.Crear, ct))
+            return ServiceResult<VentaDocumentalDto>.Fail("Sin permiso (venta.crear).", ErrorCode.Unauthorized);
+
+        if (dto.Detalles.Count == 0)
+            return ServiceResult<VentaDocumentalDto>.Fail(
+                "La venta debe tener al menos un detalle.", ErrorCode.VentaNoDetalles);
+
+        if (dto.Detalles.Any(d => d.Cantidad <= 0 || d.PrecioUnitario <= 0))
+            return ServiceResult<VentaDocumentalDto>.Fail(
+                "Cantidad y precio deben ser mayores a cero.", ErrorCode.ValidationFailed);
+
+        var detalles = dto.Detalles.Select(d => new DomainVentaDet
+        {
+            ProductoId = d.ProductoId ?? 0,
+            Cantidad   = d.Cantidad,
+            Precio     = d.PrecioUnitario,
+            // Importe = Cantidad × PrecioUnitario
+            Importe    = d.Cantidad * d.PrecioUnitario,
+        }).ToList();
+
+        var total = detalles.Sum(d => d.Importe ?? 0m);
+
+        var venta = new DomainVenta
+        {
+            EmpresaId     = dto.EmpresaId,
+            SucursalId    = dto.SucursalId,
+            ClienteId     = dto.ClienteId,
+            NombreCliente = dto.NombreCliente.Trim(),
+            TipoPago      = dto.TipoPago,
+            Fecha         = dto.Fecha,
+            PedidoId      = dto.PedidoId,
+            Observaciones = dto.Observaciones?.Trim(),
+            Estatus       = EstatusVenta.Borrador,
+            Subtotal      = total,
+            Total         = total,
+            TotalPagado   = 0m,
+            Detalles      = detalles,
+        };
+
+        _context.Ventas.Add(venta);
+        await _context.SaveChangesAsync(ct);
+
+        _logger.LogInformation("VentaDocumental {VentaId} creada en Borrador por usuario {UserId}",
+            venta.Id, usuarioId);
+
+        return ServiceResult<VentaDocumentalDto>.Ok(MapToDto(venta, []));
+    }
+
+    /// <inheritdoc/>
+    public async Task<ServiceResult<VentaDocumentalDto>> GenerarDesdePedidoAsync(
+        long pedidoId, Guid usuarioId, CancellationToken ct = default)
+    {
+        if (!await _auth.PuedeAsync(PermisosClave.Venta.Crear, ct))
+            return ServiceResult<VentaDocumentalDto>.Fail("Sin permiso (venta.crear).", ErrorCode.Unauthorized);
+
+        if (!await _auth.PuedeAsync(PermisosClave.Pedido.Ver, ct))
+            return ServiceResult<VentaDocumentalDto>.Fail("Sin permiso (pedido.ver).", ErrorCode.Unauthorized);
+
+        var pedido = await _context.Pedidos.AsNoTracking()
+            .Include(p => p.Detalles)
+            .FirstOrDefaultAsync(p => p.Id == pedidoId, ct);
+
+        if (pedido is null)
+            return ServiceResult<VentaDocumentalDto>.Fail("Pedido no encontrado.", ErrorCode.NotFound);
+
+        var dto = new CrearVentaDocumentalDto(
+            EmpresaId:    pedido.EmpresaId,
+            SucursalId:   pedido.SucursalId ?? 1,
+            ClienteId:    pedido.ClienteId,
+            NombreCliente: pedido.NombreCliente,
+            TipoPago:     TipoPago.Contado,
+            Fecha:        DateTime.Today,
+            PedidoId:     pedido.Id,
+            Observaciones: pedido.Observaciones,
+            Detalles:     pedido.Detalles.Select(d => new CrearDetalleLineaDto(
+                d.ProductoId, d.Descripcion, d.Cantidad, d.PrecioUnitario)).ToList());
+
+        return await CrearAsync(dto, usuarioId, ct);
+    }
+
+    /// <inheritdoc/>
+    public async Task<ServiceResult<VentaDocumentalDto>> ActualizarAsync(
+        long id, ActualizarVentaDocumentalDto dto, Guid usuarioId, CancellationToken ct = default)
+    {
+        if (!await _auth.PuedeAsync(PermisosClave.Venta.Editar, ct))
+            return ServiceResult<VentaDocumentalDto>.Fail("Sin permiso (venta.editar).", ErrorCode.Unauthorized);
+
+        var venta = await _context.Ventas
+            .Include(v => v.Detalles)
+            .FirstOrDefaultAsync(v => v.Id == id, ct);
+
+        if (venta is null)
+            return ServiceResult<VentaDocumentalDto>.Fail("Venta no encontrada.", ErrorCode.NotFound);
+
+        if (venta.Estatus != EstatusVenta.Borrador)
+            return ServiceResult<VentaDocumentalDto>.Fail(
+                "Solo se puede editar una venta en estado Borrador.", ErrorCode.ValidationFailed);
+
+        venta.ClienteId     = dto.ClienteId;
+        venta.NombreCliente = dto.NombreCliente.Trim();
+        venta.TipoPago      = dto.TipoPago;
+        venta.Fecha         = dto.Fecha;
+        venta.Observaciones = dto.Observaciones?.Trim();
+
+        await _context.SaveChangesAsync(ct);
+        var pagos = await _context.Set<DomainPagoVenta>().AsNoTracking()
+            .Where(p => p.VentaId == id).ToListAsync(ct);
+        return ServiceResult<VentaDocumentalDto>.Ok(MapToDto(venta, pagos));
+    }
+
+    /// <inheritdoc/>
+    public async Task<ServiceResult<VentaDocumentalDto>> ConfirmarAsync(
+        long ventaId, int almacenId, Guid usuarioId, CancellationToken ct = default)
+    {
+        if (!await _auth.PuedeAsync(PermisosClave.Venta.Confirmar, ct))
+            return ServiceResult<VentaDocumentalDto>.Fail("Sin permiso (venta.confirmar).", ErrorCode.Unauthorized);
+
+        await using var tx = await _context.Database.BeginTransactionAsync(ct);
+        try
+        {
+            var venta = await _context.Ventas
+                .Include(v => v.Detalles)
+                .FirstOrDefaultAsync(v => v.Id == ventaId, ct);
+
+            if (venta is null)
+                return ServiceResult<VentaDocumentalDto>.Fail("Venta no encontrada.", ErrorCode.NotFound);
+
+            if (venta.Estatus != EstatusVenta.Borrador)
+                return ServiceResult<VentaDocumentalDto>.Fail(
+                    "Solo se puede confirmar una venta en estado Borrador.", ErrorCode.ValidationFailed);
+
+            // ── Descontar inventario por línea ──────────────────────────────────
+            var tipoMov = ApplicationConstants.TipoMovimientoInventario.SalidaVenta;
+            var ahora   = DateTime.UtcNow;
+
+            foreach (var det in venta.Detalles.Where(d => d.ProductoId > 0))
+            {
+                var existencia = await _context.Existencias
+                    .FirstOrDefaultAsync(e => e.ProductoId == det.ProductoId
+                                           && e.AlmacenId  == almacenId, ct);
+                if (existencia is null)
+                {
+                    _logger.LogWarning("Producto {ProductoId} sin existencia en almacén {AlmacenId}. Continuando.",
+                        det.ProductoId, almacenId);
+                }
+                else
+                {
+                    existencia.Cantidad -= det.Cantidad;
+                }
+
+                _context.MovimientosInventario.Add(new Ybridio.Domain.Inventario.MovimientoInventario
+                {
+                    EmpresaId        = venta.EmpresaId,
+                    ProductoId       = det.ProductoId,
+                    AlmacenId        = almacenId,
+                    TipoMovimientoId = tipoMov,
+                    Cantidad         = -det.Cantidad,
+                    CostoUnitario    = det.Precio ?? 0m,
+                    Total            = -(det.Importe ?? 0m),
+                    Referencia       = $"Venta#{venta.Id}",
+                    ReferenciaId     = venta.Id,
+                    Fecha            = ahora,
+                    UsuarioCreacionId = usuarioId,
+                });
+
+                det.AlmacenId = almacenId;
+            }
+
+            venta.Estatus = EstatusVenta.Confirmada;
+            await _context.SaveChangesAsync(ct);
+
+            // ── Generar CxC si Crédito ──────────────────────────────────────────
+            if (venta.TipoPago == TipoPago.Credito)
+            {
+                var cxcDto = new DTOs.Finanzas.CrearCxCDto(
+                    EmpresaId:       venta.EmpresaId,
+                    SucursalId:      venta.SucursalId,
+                    NombreDeudor:    venta.NombreCliente ?? "Cliente",
+                    Concepto:        $"Venta #{venta.Id}",
+                    MontoOriginal:   venta.Total ?? 0m,
+                    FechaEmision:    DateTime.Today,
+                    // Vencimiento = 30 días (PYME simple, configurable en V2)
+                    FechaVencimiento: DateTime.Today.AddDays(30),
+                    Observaciones:   venta.Observaciones);
+
+                var cxcResult = await _cxcService.CrearAsync(cxcDto, usuarioId, ct);
+                if (!cxcResult.Success)
+                    _logger.LogWarning("CxC no generada para Venta {VentaId}: {Error}", venta.Id, cxcResult.Error);
+            }
+
+            await tx.CommitAsync(ct);
+            _logger.LogInformation("VentaDocumental {VentaId} confirmada. Inventario descontado.", venta.Id);
+
+            var pagos = await _context.Set<DomainPagoVenta>().AsNoTracking()
+                .Where(p => p.VentaId == ventaId).ToListAsync(ct);
+            return ServiceResult<VentaDocumentalDto>.Ok(MapToDto(venta, pagos));
+        }
+        catch
+        {
+            await tx.RollbackAsync(ct);
+            throw;
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<ServiceResult<PagoVentaDto>> RegistrarPagoAsync(
+        RegistrarPagoVentaDto dto, Guid usuarioId, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(dto);
+        if (!await _auth.PuedeAsync(PermisosClave.Pago.Registrar, ct))
+            return ServiceResult<PagoVentaDto>.Fail("Sin permiso (pago.registrar).", ErrorCode.Unauthorized);
+
+        if (dto.Monto <= 0)
+            return ServiceResult<PagoVentaDto>.Fail("El monto del pago debe ser mayor a cero.", ErrorCode.ValidationFailed);
+
+        var venta = await _context.Ventas.FirstOrDefaultAsync(v => v.Id == dto.VentaId, ct);
+        if (venta is null)
+            return ServiceResult<PagoVentaDto>.Fail("Venta no encontrada.", ErrorCode.NotFound);
+
+        if (venta.Estatus == EstatusVenta.Cancelada)
+            return ServiceResult<PagoVentaDto>.Fail("No se puede registrar pago en una venta cancelada.", ErrorCode.ValidationFailed);
+
+        await using var tx = await _context.Database.BeginTransactionAsync(ct);
+        try
+        {
+            var pago = new DomainPagoVenta
+            {
+                VentaId   = dto.VentaId,
+                Fecha     = DateTime.UtcNow,
+                Monto     = dto.Monto,
+                FormaPago = string.IsNullOrWhiteSpace(dto.FormaPago) ? "Efectivo" : dto.FormaPago.Trim(),
+                Referencia = dto.Referencia?.Trim(),
+            };
+            _context.Set<DomainPagoVenta>().Add(pago);
+            venta.TotalPagado += dto.Monto;
+            await _context.SaveChangesAsync(ct);
+
+            // ── Si Crédito, buscar y actualizar CxC correspondiente ─────────────
+            if (venta.TipoPago == TipoPago.Credito)
+            {
+                var cxc = await _context.CuentasPorCobrar
+                    .FirstOrDefaultAsync(c => c.Concepto == $"Venta #{venta.Id}"
+                                           && c.EmpresaId == venta.EmpresaId, ct);
+                if (cxc is not null)
+                {
+                    var pagoResult = await _cxcService.RegistrarPagoAsync(
+                        new DTOs.Finanzas.RegistrarPagoCxCDto(cxc.Id, dto.Monto), usuarioId, ct);
+                    if (!pagoResult.Success)
+                        _logger.LogWarning("CxC no actualizada para Venta {VentaId}: {Error}", venta.Id, pagoResult.Error);
+                }
+            }
+
+            await tx.CommitAsync(ct);
+            return ServiceResult<PagoVentaDto>.Ok(MapPago(pago));
+        }
+        catch
+        {
+            await tx.RollbackAsync(ct);
+            throw;
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<ServiceResult> CancelarAsync(long ventaId, Guid usuarioId, CancellationToken ct = default)
+    {
+        if (!await _auth.PuedeAsync(PermisosClave.Venta.Cancelar, ct))
+            return ServiceResult.Fail("Sin permiso (venta.cancelar).", ErrorCode.Unauthorized);
+
+        var venta = await _context.Ventas.FirstOrDefaultAsync(v => v.Id == ventaId, ct);
+        if (venta is null)
+            return ServiceResult.Fail("Venta no encontrada.", ErrorCode.NotFound);
+
+        if (venta.Estatus != EstatusVenta.Borrador)
+            return ServiceResult.Fail("Solo se puede cancelar una venta en estado Borrador.", ErrorCode.ValidationFailed);
+
+        venta.Estatus = EstatusVenta.Cancelada;
+        await _context.SaveChangesAsync(ct);
+        return ServiceResult.Ok();
+    }
+
+    /// <inheritdoc/>
+    public async Task<ServiceResult<DetalleLineaDto>> AgregarDetalleAsync(
+        long ventaId, CrearDetalleLineaDto dto, Guid usuarioId, CancellationToken ct = default)
+    {
+        if (!await _auth.PuedeAsync(PermisosClave.Venta.Editar, ct))
+            return ServiceResult<DetalleLineaDto>.Fail("Sin permiso (venta.editar).", ErrorCode.Unauthorized);
+
+        var venta = await _context.Ventas.Include(v => v.Detalles)
+            .FirstOrDefaultAsync(v => v.Id == ventaId, ct);
+
+        if (venta is null)
+            return ServiceResult<DetalleLineaDto>.Fail("Venta no encontrada.", ErrorCode.NotFound);
+
+        if (venta.Estatus != EstatusVenta.Borrador)
+            return ServiceResult<DetalleLineaDto>.Fail("Solo se puede editar una venta en Borrador.", ErrorCode.ValidationFailed);
+
+        // Importe = Cantidad × PrecioUnitario
+        var importe = dto.Cantidad * dto.PrecioUnitario;
+        var det = new DomainVentaDet
+        {
+            VentaId    = ventaId,
+            ProductoId = dto.ProductoId ?? 0,
+            Cantidad   = dto.Cantidad,
+            Precio     = dto.PrecioUnitario,
+            Importe    = importe,
+        };
+        venta.Detalles.Add(det);
+        venta.Subtotal = (venta.Subtotal ?? 0m) + importe;
+        venta.Total    = venta.Subtotal;
+        await _context.SaveChangesAsync(ct);
+
+        return ServiceResult<DetalleLineaDto>.Ok(new DetalleLineaDto(
+            det.Id, dto.ProductoId, dto.Descripcion, dto.Cantidad, dto.PrecioUnitario, importe));
+    }
+
+    /// <inheritdoc/>
+    public async Task<ServiceResult> EliminarDetalleAsync(long detalleId, Guid usuarioId, CancellationToken ct = default)
+    {
+        if (!await _auth.PuedeAsync(PermisosClave.Venta.Editar, ct))
+            return ServiceResult.Fail("Sin permiso (venta.editar).", ErrorCode.Unauthorized);
+
+        var det = await _context.VentasDetalle.Include(d => d.Venta)
+            .FirstOrDefaultAsync(d => d.Id == detalleId, ct);
+
+        if (det is null)
+            return ServiceResult.Fail("Detalle no encontrado.", ErrorCode.NotFound);
+
+        if (det.Venta.Estatus != EstatusVenta.Borrador)
+            return ServiceResult.Fail("Solo se puede editar una venta en Borrador.", ErrorCode.ValidationFailed);
+
+        det.Venta.Subtotal = (det.Venta.Subtotal ?? 0m) - (det.Importe ?? 0m);
+        det.Venta.Total    = det.Venta.Subtotal;
+        _context.VentasDetalle.Remove(det);
+        await _context.SaveChangesAsync(ct);
+        return ServiceResult.Ok();
+    }
+
+    // ── Mappers ───────────────────────────────────────────────────────────────
+
+    private static VentaDocumentalResumenDto MapToResumen(DomainVenta v)
+    {
+        var total     = v.Total         ?? 0m;
+        var pagado    = v.TotalPagado;
+        var saldo     = total - pagado; // SaldoPendiente = Total - TotalPagado (runtime)
+        return new VentaDocumentalResumenDto(
+            v.Id, v.EmpresaId, v.NombreCliente ?? "", v.Estatus,
+            v.Estatus switch
+            {
+                EstatusVenta.Borrador   => "Borrador",
+                EstatusVenta.Confirmada => "Confirmada",
+                EstatusVenta.Cancelada  => "Cancelada",
+                _                       => v.Estatus.ToString()
+            },
+            v.TipoPago, v.Fecha, total, pagado, saldo, v.PedidoId, v.Observaciones);
+    }
+
+    private static VentaDocumentalDto MapToDto(DomainVenta v, IEnumerable<DomainPagoVenta> pagos)
+    {
+        var total  = v.Total    ?? 0m;
+        var saldo  = total - v.TotalPagado; // SaldoPendiente calculado runtime
+        return new VentaDocumentalDto(
+            Id:             v.Id,
+            EmpresaId:      v.EmpresaId,
+            SucursalId:     v.SucursalId,
+            ClienteId:      v.ClienteId,
+            NombreCliente:  v.NombreCliente ?? "",
+            Estatus:        v.Estatus,
+            EstatusTexto:   v.Estatus switch
+            {
+                EstatusVenta.Borrador   => "Borrador",
+                EstatusVenta.Confirmada => "Confirmada",
+                EstatusVenta.Cancelada  => "Cancelada",
+                _                       => v.Estatus.ToString()
+            },
+            TipoPago:       v.TipoPago,
+            Fecha:          v.Fecha,
+            Subtotal:       v.Subtotal ?? total,
+            Total:          total,
+            TotalPagado:    v.TotalPagado,
+            SaldoPendiente: saldo,
+            PedidoId:       v.PedidoId,
+            Observaciones:  v.Observaciones,
+            Detalles:       v.Detalles.Select(d => new DetalleLineaDto(
+                d.Id, d.ProductoId == 0 ? null : d.ProductoId, "",
+                d.Cantidad, d.Precio ?? 0m, d.Importe ?? 0m)).ToList(),
+            Pagos:          pagos.Select(MapPago).ToList());
+    }
+
+    private static PagoVentaDto MapPago(DomainPagoVenta p) =>
+        new(p.Id, p.VentaId, p.Fecha, p.Monto, p.FormaPago, p.Referencia);
+}

@@ -250,6 +250,18 @@ Request: PuedeAsync("salida.autorizar")
 
 6. **`UsuarioAlmacen` vacío = sin restricción**: un usuario sin almacenes explícitos accede a todos los almacenes de sus sucursales asignadas.
 
+7. **Runtime Enforcement activo** (V1): Productos, Entradas, Salidas, Existencias ya tienen guards. Ver `docs/RUNTIME_SECURITY_ENFORCEMENT.md`.
+
+8. **CRITICAL: Usar `_context.Roles` en queries EF** — Nunca usar `_context.Set<IdentityRole<Guid>>()`. El DbContext registra `ApplicationRole` (tipo derivado), no el tipo base genérico. Ver ADR-014 en `docs/DECISIONS.md` y KI-012 en `docs/KNOWN_ISSUES.md`.
+
+```csharp
+// ✅ CORRECTO
+_context.Roles.Where(r => rolesUsuario.Contains(r.Name!))
+
+// ❌ INCORRECTO — causa InvalidOperationException en runtime
+_context.Set<Microsoft.AspNetCore.Identity.IdentityRole<Guid>>()
+```
+
 7. **Runtime Enforcement activo** (V1): Productos, Entradas, Salidas, Existencias ya tienen guards de autorización. Ver `docs/RUNTIME_SECURITY_ENFORCEMENT.md` para el detalle completo.
 
 ---

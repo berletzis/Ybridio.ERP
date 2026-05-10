@@ -45,6 +45,8 @@ public sealed partial class SalidasViewModel : BaseContextViewModel
     [NotifyCanExecuteChangedFor(nameof(AutorizarCommand))]
     private SalidaResumenDto? salidaSeleccionada;
 
+    private bool _isRefreshing;
+
     private IReadOnlyList<SalidaResumenDto> _todas = [];
 
     public ObservableCollection<SalidaResumenDto> Salidas { get; } = [];
@@ -69,6 +71,7 @@ public sealed partial class SalidasViewModel : BaseContextViewModel
 
     private bool HaySeleccion      => SalidaSeleccionada is not null;
     private bool PuedoAutorizar    => SalidaSeleccionada is { TieneAutorizacion: false };
+    private bool TieneVentaOrigen  => SalidaSeleccionada?.VentaId is not null;
 
     partial void OnBusquedaChanged(string value)       => AplicarFiltro();
     partial void OnFiltroTemporalChanged(string value) => _ = RefrescarAsync();
@@ -82,6 +85,19 @@ public sealed partial class SalidasViewModel : BaseContextViewModel
     private async Task ImportarAsync(CancellationToken ct = default) => await Task.CompletedTask;
     [RelayCommand]
     private async Task ExportarAsync(CancellationToken ct = default) => await Task.CompletedTask;
+
+    [RelayCommand(CanExecute = nameof(TieneVentaOrigen))]
+    private void AbrirVentaOrigen()
+    {
+        if (SalidaSeleccionada?.VentaId is null) return;
+        VentaOrigenSolicitada?.Invoke(this, SalidaSeleccionada.VentaId.Value);
+    }
+
+    /// <summary>
+    /// Evento disparado cuando el usuario quiere navegar al documento de venta origen.
+    /// SalidasPage lo escucha para usar WorkspaceService.
+    /// </summary>
+    public event EventHandler<long>? VentaOrigenSolicitada;
 
     [RelayCommand(CanExecute = nameof(PuedoAutorizar))]
     private async Task AutorizarAsync(CancellationToken ct = default)
@@ -109,7 +125,10 @@ public sealed partial class SalidasViewModel : BaseContextViewModel
     [RelayCommand]
     public async Task RefrescarAsync(CancellationToken ct = default)
     {
+        if (_isRefreshing) return;
         if (Session.EmpresaId == 0 || Session.SucursalId == 0) return;
+
+        _isRefreshing = true;
 
         IsBusy       = true;
         ErrorMessage = string.Empty;
@@ -148,7 +167,11 @@ public sealed partial class SalidasViewModel : BaseContextViewModel
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { ErrorMessage = $"Error: {ex.Message}"; }
-        finally { IsBusy = false; }
+        finally
+        {
+            IsBusy = false;
+            _isRefreshing = false;
+        }
     }
 
     protected override Task OnContextChangedAsync() => RefrescarAsync();

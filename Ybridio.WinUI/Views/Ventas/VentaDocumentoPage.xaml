@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page x:Class="Ybridio.WinUI.Views.Ventas.VentaDocumentoPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:vm="using:Ybridio.WinUI.ViewModels.Ventas"
+      xmlns:dto="using:Ybridio.Application.DTOs.Ventas"
+      Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- ── Command Bar ─────────────────────────────────────────────────── -->
+        <CommandBar Grid.Row="0" DefaultLabelPosition="Right" HorizontalAlignment="Left" Margin="8,0,0,0">
+            <AppBarButton Label="Guardar" Command="{x:Bind ViewModel.GuardarCommand}">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE74E;"/></AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarSeparator/>
+            <AppBarButton Label="Agregar Línea" Click="BtnAgregarLinea_Click">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE710;"/></AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarButton Label="Eliminar Línea" Command="{x:Bind ViewModel.EliminarDetalleCommand}">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE74D;"/></AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarSeparator/>
+            <AppBarButton Label="Confirmar Venta" Command="{x:Bind ViewModel.ConfirmarCommand}">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE8FB;"/></AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarButton Label="Registrar Pago" Click="BtnRegistrarPago_Click">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE8D0;"/></AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarButton Label="Cancelar Venta" Click="BtnCancelarVenta_Click">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE711;"/></AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarSeparator/>
+            <AppBarButton Label="Ver Pedido Origen" Click="BtnAbrirPedidoOrigen_Click"
+                          IsEnabled="{x:Bind ViewModel.TienePedidoOrigen, Mode=OneWay}">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE8A1;"/></AppBarButton.Icon>
+            </AppBarButton>
+        </CommandBar>
+
+        <!-- ── Título / Estatus ─────────────────────────────────────────────── -->
+        <Border Grid.Row="1" Background="{ThemeResource LayerFillColorDefaultBrush}"
+                BorderBrush="#E5E5E5" BorderThickness="0,0,0,1" Padding="20,8,20,8">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <TextBlock Text="{x:Bind ViewModel.TituloDocumento, Mode=OneWay}"
+                           FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                <Border Background="{ThemeResource AccentFillColorDefaultBrush}"
+                        CornerRadius="4" Padding="8,2,8,2">
+                    <TextBlock Text="{x:Bind ViewModel.EstatusTexto, Mode=OneWay}"
+                               Foreground="White" FontSize="12" FontWeight="SemiBold"/>
+                </Border>
+            </StackPanel>
+        </Border>
+
+        <!-- ── Encabezado ───────────────────────────────────────────────────── -->
+        <Border Grid.Row="2" Margin="20,8,20,0" Background="White"
+                BorderBrush="#E5E5E5" BorderThickness="1" Padding="16,12">
+            <Grid ColumnSpacing="16" RowSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Column="0" Grid.Row="0" Spacing="4">
+                    <TextBlock Text="Cliente *" FontWeight="SemiBold" FontSize="12"/>
+                    <TextBox PlaceholderText="Nombre del cliente"
+                             Text="{x:Bind ViewModel.NombreCliente, Mode=TwoWay}"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Grid.Row="0" Spacing="4">
+                    <TextBlock Text="Observaciones" FontWeight="SemiBold" FontSize="12"/>
+                    <TextBox PlaceholderText="Observaciones"
+                             Text="{x:Bind ViewModel.Observaciones, Mode=TwoWay}"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="0" Grid.Row="1" Orientation="Horizontal" Spacing="16">
+                    <StackPanel Spacing="4" Width="180">
+                        <TextBlock Text="Fecha" FontWeight="SemiBold" FontSize="12"/>
+                        <DatePicker Date="{x:Bind ViewModel.FechaOffset, Mode=TwoWay}"/>
+                    </StackPanel>
+                    <StackPanel Spacing="4" Width="160">
+                        <TextBlock Text="Tipo de Pago" FontWeight="SemiBold" FontSize="12"/>
+                        <ComboBox x:Name="CombTipoPago"
+                                  Width="160"
+                                  IsEnabled="{x:Bind ViewModel.PuedeEditar, Mode=OneWay}"
+                                  SelectionChanged="CombTipoPago_SelectionChanged">
+                            <ComboBoxItem Content="Contado" Tag="0"/>
+                            <ComboBoxItem Content="Crédito" Tag="1"/>
+                        </ComboBox>
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ── Detalle de productos ─────────────────────────────────────────── -->
+        <Border Grid.Row="3" Margin="20,8,20,0" Background="White" BorderBrush="#E5E5E5" BorderThickness="1">
+            <Grid>
+                <ListView Style="{StaticResource OutlookDataGridStyle}"
+                          ItemsSource="{x:Bind ViewModel.Detalles, Mode=OneWay}"
+                          SelectedItem="{x:Bind ViewModel.DetalleSeleccionado, Mode=TwoWay}">
+                    <ListView.Header>
+                        <Border Background="#FAFAFA" BorderBrush="#E8E8E8" BorderThickness="0,0,0,1">
+                            <Grid Padding="{StaticResource ErpHeaderPadding}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="3*"/>
+                                    <ColumnDefinition Width="100"/>
+                                    <ColumnDefinition Width="130"/>
+                                    <ColumnDefinition Width="130"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="1" Text="Descripción"     Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                <TextBlock Grid.Column="2" Text="Cantidad"        Style="{StaticResource ErpGridHeaderTextStyle}" TextAlignment="Right"/>
+                                <TextBlock Grid.Column="3" Text="Precio Unitario" Style="{StaticResource ErpGridHeaderTextStyle}" TextAlignment="Right"/>
+                                <TextBlock Grid.Column="4" Text="Importe"         Style="{StaticResource ErpGridHeaderTextStyle}" TextAlignment="Right"/>
+                            </Grid>
+                        </Border>
+                    </ListView.Header>
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:DetalleLineaEditable">
+                            <Grid Height="{StaticResource ErpRowHeight}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="3*"/>
+                                    <ColumnDefinition Width="100"/>
+                                    <ColumnDefinition Width="130"/>
+                                    <ColumnDefinition Width="130"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="1" Text="{x:Bind Descripcion}"    Style="{StaticResource ErpCellPrimaryStyle}"   VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="{x:Bind Cantidad}"       Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center" TextAlignment="Right"/>
+                                <TextBlock Grid.Column="3" Text="{x:Bind PrecioUnitario}" Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center" TextAlignment="Right"/>
+                                <TextBlock Grid.Column="4" Text="{x:Bind Importe}"        Style="{StaticResource ErpCellPrimaryStyle}"   VerticalAlignment="Center" TextAlignment="Right"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+                <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}" Width="40" Height="40"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!-- ── Totales ──────────────────────────────────────────────────────── -->
+        <Border Grid.Row="4" Margin="20,4,20,0" Background="White" BorderBrush="#E5E5E5" BorderThickness="1" Padding="16,10">
+            <Grid HorizontalAlignment="Right" MinWidth="280" RowSpacing="4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="140"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Total:"          FontWeight="SemiBold" FontSize="14"/>
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="{x:Bind ViewModel.Total, Mode=OneWay}" FontWeight="SemiBold" FontSize="14" TextAlignment="Right"/>
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Total Pagado:"   FontSize="13"/>
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="{x:Bind ViewModel.TotalPagado, Mode=OneWay}" FontSize="13" TextAlignment="Right"/>
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Saldo Pendiente:" FontSize="13" Foreground="{ThemeResource SystemFillColorCriticalBrush}"/>
+                <TextBlock Grid.Row="2" Grid.Column="1" Text="{x:Bind ViewModel.SaldoPendiente, Mode=OneWay}" FontSize="13" TextAlignment="Right" Foreground="{ThemeResource SystemFillColorCriticalBrush}"/>
+            </Grid>
+        </Border>
+
+        <!-- ── Pagos registrados ────────────────────────────────────────────── -->
+        <Border Grid.Row="5" Margin="20,4,20,0" Background="White" BorderBrush="#E5E5E5" BorderThickness="1">
+            <Expander Header="Pagos registrados" IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                <ListView ItemsSource="{x:Bind ViewModel.Pagos, Mode=OneWay}" MaxHeight="160">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="dto:PagoVentaDto">
+                            <Grid Height="36">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="180"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{x:Bind FormaPago}" Style="{StaticResource ErpCellPrimaryStyle}" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{x:Bind Monto}"     Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center" TextAlignment="Right"/>
+                                <TextBlock Grid.Column="2" Text="{x:Bind Fecha}"     Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="3" Text="{x:Bind Referencia}" Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Expander>
+        </Border>
+
+        <!-- ── Status bar ───────────────────────────────────────────────────── -->
+        <Border Grid.Row="6" Style="{StaticResource ErpGridStatusBarStyle}" Margin="20,0,20,16">
+            <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                <TextBlock Style="{StaticResource ErpGridStatusTextStyle}">
+                    <Run Text="{x:Bind ViewModel.Detalles.Count, Mode=OneWay}"/>
+                    <Run Text="línea(s)"/>
+                </TextBlock>
+                <TextBlock Style="{StaticResource ErpGridErrorTextStyle}"   Text="{x:Bind ViewModel.ErrorMessage,   Mode=OneWay}"/>
+                <TextBlock Style="{StaticResource ErpGridSuccessTextStyle}" Text="{x:Bind ViewModel.SuccessMessage, Mode=OneWay}"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Page>

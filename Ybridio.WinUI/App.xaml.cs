@@ -91,9 +91,11 @@ public partial class App : Microsoft.UI.Xaml.Application
         services.AddTransient<EntradasViewModel>();
         services.AddTransient<SalidasViewModel>();
         services.AddTransient<ExistenciasViewModel>();
+        services.AddTransient<KardexViewModel>();
         services.AddTransient<ClientesViewModel>();
         services.AddTransient<CotizacionesViewModel>();
         services.AddTransient<PedidosViewModel>();
+        services.AddTransient<VentasDocumentalesViewModel>();
         services.AddTransient<OrdenesTrabajoViewModel>();
         services.AddTransient<GastosViewModel>();
         services.AddTransient<IngresosViewModel>();

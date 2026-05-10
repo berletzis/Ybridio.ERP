@@ -40,42 +40,68 @@ public sealed partial class CotizacionesPage : Page, ILiveContextReporter
 
     public void ReportLiveContext() => ViewModel.ReportLiveContext();
 
+    // ── Document Surface UX Pattern Handlers ─────────────────────────────────
+
+    /// <summary>
+    /// Abre el Document Surface para crear una nueva cotización.
+    /// Reemplaza el comportamiento anterior de abrir una nueva Workspace Tab.
+    /// </summary>
     private void BtnNueva_Click(object sender, RoutedEventArgs e)
     {
-        var tempKey = $"cotizacion-nueva-{Guid.NewGuid():N}";
-        _workspace.OpenTab(
-            key:         tempKey,
-            title:       "Nueva Cotizacion",
-            icon:        "",
-            pageFactory: () => new CotizacionDocumentoPage(null),
-            isClosable:  true);
+        var page = new CotizacionDocumentoPage(null);
+        page.ViewModel.DocumentSaved = OnDocumentSaved;
+        page.VolverALista = OnVolverALista;
+        ViewModel.DocumentSurfaceContent = page;
+        ViewModel.IsDocumentSurfaceVisible = true;
     }
 
+    /// <summary>
+    /// Abre el Document Surface para editar la cotización seleccionada.
+    /// Reemplaza el comportamiento anterior de abrir una Workspace Tab persistente.
+    /// </summary>
     private async void BtnAbrir_Click(object sender, RoutedEventArgs e)
     {
         if (ViewModel.CotizacionSeleccionada is null) return;
-        await AbrirCotizacionEnWorkspace(ViewModel.CotizacionSeleccionada.Id);
+        await AbrirCotizacionEnDocumentSurface(ViewModel.CotizacionSeleccionada.Id);
     }
 
     private void Lista_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
     {
         if (ViewModel.CotizacionSeleccionada is null) return;
-        _ = AbrirCotizacionEnWorkspace(ViewModel.CotizacionSeleccionada.Id);
+        _ = AbrirCotizacionEnDocumentSurface(ViewModel.CotizacionSeleccionada.Id);
     }
 
-    private async System.Threading.Tasks.Task AbrirCotizacionEnWorkspace(long id)
+    private async System.Threading.Tasks.Task AbrirCotizacionEnDocumentSurface(long id)
     {
-        var key = $"cotizacion-{id}";
-        if (_workspace.Exists(key)) { _workspace.ActivateTab(key); return; }
-
         var result = await _cotizacionService.ObtenerConDetallesAsync(id);
-        if (!result.Success) { ViewModel.ErrorMessage = result.Error ?? "Error al cargar."; return; }
+        if (!result.Success || result.Value is null)
+        {
+            ViewModel.ErrorMessage = result.Error ?? "No se pudo cargar la cotización.";
+            return;
+        }
+        var page = new CotizacionDocumentoPage(result.Value);
+        page.ViewModel.DocumentSaved = OnDocumentSaved;
+        page.VolverALista = OnVolverALista;
+        ViewModel.DocumentSurfaceContent = page;
+        ViewModel.IsDocumentSurfaceVisible = true;
+    }
 
-        _workspace.OpenTab(
-            key:         key,
-            title:       $"Cotizacion #{id}",
-            icon:        "",
-            pageFactory: () => new CotizacionDocumentoPage(result.Value),
-            isClosable:  true);
+    /// <summary>
+    /// Callback invocado cuando el documento se guarda exitosamente.
+    /// Cierra el Document Surface y refresca el grid de listado.
+    /// </summary>
+    private async void OnDocumentSaved()
+    {
+        await ViewModel.CerrarDocumentSurfaceAsync();
+        ViewModel.SuccessMessage = "Cotización guardada correctamente.";
+    }
+
+    /// <summary>
+    /// Callback invocado cuando el usuario hace clic en "← Volver a Lista".
+    /// Cierra el Document Surface sin guardar y vuelve al grid de listado.
+    /// </summary>
+    private async void OnVolverALista()
+    {
+        await ViewModel.CerrarDocumentSurfaceAsync();
     }
 }

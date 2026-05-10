@@ -58,6 +58,7 @@ public sealed class EntradaService : IEntradaService
             .Include(e => e.EstatusEntrada)
             .Include(e => e.Almacen)
             .Include(e => e.Detalles)
+            .Include(e => e.Proveedor)
             .AsQueryable();
 
         if (desde.HasValue)
@@ -69,6 +70,18 @@ public sealed class EntradaService : IEntradaService
             .OrderByDescending(e => e.Fecha)
             .ThenByDescending(e => e.Id)
             .ToListAsync(ct);
+
+        // Batch lookup de usernames para evitar N+1
+        var usuarioIds = lista
+            .Where(e => e.UsuarioAplicacionId.HasValue)
+            .Select(e => e.UsuarioAplicacionId!.Value)
+            .Distinct()
+            .ToList();
+        var userNames = usuarioIds.Count > 0
+            ? await _context.Users
+                .Where(u => usuarioIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, u => u.UserName ?? "—", ct)
+            : [];
 
         var result = lista.Select(e => new EntradaResumenDto(
             e.Id,
@@ -83,7 +96,11 @@ public sealed class EntradaService : IEntradaService
             e.Detalles.Count,
             e.Total,
             e.Aplicada,
-            e.Observaciones)).ToList();
+            e.Observaciones,
+            ProveedorNombre: e.Proveedor?.Nombre,
+            UsuarioNombre:   e.UsuarioAplicacionId.HasValue
+                             && userNames.TryGetValue(e.UsuarioAplicacionId.Value, out var uName)
+                             ? uName : null)).ToList();
 
         return ServiceResult<IReadOnlyList<EntradaResumenDto>>.Ok(result);
     }

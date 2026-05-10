@@ -67,17 +67,14 @@ public sealed partial class OrdenesTrabajoPage : Page, ILiveContextReporter
 
     private async System.Threading.Tasks.Task AbrirOTEnWorkspace(long id)
     {
-        var key = $"ot-{id}";
-        if (_workspace.Exists(key)) { _workspace.ActivateTab(key); return; }
-
-        var result = await _otService.ObtenerConMaterialesAsync(id);
-        if (!result.Success) { ViewModel.ErrorMessage = result.Error ?? "Error al cargar OT."; return; }
-
-        _workspace.OpenTab(
-            key:         key,
+        await _workspace.OpenOrActivateDocumentTabAsync(
+            key:         $"ot-{id}",
             title:       $"OT #{id}",
             icon:        "",
-            pageFactory: () => new OrdenTrabajoDocumentoPage(result.Value),
+            dataLoader:  () => _otService.ObtenerConMaterialesAsync(id)
+                                .ContinueWith(t => t.Result.Success ? t.Result.Value : null),
+            pageFactory: dto => new OrdenTrabajoDocumentoPage(dto!),
+            onError:     err => ViewModel.ErrorMessage = err,
             isClosable:  true);
     }
 

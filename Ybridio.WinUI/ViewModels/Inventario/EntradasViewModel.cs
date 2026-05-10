@@ -43,6 +43,8 @@ public sealed partial class EntradasViewModel : BaseContextViewModel
     [NotifyCanExecuteChangedFor(nameof(EliminarCommand))]
     private EntradaResumenDto? entradaSeleccionada;
 
+    private bool _isRefreshing;
+
     private IReadOnlyList<EntradaResumenDto> _todas = [];
 
     public ObservableCollection<EntradaResumenDto> Entradas { get; } = [];
@@ -83,7 +85,10 @@ public sealed partial class EntradasViewModel : BaseContextViewModel
     [RelayCommand]
     public async Task RefrescarAsync(CancellationToken ct = default)
     {
+        if (_isRefreshing) return;
         if (Session.EmpresaId == 0 || Session.SucursalId == 0) return;
+
+        _isRefreshing = true;
 
         IsBusy       = true;
         ErrorMessage = string.Empty;
@@ -122,7 +127,11 @@ public sealed partial class EntradasViewModel : BaseContextViewModel
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { ErrorMessage = $"Error: {ex.Message}"; }
-        finally { IsBusy = false; }
+        finally
+        {
+            IsBusy = false;
+            _isRefreshing = false;
+        }
     }
 
     protected override Task OnContextChangedAsync() => RefrescarAsync();

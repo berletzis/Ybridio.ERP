@@ -11,27 +11,37 @@
         <Style TargetType="TabViewItem" BasedOn="{StaticResource OutlookTabItemStyle}"/>
     </Page.Resources>
 
-    <TabView x:Name="FinanzasTabs"
-             TabWidthMode="SizeToContent"
-             IsAddTabButtonVisible="False"
-             Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
-             SelectionChanged="FinanzasTabs_SelectionChanged">
+    <!--
+        Visual Container Hierarchy (Module Layer):
+        Border wrapper con padding superior y fondo sutil para separación física clara
+        del Workspace Layer. Evita efecto "tabs ensimados" y establece boundary visual.
+    -->
+    <Border Padding="16,12,16,16"
+            Background="{ThemeResource LayerFillColorDefaultBrush}">
 
-        <TabViewItem x:Name="TabGastos" Header="Gastos" IsClosable="False">
-            <Frame x:Name="FrameGastos"/>
-        </TabViewItem>
+        <TabView x:Name="FinanzasTabs"
+                 TabWidthMode="SizeToContent"
+                 IsAddTabButtonVisible="False"
+                 Background="Transparent"
+                 SelectionChanged="FinanzasTabs_SelectionChanged">
 
-        <TabViewItem x:Name="TabIngresos" Header="Ingresos" IsClosable="False">
-            <Frame x:Name="FrameIngresos"/>
-        </TabViewItem>
+            <TabViewItem x:Name="TabGastos" Header="Gastos" IsClosable="False">
+                <Frame x:Name="FrameGastos"/>
+            </TabViewItem>
 
-        <TabViewItem x:Name="TabCxC" Header="Cuentas por Cobrar" IsClosable="False">
-            <Frame x:Name="FrameCxC"/>
-        </TabViewItem>
+            <TabViewItem x:Name="TabIngresos" Header="Ingresos" IsClosable="False">
+                <Frame x:Name="FrameIngresos"/>
+            </TabViewItem>
 
-        <TabViewItem x:Name="TabCxP" Header="Cuentas por Pagar" IsClosable="False">
-            <Frame x:Name="FrameCxP"/>
-        </TabViewItem>
+            <TabViewItem x:Name="TabCxC" Header="Cuentas por Cobrar" IsClosable="False">
+                <Frame x:Name="FrameCxC"/>
+            </TabViewItem>
 
-    </TabView>
+            <TabViewItem x:Name="TabCxP" Header="Cuentas por Pagar" IsClosable="False">
+                <Frame x:Name="FrameCxP"/>
+            </TabViewItem>
+
+        </TabView>
+
+    </Border>
 </Page>

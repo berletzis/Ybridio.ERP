@@ -13,10 +13,17 @@ public static class PermisosClave
 {
     public static class Venta
     {
-        public const string Ver      = "venta.ver";
-        public const string Crear    = "venta.crear";
-        public const string Cancelar = "venta.cancelar";
-        public const string Aprobar  = "venta.aprobar";
+        public const string Ver       = "venta.ver";
+        public const string Crear     = "venta.crear";
+        public const string Editar    = "venta.editar";
+        public const string Confirmar = "venta.confirmar";
+        public const string Cancelar  = "venta.cancelar";
+        public const string Aprobar   = "venta.aprobar";
+    }
+
+    public static class Pago
+    {
+        public const string Registrar = "pago.registrar";
     }
 
     public static class Entrada
@@ -52,6 +59,11 @@ public static class PermisosClave
     public static class Existencia
     {
         public const string Ver = "existencia.ver";
+    }
+
+    public static class Kardex
+    {
+        public const string Ver = "kardex.ver";
     }
 
     public static class Producto
@@ -169,12 +181,14 @@ public static class PermisosClave
     /// </summary>
     public static IReadOnlyList<string> Todos() =>
     [
-        Venta.Ver, Venta.Crear, Venta.Cancelar, Venta.Aprobar,
+        Venta.Ver, Venta.Crear, Venta.Editar, Venta.Confirmar, Venta.Cancelar, Venta.Aprobar,
+        Pago.Registrar,
         Entrada.Ver, Entrada.Crear, Entrada.Cancelar, Entrada.Aprobar,
         Salida.Ver, Salida.Crear, Salida.Cancelar, Salida.Autorizar,
         Traspaso.Ver, Traspaso.Crear, Traspaso.Cancelar,
         Ajuste.Ver, Ajuste.Crear, Ajuste.Aprobar,
         Existencia.Ver,
+        Kardex.Ver,
         Producto.Ver, Producto.Crear, Producto.Editar, Producto.Eliminar,
         Caja.Ver, Caja.Abrir, Caja.Cerrar, Caja.MovimientoEgreso, Caja.MovimientoIngreso,
         Compra.Ver, Compra.Crear, Compra.Aprobar, Compra.Cancelar, Compra.Recibir,

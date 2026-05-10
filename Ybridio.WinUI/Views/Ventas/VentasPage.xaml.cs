@@ -15,6 +15,7 @@ public sealed partial class VentasPage : Page
     private bool _clientesLoaded;
     private bool _cotizacionesLoaded;
     private bool _pedidosLoaded;
+    private bool _ventasLoaded;
     private bool _otLoaded;
 
     private readonly ICurrentContextTracker _contextTracker;
@@ -56,6 +57,11 @@ public sealed partial class VentasPage : Page
             FramePedidos.Navigate(typeof(PedidosPage));
             _pedidosLoaded = true;
         }
+        else if (tab == TabVentas && !_ventasLoaded)
+        {
+            FrameVentas.Navigate(typeof(VentasDocumentalesPage));
+            _ventasLoaded = true;
+        }
         else if (tab == TabOrdenesTrabajo && !_otLoaded)
         {
             FrameOrdenesTrabajo.Navigate(typeof(OrdenesTrabajoPage));
@@ -74,6 +80,7 @@ public sealed partial class VentasPage : Page
         if (tab == TabClientes)        return FrameClientes;
         if (tab == TabCotizaciones)    return FrameCotizaciones;
         if (tab == TabPedidos)         return FramePedidos;
+        if (tab == TabVentas)          return FrameVentas;
         if (tab == TabOrdenesTrabajo)  return FrameOrdenesTrabajo;
         return null;
     }

@@ -13,53 +13,84 @@
         <Style TargetType="TabViewItem" BasedOn="{StaticResource OutlookTabItemStyle}"/>
     </Page.Resources>
 
-    <TabView x:Name="InventarioTabs"
-             TabWidthMode="SizeToContent"
-             IsAddTabButtonVisible="False"
-             Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
-             SelectionChanged="InventarioTabs_SelectionChanged">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
 
-        <!-- Existencias -->
-        <TabViewItem x:Name="TabExistencias" Header="Existencias" IsClosable="False">
+        <!-- ── Dashboard Light Strip ───────────────────────────────────────── -->
+        <Border Grid.Row="0" Background="#FAFAFA" BorderBrush="#E5E5E5" BorderThickness="0,0,0,1" Padding="16,8">
+            <StackPanel Orientation="Horizontal" Spacing="24">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <FontIcon Glyph="&#xE73F;" FontSize="14" Foreground="#737373"/>
+                    <TextBlock Text="Inventario Operacional" FontSize="12" Foreground="#737373"/>
+                </StackPanel>
+                <!-- Indicadores dinámicos futuros: "X bajo stock", "Y salidas hoy", etc. -->
+            </StackPanel>
+        </Border>
 
-            <Frame x:Name="FrameExistencias" />
-        </TabViewItem>
+        <!--
+            Visual Container Hierarchy (Module Layer):
+            Border wrapper con padding y fondo sutil para separación física clara
+            del Workspace Layer. Evita efecto "tabs ensimados" y establece boundary visual.
+        -->
+        <Border Grid.Row="1"
+                Padding="16,12,16,16"
+                Background="{ThemeResource LayerFillColorDefaultBrush}">
 
-        <!-- Entradas -->
-        <TabViewItem x:Name="TabEntradas" Header="Entradas" IsClosable="False">
+            <!-- ── TabView ──────────────────────────────────────────────────────── -->
+            <TabView x:Name="InventarioTabs"
+                 TabWidthMode="SizeToContent"
+                 IsAddTabButtonVisible="False"
+                 Background="Transparent"
+                 SelectionChanged="InventarioTabs_SelectionChanged">
 
-            <Frame x:Name="FrameEntradas" />
-        </TabViewItem>
+            <!-- Existencias -->
+            <TabViewItem x:Name="TabExistencias" Header="Existencias" IsClosable="False">
 
-        <!-- Salidas -->
-        <TabViewItem x:Name="TabSalidas" Header="Salidas" IsClosable="False">
+                <Frame x:Name="FrameExistencias" />
+            </TabViewItem>
 
-            <Frame x:Name="FrameSalidas" />
-        </TabViewItem>
+            <!-- Entradas -->
+            <TabViewItem x:Name="TabEntradas" Header="Entradas" IsClosable="False">
 
-        <!-- Kardex -->
-        <TabViewItem x:Name="TabKardex" Header="Kardex" IsClosable="False">
+                <Frame x:Name="FrameEntradas" />
+            </TabViewItem>
 
-            <Frame x:Name="FrameKardex" />
-        </TabViewItem>
+            <!-- Salidas -->
+            <TabViewItem x:Name="TabSalidas" Header="Salidas" IsClosable="False">
 
-        <!-- Conteo -->
-        <TabViewItem x:Name="TabConteo" Header="Conteo" IsClosable="False">
+                <Frame x:Name="FrameSalidas" />
+            </TabViewItem>
 
-            <Frame x:Name="FrameConteo" />
-        </TabViewItem>
+            <!-- Kardex -->
+            <TabViewItem x:Name="TabKardex" Header="Kardex" IsClosable="False">
 
-        <!-- Órdenes de Compra -->
-        <TabViewItem x:Name="TabOrdenesCompra" Header="Órdenes de Compra" IsClosable="False">
+                <Frame x:Name="FrameKardex" />
+            </TabViewItem>
 
-            <Frame x:Name="FrameOrdenesCompra" />
-        </TabViewItem>
+            <!-- Conteo -->
+            <TabViewItem x:Name="TabConteo" Header="Conteo" IsClosable="False">
 
-        <!-- Productos -->
-        <TabViewItem x:Name="TabProductos" Header="Productos" IsClosable="False">
+                <Frame x:Name="FrameConteo" />
+            </TabViewItem>
 
-            <Frame x:Name="FrameProductos" />
-        </TabViewItem>
+            <!-- Órdenes de Compra -->
+            <TabViewItem x:Name="TabOrdenesCompra" Header="Órdenes de Compra" IsClosable="False">
 
-    </TabView>
+                <Frame x:Name="FrameOrdenesCompra" />
+            </TabViewItem>
+
+            <!-- Productos -->
+            <TabViewItem x:Name="TabProductos" Header="Productos" IsClosable="False">
+
+                <Frame x:Name="FrameProductos" />
+            </TabViewItem>
+
+        </TabView>
+
+        </Border>
+
+    </Grid>
 </Page>

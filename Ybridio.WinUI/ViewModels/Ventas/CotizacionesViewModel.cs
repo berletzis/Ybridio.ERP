@@ -39,6 +39,21 @@ public sealed partial class CotizacionesViewModel : BaseContextViewModel
     [NotifyCanExecuteChangedFor(nameof(CambiarEstatusCommand))]
     private CotizacionResumenDto? cotizacionSeleccionada;
 
+    // ── Document Surface UX Pattern ─────────────────────────────────────────
+    /// <summary>
+    /// Indica si el Document Surface está visible (true = oculta el grid, false = muestra el grid).
+    /// Cuando está activo, el grid de listado se oculta y el Document Surface toma control del módulo.
+    /// </summary>
+    [ObservableProperty] private bool isDocumentSurfaceVisible;
+
+    /// <summary>
+    /// Contenido del Document Surface (instancia de CotizacionDocumentoPage o null).
+    /// Este contenido reemplaza temporalmente el grid de listado.
+    /// </summary>
+    [ObservableProperty] private object? documentSurfaceContent;
+
+    private bool _isRefreshing;
+
     private IReadOnlyList<CotizacionResumenDto> _todas = [];
     public ObservableCollection<CotizacionResumenDto> Cotizaciones { get; } = [];
     public Visibility IsEmptyState => Cotizaciones.Count == 0 && !IsBusy ? Visibility.Visible : Visibility.Collapsed;
@@ -86,7 +101,10 @@ public sealed partial class CotizacionesViewModel : BaseContextViewModel
     [RelayCommand]
     public async Task RefrescarAsync(CancellationToken ct = default)
     {
+        if (_isRefreshing) return;
         if (Session.EmpresaId == 0) return;
+
+        _isRefreshing = true;
         IsBusy = true; ErrorMessage = string.Empty;
         var sw = Stopwatch.StartNew();
         try
@@ -104,13 +122,50 @@ public sealed partial class CotizacionesViewModel : BaseContextViewModel
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { ErrorMessage = $"Error: {ex.Message}"; }
-        finally { IsBusy = false; }
+        finally
+        {
+            IsBusy = false;
+            _isRefreshing = false;
+        }
     }
 
     public Task<ServiceResult> CambiarEstatusOp(long id, EstatusCotizacion estatus, CancellationToken ct = default)
         => Session.Usuario is null
             ? Task.FromResult(ServiceResult.Fail("Sin sesión."))
             : _service.CambiarEstatusAsync(id, estatus, Session.Usuario.Id, ct);
+
+    // ── Document Surface UX Pattern Commands ────────────────────────────────
+
+    /// <summary>
+    /// Abre el Document Surface para crear una nueva cotización.
+    /// Reemplaza temporalmente el grid de listado.
+    /// </summary>
+    public void AbrirNuevaCotizacion()
+    {
+        DocumentSurfaceContent = null; // Preparar para nueva instancia
+        IsDocumentSurfaceVisible = true;
+    }
+
+    /// <summary>
+    /// Abre el Document Surface para editar una cotización existente.
+    /// Reemplaza temporalmente el grid de listado.
+    /// </summary>
+    public void AbrirEditarCotizacion(CotizacionDto cotizacion)
+    {
+        DocumentSurfaceContent = cotizacion;
+        IsDocumentSurfaceVisible = true;
+    }
+
+    /// <summary>
+    /// Cierra el Document Surface y vuelve al grid de listado.
+    /// Debe ser llamado después de guardar o cuando el usuario hace clic en "← Volver a Lista".
+    /// </summary>
+    public async Task CerrarDocumentSurfaceAsync()
+    {
+        IsDocumentSurfaceVisible = false;
+        DocumentSurfaceContent = null;
+        await RefrescarAsync(); // Refrescar grid después de cerrar
+    }
 
     protected override Task OnContextChangedAsync() => RefrescarAsync();
     public void ReportLiveContext() => _contextTracker.SetViewModelContext(BuildCurrentContext());

@@ -11,27 +11,41 @@
         <Style TargetType="TabViewItem" BasedOn="{StaticResource OutlookTabItemStyle}"/>
     </Page.Resources>
 
-    <TabView x:Name="VentasTabs"
-             TabWidthMode="SizeToContent"
-             IsAddTabButtonVisible="False"
-             Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
-             SelectionChanged="VentasTabs_SelectionChanged">
+    <!--
+        Visual Container Hierarchy (Module Layer):
+        Border wrapper con padding superior y fondo sutil para separación física clara
+        del Workspace Layer. Evita efecto "tabs ensimados" y establece boundary visual.
+    -->
+    <Border Padding="16,12,16,16"
+            Background="{ThemeResource LayerFillColorDefaultBrush}">
 
-        <TabViewItem x:Name="TabClientes" Header="Clientes" IsClosable="False">
-            <Frame x:Name="FrameClientes"/>
-        </TabViewItem>
+        <TabView x:Name="VentasTabs"
+                 TabWidthMode="SizeToContent"
+                 IsAddTabButtonVisible="False"
+                 Background="Transparent"
+                 SelectionChanged="VentasTabs_SelectionChanged">
 
-        <TabViewItem x:Name="TabCotizaciones" Header="Cotizaciones" IsClosable="False">
-            <Frame x:Name="FrameCotizaciones"/>
-        </TabViewItem>
+            <TabViewItem x:Name="TabClientes" Header="Clientes" IsClosable="False">
+                <Frame x:Name="FrameClientes"/>
+            </TabViewItem>
 
-        <TabViewItem x:Name="TabPedidos" Header="Pedidos" IsClosable="False">
-            <Frame x:Name="FramePedidos"/>
-        </TabViewItem>
+            <TabViewItem x:Name="TabCotizaciones" Header="Cotizaciones" IsClosable="False">
+                <Frame x:Name="FrameCotizaciones"/>
+            </TabViewItem>
 
-        <TabViewItem x:Name="TabOrdenesTrabajo" Header="Órdenes de Trabajo" IsClosable="False">
-            <Frame x:Name="FrameOrdenesTrabajo"/>
-        </TabViewItem>
+            <TabViewItem x:Name="TabPedidos" Header="Pedidos" IsClosable="False">
+                <Frame x:Name="FramePedidos"/>
+            </TabViewItem>
 
-    </TabView>
+            <TabViewItem x:Name="TabVentas" Header="Ventas" IsClosable="False">
+                <Frame x:Name="FrameVentas"/>
+            </TabViewItem>
+
+            <TabViewItem x:Name="TabOrdenesTrabajo" Header="Órdenes de Trabajo" IsClosable="False">
+                <Frame x:Name="FrameOrdenesTrabajo"/>
+            </TabViewItem>
+
+        </TabView>
+
+    </Border>
 </Page>

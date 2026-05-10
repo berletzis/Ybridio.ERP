@@ -14,10 +14,11 @@
             <!-- Other app resources here -->
 
             <!--
-                OutlookTabItemStyle — tabs planos estilo Outlook/Fluent
-                Incluye botón de cerrar auto-wired por TabViewItem (parte "CloseButton")
-                y estados DataContextStates para Closable/NotClosable.
-                Uso implícito: declarar en TabView.Resources sin x:Key.
+                OutlookTabItemStyle — tabs de navegación interna de módulos (Module Layer)
+                Jerarquía visual secundaria: compacto, fondo transparente, padding moderado.
+                Usado por páginas de módulos (Ventas, Finanzas, Inventario, Configuración).
+                Diferenciación clara vs Workspace Tabs (WorkspaceTabItemStyle).
+                Uso implícito: declarar en TabView.Resources sin x:Key con BasedOn.
             -->
             <Style x:Key="OutlookTabItemStyle" TargetType="TabViewItem">
                 <Setter Property="Background"       Value="Transparent"/>
@@ -129,6 +130,134 @@
                                         CornerRadius="1"
                                         Visibility="Collapsed"
                                         Margin="6,0"/>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!--
+                WorkspaceTabItemStyle — tabs de documentos persistentes (Workspace Layer)
+                Jerarquía visual dominante: más altura, padding generoso, fondo sutil, tipografía SemiBold.
+                Diferenciación clara vs Module Tabs (OutlookTabItemStyle).
+                Uso: aplicar explícitamente al WorkspaceTabView en ShellPage.xaml.
+            -->
+            <Style x:Key="WorkspaceTabItemStyle" TargetType="TabViewItem">
+                <Setter Property="Background"       Value="Transparent"/>
+                <Setter Property="BorderThickness"  Value="0"/>
+                <Setter Property="MinWidth"         Value="0"/>
+                <Setter Property="FontSize"         Value="14"/>
+                <Setter Property="FontFamily"       Value="{ThemeResource ContentControlThemeFontFamily}"/>
+                <Setter Property="Foreground"       Value="{ThemeResource TextFillColorSecondaryBrush}"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="TabViewItem">
+                            <Grid x:Name="TabContainer"
+                                  MinHeight="48"
+                                  Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                                <VisualStateManager.VisualStateGroups>
+
+                                    <!-- Estados comunes de interacción -->
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal"/>
+                                        <VisualState x:Name="PointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="HeaderPresenter.Foreground"
+                                                        Value="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                                <Setter Target="TabContainer.Background"
+                                                        Value="{ThemeResource SubtleFillColorTertiaryBrush}"/>
+                                                <Setter Target="CloseButton.Opacity" Value="1"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Pressed">
+                                            <VisualState.Setters>
+                                                <Setter Target="HeaderPresenter.Foreground"
+                                                        Value="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                                <Setter Target="TabContainer.Background"
+                                                        Value="{ThemeResource SubtleFillColorTertiaryBrush}"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Selected">
+                                            <VisualState.Setters>
+                                                <Setter Target="HeaderPresenter.Foreground"
+                                                        Value="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                                <Setter Target="HeaderPresenter.FontWeight"
+                                                        Value="SemiBold"/>
+                                                <Setter Target="TabContainer.Background"
+                                                        Value="{ThemeResource LayerFillColorDefaultBrush}"/>
+                                                <Setter Target="SelectionBar.Visibility"
+                                                        Value="Visible"/>
+                                                <Setter Target="CloseButton.Opacity" Value="1"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Disabled">
+                                            <VisualState.Setters>
+                                                <Setter Target="HeaderPresenter.Foreground"
+                                                        Value="{ThemeResource TextFillColorDisabledBrush}"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+
+                                    <!-- Estados de cierre — usados por TabViewItem.OnApplyTemplate -->
+                                    <VisualStateGroup x:Name="DataContextStates">
+                                        <VisualState x:Name="Closable">
+                                            <VisualState.Setters>
+                                                <Setter Target="CloseButton.Visibility" Value="Visible"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="NotClosable">
+                                            <VisualState.Setters>
+                                                <Setter Target="CloseButton.Visibility" Value="Collapsed"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+
+                                </VisualStateManager.VisualStateGroups>
+
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="4"/>
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Título del tab (padding superior/inferior mayor para jerarquía visual) -->
+                                <ContentPresenter x:Name="HeaderPresenter"
+                                                  Grid.Row="0" Grid.Column="0"
+                                                  Content="{TemplateBinding Header}"
+                                                  ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                                  FontSize="{TemplateBinding FontSize}"
+                                                  FontFamily="{TemplateBinding FontFamily}"
+                                                  Foreground="{TemplateBinding Foreground}"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  Margin="18,12,6,12"/>
+
+                                <!-- Botón cerrar: nombre "CloseButton" es requerido por TabViewItem.OnApplyTemplate -->
+                                <Button x:Name="CloseButton"
+                                        Grid.Row="0" Grid.Column="1"
+                                        Width="22" Height="22"
+                                        Margin="0,0,8,0"
+                                        Padding="0"
+                                        Opacity="0"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        CornerRadius="4"
+                                        VerticalAlignment="Center"
+                                        ToolTipService.ToolTip="Cerrar documento">
+                                    <FontIcon Glyph="&#xE711;" FontSize="11"/>
+                                </Button>
+
+                                <!-- Indicador de selección (underline azul más prominente) -->
+                                <Border x:Name="SelectionBar"
+                                        Grid.Row="1"
+                                        Grid.ColumnSpan="2"
+                                        Background="#0078D4"
+                                        CornerRadius="2"
+                                        Visibility="Collapsed"
+                                        Margin="8,0"/>
                             </Grid>
                         </ControlTemplate>
                     </Setter.Value>

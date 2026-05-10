@@ -71,6 +71,18 @@ public sealed class SalidaService : ISalidaService
             .ThenByDescending(s => s.Id)
             .ToListAsync(ct);
 
+        // Obtener usernames de usuarios que aplicaron salidas (batch, no N+1)
+        var usuarioIds = lista
+            .Where(s => s.UsuarioAplicacionId.HasValue)
+            .Select(s => s.UsuarioAplicacionId!.Value)
+            .Distinct()
+            .ToList();
+        var userNames = usuarioIds.Count > 0
+            ? await _context.Users
+                .Where(u => usuarioIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, u => u.UserName ?? "—", ct)
+            : [];
+
         var result = lista.Select(s => new SalidaResumenDto(
             s.Id,
             s.EmpresaId,
@@ -85,7 +97,11 @@ public sealed class SalidaService : ISalidaService
             s.Total,
             s.Aplicada,
             s.UsuarioAutorizacionId.HasValue,
-            s.Observaciones)).ToList();
+            s.Observaciones,
+            VentaId:       s.VentaId,
+            UsuarioNombre: s.UsuarioAplicacionId.HasValue
+                           && userNames.TryGetValue(s.UsuarioAplicacionId.Value, out var uName)
+                           ? uName : null)).ToList();
 
         return ServiceResult<IReadOnlyList<SalidaResumenDto>>.Ok(result);
     }

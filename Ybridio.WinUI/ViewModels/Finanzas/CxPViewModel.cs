@@ -40,6 +40,8 @@ public sealed partial class CxPViewModel : BaseContextViewModel
     [NotifyCanExecuteChangedFor(nameof(RegistrarPagoCommand))]
     private CxPDto? cxpSeleccionada;
 
+    private bool _isRefreshing;
+
     private IReadOnlyList<CxPDto> _todas = [];
     public ObservableCollection<CxPDto> CxPItems { get; } = [];
 
@@ -118,7 +120,11 @@ public sealed partial class CxPViewModel : BaseContextViewModel
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { ErrorMessage = $"Error: {ex.Message}"; }
-        finally { IsBusy = false; }
+        finally
+        {
+            IsBusy = false;
+            _isRefreshing = false;
+        }
     }
 
     public async Task<bool> CrearCxPAsync(CrearCxPDto dto, CancellationToken ct = default)

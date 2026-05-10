@@ -44,6 +44,25 @@ internal sealed class VentaConfiguration : IEntityTypeConfiguration<Venta>
             .HasConstraintName("FK_Venta_AperturaCaja")
             .IsRequired(false);
 
+        // ── Campos flujo documental (opcionales para compatibilidad POS) ──────
+        builder.Property(e => e.NombreCliente).HasMaxLength(200).IsRequired(false);
+        builder.Property(e => e.Subtotal).HasColumnType("decimal(18,2)").IsRequired(false);
+        builder.Property(e => e.TotalPagado).HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+        builder.Property(e => e.Observaciones).HasMaxLength(500).IsRequired(false);
+        builder.Property(e => e.Estatus).HasDefaultValue(EstatusVenta.Borrador);
+        builder.Property(e => e.TipoPago).HasDefaultValue(TipoPago.Contado);
+
+        builder.HasOne(e => e.Cliente)
+            .WithMany()
+            .HasForeignKey(e => e.ClienteId)
+            .HasConstraintName("FK_Venta_Cliente")
+            .IsRequired(false);
+
+        builder.HasMany(e => e.Pagos)
+            .WithOne(p => p.Venta)
+            .HasForeignKey(p => p.VentaId)
+            .HasConstraintName("FK_PagoVenta_Venta");
+
         builder.HasIndex(e => new { e.EmpresaId, e.SucursalId, e.Fecha })
             .HasDatabaseName("IX_Venta_EmpresaId_SucursalId_Fecha");
     }

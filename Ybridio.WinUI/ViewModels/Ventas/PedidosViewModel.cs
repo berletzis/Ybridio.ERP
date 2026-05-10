@@ -37,6 +37,8 @@ public sealed partial class PedidosViewModel : BaseContextViewModel
     [NotifyCanExecuteChangedFor(nameof(AvanzarEstatusCommand))]
     private PedidoResumenDto? pedidoSeleccionado;
 
+    private bool _isRefreshing;
+
     private IReadOnlyList<PedidoResumenDto> _todos = [];
     public ObservableCollection<PedidoResumenDto> Pedidos { get; } = [];
     public Visibility IsEmptyState => Pedidos.Count == 0 && !IsBusy ? Visibility.Visible : Visibility.Collapsed;
@@ -101,7 +103,10 @@ public sealed partial class PedidosViewModel : BaseContextViewModel
     [RelayCommand]
     public async Task RefrescarAsync(CancellationToken ct = default)
     {
+        if (_isRefreshing) return;
         if (Session.EmpresaId == 0) return;
+
+        _isRefreshing = true;
         IsBusy = true; ErrorMessage = string.Empty;
         var sw = Stopwatch.StartNew();
         try
@@ -119,7 +124,11 @@ public sealed partial class PedidosViewModel : BaseContextViewModel
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { ErrorMessage = $"Error: {ex.Message}"; }
-        finally { IsBusy = false; }
+        finally
+        {
+            IsBusy = false;
+            _isRefreshing = false;
+        }
     }
 
     protected override Task OnContextChangedAsync() => RefrescarAsync();

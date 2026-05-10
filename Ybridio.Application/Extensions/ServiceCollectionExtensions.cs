@@ -37,6 +37,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICotizacionService, CotizacionService>();
         services.AddScoped<IPedidoService, PedidoService>();
         services.AddScoped<IOrdenTrabajoService, OrdenTrabajoService>();
+        services.AddScoped<IVentaDocumentalService, VentaDocumentalService>();
         services.AddScoped<IFinanzasService, FinanzasService>();
         services.AddScoped<ICxCService, CxCService>();
         services.AddScoped<ICxPService, CxPService>();

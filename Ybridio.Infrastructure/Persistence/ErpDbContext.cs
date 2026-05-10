@@ -95,6 +95,7 @@ public class ErpDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
     // ── ventas ────────────────────────────────────────────────────────────────
     public DbSet<Venta>                  Ventas                   => Set<Venta>();
     public DbSet<VentaDetalle>           VentasDetalle            => Set<VentaDetalle>();
+    public DbSet<PagoVenta>              PagosVenta               => Set<PagoVenta>();
     public DbSet<Factura>                Facturas                 => Set<Factura>();
     public DbSet<Cotizacion>             Cotizaciones             => Set<Cotizacion>();
     public DbSet<CotizacionDetalle>      CotizacionesDetalle      => Set<CotizacionDetalle>();

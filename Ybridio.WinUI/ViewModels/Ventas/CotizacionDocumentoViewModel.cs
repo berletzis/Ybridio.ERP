@@ -34,6 +34,7 @@ namespace Ybridio.WinUI.ViewModels.Ventas;
 public sealed partial class CotizacionDocumentoViewModel : ObservableObject
 {
     private readonly ICotizacionService               _service;
+    private readonly IClienteService                  _clienteService;
     private readonly IErpAuthorizationService         _auth;
     private readonly SessionService                   _session;
     private readonly IOperationalObservabilityService _observability;
@@ -72,6 +73,16 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
     partial void OnFechaVigenciaChanged(DateTime? value) => OnPropertyChanged(nameof(FechaVigenciaOffset));
     [ObservableProperty] private string?           observaciones;
     [ObservableProperty] private EstatusCotizacion estatus        = EstatusCotizacion.Borrador;
+
+    // ── Info de cliente seleccionado (solo lectura, cargado al seleccionar) ──
+    [ObservableProperty] private string? clienteEmail;
+    [ObservableProperty] private string? clienteTelefono;
+    [ObservableProperty] private decimal clienteLimiteCredito;
+    /// <summary>True cuando hay un cliente seleccionado desde el catálogo (ClienteId != null).</summary>
+    public bool TieneClienteSeleccionado => ClienteId.HasValue;
+
+    // ── Sugerencias de cliente para AutoSuggestBox ───────────────────────────
+    public ObservableCollection<ClienteDto> SugerenciasCliente { get; } = [];
 
     // ── Detalles ─────────────────────────────────────────────────────────────
     public ObservableCollection<DetalleLineaEditable> Detalles { get; } = [];
@@ -115,14 +126,23 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
     public Func<Task<DetalleLineaEditable?>>? SolicitarAgregarDetalle;
     public Action<PedidoDto>?               NotificarPedidoGenerado;
 
+    /// <summary>
+    /// Callback invocado cuando el documento se guarda exitosamente.
+    /// Usado por el Document Surface UX Pattern para notificar al módulo padre
+    /// que debe cerrar el surface y refrescar el grid.
+    /// </summary>
+    public Action? DocumentSaved;
+
     public CotizacionDocumentoViewModel(
         ICotizacionService               service,
+        IClienteService                  clienteService,
         IErpAuthorizationService         auth,
         SessionService                   session,
         IOperationalObservabilityService observability,
         ICurrentContextTracker           contextTracker)
     {
         _service        = service;
+        _clienteService = clienteService;
         _auth           = auth;
         _session        = session;
         _observability  = observability;
@@ -150,10 +170,57 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
                 Detalles.Add(new DetalleLineaEditable(d.Id, d.ProductoId, d.Descripcion, d.Cantidad, d.PrecioUnitario));
         }
 
+        OnPropertyChanged(nameof(TieneClienteSeleccionado));
         RecalcularTotales();
         OnPropertyChanged(nameof(TituloDocumento));
         OnPropertyChanged(nameof(EstatusTextoDisplay));
         RefrescarPermisosUI();
+    }
+
+    /// <summary>
+    /// Busca clientes por término (nombre, RFC o email) para el AutoSuggestBox.
+    /// Valida permiso cliente.ver (lo hace el servicio). Sin resultado si el término es menor a 2 caracteres.
+    /// </summary>
+    public async Task BuscarClientesAsync(string termino, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(termino) || termino.Length < 2)
+        {
+            SugerenciasCliente.Clear();
+            return;
+        }
+        try
+        {
+            var resultados = await _clienteService.BuscarAsync(_session.EmpresaId, termino, ct);
+            SugerenciasCliente.Clear();
+            foreach (var c in resultados)
+                SugerenciasCliente.Add(c);
+        }
+        catch (OperationCanceledException) { /* búsqueda cancelada por el usuario */ }
+    }
+
+    /// <summary>
+    /// Selecciona un cliente del catálogo y carga su información de contacto y crédito.
+    /// Actualiza NombreCliente, ClienteId y los campos informativos de cliente.
+    /// </summary>
+    public void SeleccionarCliente(ClienteDto cliente)
+    {
+        ClienteId           = cliente.Id;
+        NombreCliente       = cliente.Nombre;
+        ClienteEmail        = cliente.Email;
+        ClienteTelefono     = cliente.Telefono;
+        ClienteLimiteCredito = cliente.LimiteCredito;
+        OnPropertyChanged(nameof(TieneClienteSeleccionado));
+    }
+
+    /// <summary>Limpia la selección de cliente (cuando el usuario borra el texto del AutoSuggestBox).</summary>
+    public void LimpiarCliente()
+    {
+        ClienteId            = null;
+        NombreCliente        = string.Empty;
+        ClienteEmail         = null;
+        ClienteTelefono      = null;
+        ClienteLimiteCredito = 0;
+        OnPropertyChanged(nameof(TieneClienteSeleccionado));
     }
 
     // ── Comandos ─────────────────────────────────────────────────────────────
@@ -162,7 +229,11 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
     public async Task GuardarAsync(CancellationToken ct = default)
     {
         if (_session.Usuario is null) return;
+
+        // Validaciones básicas (§7 requerimiento)
+        if (!ClienteId.HasValue)       { ErrorMessage = "Debe seleccionar un cliente del catálogo."; return; }
         if (string.IsNullOrWhiteSpace(NombreCliente)) { ErrorMessage = "El nombre del cliente es obligatorio."; return; }
+        if (IsNuevo && Detalles.Count == 0) { ErrorMessage = "Debe agregar al menos una línea de detalle."; return; }
 
         IsBusy = true; ErrorMessage = SuccessMessage = string.Empty;
         try
@@ -179,6 +250,9 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
                 if (!r.Success) { ErrorMessage = r.Error ?? "No se pudo crear."; return; }
                 SuccessMessage = $"Cotización #{r.Value!.Id} creada.";
                 Initialize(r.Value);
+
+                // Document Surface UX Pattern: notificar al módulo padre que el documento se guardó
+                DocumentSaved?.Invoke();
             }
             else
             {
@@ -188,6 +262,9 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
                 if (!r.Success) { ErrorMessage = r.Error ?? "No se pudo actualizar."; return; }
                 SuccessMessage = "Cotización actualizada.";
                 _documento = r.Value;
+
+                // Document Surface UX Pattern: notificar al módulo padre que el documento se guardó
+                DocumentSaved?.Invoke();
             }
             ReportarContexto();
         }
@@ -315,13 +392,15 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
 
     private void ReportarContexto()
     {
+        // CategoriaFiltro se usa para reflejar cliente activo en el panel diagnóstico
+        var clienteInfo = ClienteId.HasValue ? $"Cliente: {NombreCliente} (ID={ClienteId})" : "Sin cliente";
         _contextTracker.SetViewModelContext(new CurrentOperationalContext(
             Module: "Ventas", SubModule: "Cotizaciones",
             ViewModel: nameof(CotizacionDocumentoViewModel),
             Entity: "ventas.Cotizacion",
             RecordCount: Detalles.Count,
             SearchTerm: null, SoloActivos: false,
-            CategoriaFiltro: IsNuevo ? "NUEVA" : $"#{_documento?.Id}",
+            CategoriaFiltro: IsNuevo ? $"NUEVA — {clienteInfo}" : $"#{_documento?.Id} — {clienteInfo}",
             FiltroTemporal: null,
             EmpresaFilter:    new(FilterState.Applied, _session.EmpresaId.ToString()),
             SucursalFilter:   new(FilterState.OmittedExpected, Note: "Cotizaciones por empresa"),
@@ -342,13 +421,23 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
 public sealed class DetalleLineaEditable
 {
     public DetalleLineaEditable() { }
-    public DetalleLineaEditable(long id, int? productoId, string descripcion, decimal cantidad, decimal precioUnitario)
+
+    /// <param name="id">0 para líneas nuevas no guardadas; &gt;0 para líneas ya persistidas.</param>
+    /// <param name="sku">Código/SKU del producto. Solo informativo — no se persiste en detalle.</param>
+    /// <param name="existenciaDisponible">
+    /// Existencia total disponible en la empresa al momento de cargar el diálogo.
+    /// Runtime — no se persiste ni reserva stock. Solo orientativo para el vendedor.
+    /// </param>
+    public DetalleLineaEditable(long id, int? productoId, string descripcion, decimal cantidad, decimal precioUnitario,
+        string? sku = null, decimal? existenciaDisponible = null)
     {
-        Id             = id;
-        ProductoId     = productoId;
-        Descripcion    = descripcion;
-        Cantidad       = cantidad;
-        PrecioUnitario = precioUnitario;
+        Id                   = id;
+        ProductoId           = productoId;
+        Descripcion          = descripcion;
+        Cantidad             = cantidad;
+        PrecioUnitario       = precioUnitario;
+        Sku                  = sku;
+        ExistenciaDisponible = existenciaDisponible;
     }
 
     public long    Id             { get; set; }
@@ -356,6 +445,15 @@ public sealed class DetalleLineaEditable
     public string  Descripcion    { get; set; } = string.Empty;
     public decimal Cantidad       { get; set; }
     public decimal PrecioUnitario { get; set; }
+
+    /// <summary>SKU/código del producto. Solo informativo en el grid — no se persiste en el detalle.</summary>
+    public string? Sku { get; set; }
+
+    /// <summary>
+    /// Existencia disponible total de la empresa al momento de crear la línea.
+    /// Runtime — no se reserva ni descuenta. Solo orientativo para el vendedor (§25 CLAUDE_RULES.md).
+    /// </summary>
+    public decimal? ExistenciaDisponible { get; set; }
 
     /// <summary>
     /// Importe = Cantidad × PrecioUnitario.

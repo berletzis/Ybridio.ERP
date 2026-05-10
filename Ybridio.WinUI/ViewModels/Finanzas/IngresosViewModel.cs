@@ -40,6 +40,8 @@ public sealed partial class IngresosViewModel : BaseContextViewModel
     [NotifyCanExecuteChangedFor(nameof(EliminarCommand))]
     private MovimientoFinancieroDto? ingresoSeleccionado;
 
+    private bool _isRefreshing;
+
     private IReadOnlyList<MovimientoFinancieroDto> _todos = [];
     public ObservableCollection<MovimientoFinancieroDto> Ingresos { get; } = [];
     public IReadOnlyList<CategoriaFinancieraDto> Categorias { get; private set; } = [];
@@ -90,7 +92,10 @@ public sealed partial class IngresosViewModel : BaseContextViewModel
     [RelayCommand]
     public async Task RefrescarAsync(CancellationToken ct = default)
     {
+        if (_isRefreshing) return;
         if (Session.EmpresaId == 0) return;
+
+        _isRefreshing = true;
         IsBusy       = true;
         ErrorMessage = string.Empty;
         var sw = Stopwatch.StartNew();
@@ -118,7 +123,11 @@ public sealed partial class IngresosViewModel : BaseContextViewModel
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { ErrorMessage = $"Error: {ex.Message}"; }
-        finally { IsBusy = false; }
+        finally
+        {
+            IsBusy = false;
+            _isRefreshing = false;
+        }
     }
 
     public async Task<bool> GuardarAsync(MovimientoFinancieroDto? existente,

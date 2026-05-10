@@ -288,6 +288,11 @@
                 Capa 2 (WorkspaceTabView): ítems de trabajo — Productos, registros
                   específicos, documentos abiertos. Se superpone al ModuleFrame y solo
                   es visible cuando existen pestañas de workspace activas.
+
+                Jerarquía visual:
+                - WorkspaceTabView usa WorkspaceTabItemStyle (documentos persistentes, dominante)
+                - Module TabViews usan OutlookTabItemStyle (navegación interna, secundario)
+                - Margin superior de 12px separa visualmente ambas capas
             -->
             <Grid Grid.Column="1">
 
@@ -295,14 +300,24 @@
                 <Frame x:Name="ModuleFrame"/>
 
                 <!-- Capa 2: workspace persistente (se superpone cuando hay tabs) -->
+                <!--
+                    Padding top estructural (60px) separa físicamente el content host del header region:
+                    - TabItem MinHeight: 48px
+                    - SelectionBar: 4px
+                    - Espaciado visual: 8px
+                    Total: 60px evita overlap real entre header/selection y contenido documental
+                -->
                 <TabView x:Name="WorkspaceTabView"
                          IsAddTabButtonVisible="False"
                          TabWidthMode="SizeToContent"
                          Visibility="Collapsed"
+                         Margin="0,12,0,0"
+                         Padding="0,60,0,0"
+                         Background="{ThemeResource LayerOnMicaBaseAltFillColorDefaultBrush}"
                          TabCloseRequested="WorkspaceTabView_TabCloseRequested"
                          SelectionChanged="WorkspaceTabView_SelectionChanged">
                     <TabView.Resources>
-                        <Style TargetType="TabViewItem" BasedOn="{StaticResource OutlookTabItemStyle}"/>
+                        <Style TargetType="TabViewItem" BasedOn="{StaticResource WorkspaceTabItemStyle}"/>
                     </TabView.Resources>
                 </TabView>
 

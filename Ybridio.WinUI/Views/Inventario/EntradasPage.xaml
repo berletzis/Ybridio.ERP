@@ -105,19 +105,23 @@
                             <Grid Padding="{StaticResource ErpHeaderPadding}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="8"/>
-                                    <ColumnDefinition Width="130"/>
-                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="110"/>
+                                    <ColumnDefinition Width="105"/>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="120"/>
-                                    <ColumnDefinition Width="60"/>
+                                    <ColumnDefinition Width="130"/>
+                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="50"/>
                                     <ColumnDefinition Width="80"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="1" Text="Referencia" Style="{StaticResource ErpGridHeaderTextStyle}"/>
-                                <TextBlock Grid.Column="2" Text="Fecha"      Style="{StaticResource ErpGridHeaderTextStyle}"/>
-                                <TextBlock Grid.Column="3" Text="Almacén"    Style="{StaticResource ErpGridHeaderTextStyle}"/>
-                                <TextBlock Grid.Column="4" Text="Tipo"       Style="{StaticResource ErpGridHeaderTextStyle}"/>
-                                <TextBlock Grid.Column="5" Text="Items"      Style="{StaticResource ErpGridHeaderTextStyle}" TextAlignment="Right"/>
-                                <TextBlock Grid.Column="6" Text="Estado"     Style="{StaticResource ErpGridHeaderTextStyle}" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="Referencia"   Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                <TextBlock Grid.Column="2" Text="Fecha"        Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                <TextBlock Grid.Column="3" Text="Almacén"      Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                <TextBlock Grid.Column="4" Text="Tipo"         Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                <TextBlock Grid.Column="5" Text="Proveedor"    Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                <TextBlock Grid.Column="6" Text="Usuario"      Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                <TextBlock Grid.Column="7" Text="Items"        Style="{StaticResource ErpGridHeaderTextStyle}" TextAlignment="Right"/>
+                                <TextBlock Grid.Column="8" Text="Estado"       Style="{StaticResource ErpGridHeaderTextStyle}" TextAlignment="Center"/>
                             </Grid>
                         </Border>
                     </ListView.Header>
@@ -126,11 +130,13 @@
                             <Grid Height="{StaticResource ErpRowHeight}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="8"/>
-                                    <ColumnDefinition Width="130"/>
-                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="110"/>
+                                    <ColumnDefinition Width="105"/>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="120"/>
-                                    <ColumnDefinition Width="60"/>
+                                    <ColumnDefinition Width="130"/>
+                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="50"/>
                                     <ColumnDefinition Width="80"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="1" Text="{x:Bind Folio}"
@@ -141,10 +147,14 @@
                                            Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"/>
                                 <TextBlock Grid.Column="4" Text="{x:Bind ConceptoNombre}"
                                            Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="5" Text="{x:Bind CantidadDetalles}"
+                                <TextBlock Grid.Column="5" Text="{x:Bind ProveedorNombre}"
+                                           Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="6" Text="{x:Bind UsuarioNombre}"
+                                           Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="7" Text="{x:Bind CantidadDetalles}"
                                            Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"
                                            TextAlignment="Right"/>
-                                <TextBlock Grid.Column="6" Text="{x:Bind EstatusNombre}"
+                                <TextBlock Grid.Column="8" Text="{x:Bind EstatusNombre}"
                                            Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"
                                            TextAlignment="Center"/>
                             </Grid>

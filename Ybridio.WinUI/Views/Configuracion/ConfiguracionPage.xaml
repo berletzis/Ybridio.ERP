@@ -18,109 +18,131 @@
              MODO GLOBAL  (Empresa · Tiendas · Seguridad)
              Visible cuando el parámetro de navegación es "Global" o null.
              ═══════════════════════════════════════════════════════════════════ -->
-        <TabView x:Name="TabsGlobal"
-                 TabWidthMode="SizeToContent"
-                 IsAddTabButtonVisible="False"
-                 Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
-                 SelectionChanged="GlobalTabs_SelectionChanged">
 
-            <!-- ── Empresa ──────────────────────────────────────────────── -->
-            <TabViewItem x:Name="TabGlobalEmpresa" Header="Empresa" IsClosable="False">
-                <Frame x:Name="FrameEmpresa"/>
-            </TabViewItem>
+        <!--
+            Visual Container Hierarchy (Module Layer - Global):
+            Border wrapper con padding y fondo sutil para separación física clara
+            del Workspace Layer. Evita efecto "tabs ensimados" y establece boundary visual.
+        -->
+        <Border Padding="16,12,16,16"
+                Background="{ThemeResource LayerFillColorDefaultBrush}">
 
-            <!-- ── Tiendas ─────────────────────────────────────────────── -->
-            <TabViewItem x:Name="TabGlobalTiendas" Header="Tiendas" IsClosable="False">
-                <Frame x:Name="FrameTiendasGlobal"/>
-            </TabViewItem>
+            <TabView x:Name="TabsGlobal"
+                     TabWidthMode="SizeToContent"
+                     IsAddTabButtonVisible="False"
+                     Background="Transparent"
+                     SelectionChanged="GlobalTabs_SelectionChanged">
 
-            <!-- ── Auditoría del Sistema ──────────────────────────────── -->
-            <TabViewItem x:Name="TabGlobalAuditoria" Header="Auditoría del Sistema" IsClosable="False">
-                <Frame x:Name="FrameAuditoria"/>
-            </TabViewItem>
+                <!-- ── Empresa ──────────────────────────────────────────────── -->
+                <TabViewItem x:Name="TabGlobalEmpresa" Header="Empresa" IsClosable="False">
+                    <Frame x:Name="FrameEmpresa"/>
+                </TabViewItem>
 
-            <!-- ── Seguridad (con sub-tabs propios) ───────────────────── -->
-            <TabViewItem x:Name="TabGlobalSeguridad" Header="Seguridad" IsClosable="False">
+                <!-- ── Tiendas ─────────────────────────────────────────────── -->
+                <TabViewItem x:Name="TabGlobalTiendas" Header="Tiendas" IsClosable="False">
+                    <Frame x:Name="FrameTiendasGlobal"/>
+                </TabViewItem>
 
-                <TabView x:Name="TabsSeguridad"
-                         TabWidthMode="SizeToContent"
-                         IsAddTabButtonVisible="False"
-                         Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
-                         SelectionChanged="SeguridadTabs_SelectionChanged">
+                <!-- ── Auditoría del Sistema ──────────────────────────────── -->
+                <TabViewItem x:Name="TabGlobalAuditoria" Header="Auditoría del Sistema" IsClosable="False">
+                    <Frame x:Name="FrameAuditoria"/>
+                </TabViewItem>
 
-                    <TabViewItem x:Name="TabUsuariosGlobal" Header="Usuarios" IsClosable="False">
-                        <Frame x:Name="FrameUsuariosGlobal"/>
-                    </TabViewItem>
+                <!-- ── Seguridad (con sub-tabs propios) ───────────────────── -->
+                <TabViewItem x:Name="TabGlobalSeguridad" Header="Seguridad" IsClosable="False">
 
-                    <TabViewItem x:Name="TabRolesGlobal" Header="Roles" IsClosable="False">
-                        <Frame x:Name="FrameRolesGlobal"/>
-                    </TabViewItem>
+                    <TabView x:Name="TabsSeguridad"
+                             TabWidthMode="SizeToContent"
+                             IsAddTabButtonVisible="False"
+                             Background="Transparent"
+                             SelectionChanged="SeguridadTabs_SelectionChanged">
 
-                    <TabViewItem x:Name="TabPerfilesGlobal" Header="Perfiles" IsClosable="False">
-                        <Frame x:Name="FramePerfilesGlobal"/>
-                    </TabViewItem>
+                        <TabViewItem x:Name="TabUsuariosGlobal" Header="Usuarios" IsClosable="False">
+                            <Frame x:Name="FrameUsuariosGlobal"/>
+                        </TabViewItem>
 
-                    <TabViewItem x:Name="TabPermisosGlobal" Header="Permisos" IsClosable="False">
-                        <Frame x:Name="FramePermisosGlobal"/>
-                    </TabViewItem>
+                        <TabViewItem x:Name="TabRolesGlobal" Header="Roles" IsClosable="False">
+                            <Frame x:Name="FrameRolesGlobal"/>
+                        </TabViewItem>
 
-                    <TabViewItem x:Name="TabScopesGlobal" Header="Scopes" IsClosable="False">
-                        <Frame x:Name="FrameScopesGlobal"/>
-                    </TabViewItem>
+                        <TabViewItem x:Name="TabPerfilesGlobal" Header="Perfiles" IsClosable="False">
+                            <Frame x:Name="FramePerfilesGlobal"/>
+                        </TabViewItem>
 
-                    <TabViewItem x:Name="TabArquitecturaGlobal" Header="Arquitectura Seguridad" IsClosable="False">
-                        <Frame x:Name="FrameArquitecturaGlobal"/>
-                    </TabViewItem>
+                        <TabViewItem x:Name="TabPermisosGlobal" Header="Permisos" IsClosable="False">
+                            <Frame x:Name="FramePermisosGlobal"/>
+                        </TabViewItem>
 
-                </TabView>
-            </TabViewItem>
+                        <TabViewItem x:Name="TabScopesGlobal" Header="Scopes" IsClosable="False">
+                            <Frame x:Name="FrameScopesGlobal"/>
+                        </TabViewItem>
 
-        </TabView>
+                        <TabViewItem x:Name="TabArquitecturaGlobal" Header="Arquitectura Seguridad" IsClosable="False">
+                            <Frame x:Name="FrameArquitecturaGlobal"/>
+                        </TabViewItem>
+
+                    </TabView>
+                </TabViewItem>
+
+            </TabView>
+
+        </Border>
 
         <!-- ═══════════════════════════════════════════════════════════════════
              MODO TIENDA  (configuración específica de la sucursal activa)
              Visible cuando el parámetro de navegación es "Tienda".
              ═══════════════════════════════════════════════════════════════════ -->
-        <TabView x:Name="TabsTienda"
-                 TabWidthMode="SizeToContent"
-                 IsAddTabButtonVisible="False"
-                 Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
-                 Visibility="Collapsed"
-                 SelectionChanged="TiendaTabs_SelectionChanged">
 
-            <TabViewItem x:Name="TabTiendaUsuarios" Header="Usuarios" IsClosable="False">
-                <Frame x:Name="FrameUsuariosTienda"/>
-            </TabViewItem>
+        <!--
+            Visual Container Hierarchy (Module Layer - Tienda):
+            Border wrapper con padding y fondo sutil para separación física clara
+            del Workspace Layer. Evita efecto "tabs ensimados" y establece boundary visual.
+        -->
+        <Border Padding="16,12,16,16"
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                Visibility="Collapsed">
 
-            <TabViewItem x:Name="TabTiendaCajas" Header="Cajas" IsClosable="False">
-                <Frame x:Name="FrameCajasTienda"/>
-            </TabViewItem>
+            <TabView x:Name="TabsTienda"
+                     TabWidthMode="SizeToContent"
+                     IsAddTabButtonVisible="False"
+                     Background="Transparent"
+                     SelectionChanged="TiendaTabs_SelectionChanged">
 
-            <TabViewItem x:Name="TabTiendaDispositivos" Header="Dispositivos" IsClosable="False">
-                <Frame x:Name="FrameDispositivos"/>
-            </TabViewItem>
+                <TabViewItem x:Name="TabTiendaUsuarios" Header="Usuarios" IsClosable="False">
+                    <Frame x:Name="FrameUsuariosTienda"/>
+                </TabViewItem>
 
-            <TabViewItem x:Name="TabTiendaPromociones" Header="Promociones" IsClosable="False">
-                <Frame x:Name="FramePromociones"/>
-            </TabViewItem>
+                <TabViewItem x:Name="TabTiendaCajas" Header="Cajas" IsClosable="False">
+                    <Frame x:Name="FrameCajasTienda"/>
+                </TabViewItem>
 
-            <TabViewItem x:Name="TabTiendaAlmacenes" Header="Almacenes" IsClosable="False">
-                <Frame x:Name="FrameAlmacenes"/>
-            </TabViewItem>
+                <TabViewItem x:Name="TabTiendaDispositivos" Header="Dispositivos" IsClosable="False">
+                    <Frame x:Name="FrameDispositivos"/>
+                </TabViewItem>
 
-            <TabViewItem x:Name="TabTiendaPermisos" Header="Permisos" IsClosable="False">
-                <Frame x:Name="FramePermisos"/>
-            </TabViewItem>
+                <TabViewItem x:Name="TabTiendaPromociones" Header="Promociones" IsClosable="False">
+                    <Frame x:Name="FramePromociones"/>
+                </TabViewItem>
 
-            <TabViewItem x:Name="TabTiendaFacturacion" Header="Facturación" IsClosable="False">
-                <Frame x:Name="FrameFacturacion"/>
-            </TabViewItem>
+                <TabViewItem x:Name="TabTiendaAlmacenes" Header="Almacenes" IsClosable="False">
+                    <Frame x:Name="FrameAlmacenes"/>
+                </TabViewItem>
 
-            <TabViewItem x:Name="TabTiendaPersonalizacion" Header="Personalización" IsClosable="False">
-                <Frame x:Name="FramePersonalizacion"/>
-            </TabViewItem>
+                <TabViewItem x:Name="TabTiendaPermisos" Header="Permisos" IsClosable="False">
+                    <Frame x:Name="FramePermisos"/>
+                </TabViewItem>
 
-        </TabView>
+                <TabViewItem x:Name="TabTiendaFacturacion" Header="Facturación" IsClosable="False">
+                    <Frame x:Name="FrameFacturacion"/>
+                </TabViewItem>
+
+                <TabViewItem x:Name="TabTiendaPersonalizacion" Header="Personalización" IsClosable="False">
+                    <Frame x:Name="FramePersonalizacion"/>
+                </TabViewItem>
+
+            </TabView>
+
+        </Border>
 
     </Grid>
 </Page>

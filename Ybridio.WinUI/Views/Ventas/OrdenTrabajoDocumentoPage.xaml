@@ -30,6 +30,9 @@
             <AppBarButton Label="Avanzar Estado" Command="{x:Bind ViewModel.AvanzarEstatusCommand}">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE7C4;"/></AppBarButton.Icon>
             </AppBarButton>
+            <AppBarButton Label="Marcar Entregada" Click="BtnMarcarEntregada_Click">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE8FB;"/></AppBarButton.Icon>
+            </AppBarButton>
             <AppBarButton Label="Cancelar OT" Click="BtnCancelarOT_Click">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE711;"/></AppBarButton.Icon>
             </AppBarButton>

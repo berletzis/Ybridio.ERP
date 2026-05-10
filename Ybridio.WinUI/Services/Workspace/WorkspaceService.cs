@@ -1,6 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.UI.Xaml.Controls;
 
 namespace Ybridio.WinUI.Services.Workspace;
@@ -86,5 +87,71 @@ public sealed class WorkspaceService : IWorkspaceService
         Tabs.Clear();
         ActiveTab = null;
         ActiveTabChanged?.Invoke(null);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // HELPER METHODS — Workspace Operational UX Stabilization
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Abre un documento operacional en el workspace con single-instance enforcement.
+    /// Si el documento ya existe (mismo <paramref name="key"/>), activa el tab existente.
+    /// Si no existe, carga los datos con <paramref name="dataLoader"/> y abre un nuevo tab.
+    /// </summary>
+    /// <typeparam name="TData">Tipo de datos del documento (ej. VentaDto, PedidoDto).</typeparam>
+    /// <param name="key">Clave única del documento (ej. "venta-91", "pedido-55").</param>
+    /// <param name="title">Título runtime del tab (ej. "Venta #91", "Pedido #55").</param>
+    /// <param name="icon">Glifo Segoe MDL2 del ícono (ej. "", "").</param>
+    /// <param name="dataLoader">Función async que carga los datos del documento desde el servicio Application.</param>
+    /// <param name="pageFactory">Función que crea la Page del documento con los datos cargados.</param>
+    /// <param name="onError">Callback opcional para manejar errores de carga.</param>
+    /// <param name="isClosable">Si el usuario puede cerrar el tab. Por defecto <c>true</c>.</param>
+    /// <returns>El <see cref="WorkspaceTabItem"/> creado o reutilizado.</returns>
+    /// <remarks>
+    /// Este método centraliza el patrón <c>Exists() → ActivateTab()</c> vs <c>await service → OpenTab()</c>
+    /// que antes se repetía manualmente en cada Page. Garantiza single-document-instance: un solo tab por documento.
+    /// </remarks>
+    public async Task<WorkspaceTabItem?> OpenOrActivateDocumentTabAsync<TData>(
+        string key,
+        string title,
+        string icon,
+        Func<Task<TData?>> dataLoader,
+        Func<TData, Page> pageFactory,
+        Action<string>? onError = null,
+        bool isClosable = true)
+    {
+        // Single-instance: si el documento ya está abierto, solo activar
+        if (Exists(key))
+        {
+            ActivateTab(key);
+            return Tabs.FirstOrDefault(t => t.Key == key);
+        }
+
+        // Cargar datos del documento
+        TData? data;
+        try
+        {
+            data = await dataLoader();
+        }
+        catch (Exception ex)
+        {
+            onError?.Invoke($"Error al cargar datos: {ex.Message}");
+            return null;
+        }
+
+        if (data is null)
+        {
+            onError?.Invoke("No se pudieron cargar los datos del documento.");
+            return null;
+        }
+
+        // Abrir nuevo tab con los datos cargados
+        return OpenTab(
+            key:         key,
+            title:       title,
+            icon:        icon,
+            pageFactory: () => pageFactory(data),
+            contextData: data,
+            isClosable:  isClosable);
     }
 }

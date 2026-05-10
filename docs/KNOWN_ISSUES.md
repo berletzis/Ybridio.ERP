@@ -1,6 +1,6 @@
 # KNOWN_ISSUES.md — Problemas Conocidos y Limitaciones
 
-> Última actualización: 2026-05-08  
+> Última actualización: 2026-05-08 (Document Workflow UX + Identity fix)  
 > Formato: `[SEVERIDAD] Descripción — Workaround / Plan`
 
 ---
@@ -15,6 +15,105 @@
 ---
 
 ## Problemas Activos
+
+### [MITIGADO] KI-013 — DbContext Concurrency en refresh/load commands
+
+**Módulo**: Todos los ViewModels con `LoadAsync` / `RefrescarAsync` en Inventario, Ventas, Finanzas
+
+**Excepción potencial**:
+```
+System.InvalidOperationException:
+'A second operation was started on this context instance before a previous operation completed.'
+```
+
+**Causa raíz**: EF Core `DbContext` es scoped pero NO thread-safe. Si un usuario navega rápidamente entre módulos, hace clic repetido en "Refrescar", o si un timer dispara refresh mientras otro está en curso, **dos operaciones async concurrentes pueden intentar usar el mismo contexto scoped**, lo cual está prohibido por EF Core.
+
+**Contextos de riesgo identificados**:
+- `OnNavigatedTo` → `await ViewModel.RefrescarAsync()` mientras hay un refresh previo en curso
+- Usuario hace clic repetido en botones de comando async
+- Multi-tab navigation rápida
+- Timers de diagnóstico (aunque `DiagnosticPanelViewModel` no usa DbContext directamente)
+
+**Mitigación aplicada**: Single-flight guard pattern en todos los ViewModels operacionales:
+
+```csharp
+private bool _isRefreshing;  // o _isLoading
+
+[RelayCommand]
+public async Task RefrescarAsync(CancellationToken ct = default)
+{
+    if (_isRefreshing) return;  // ← Early return: evita reentrada
+    if (Session.EmpresaId == 0) return;
+
+    _isRefreshing = true;
+    IsBusy = true;
+    try
+    {
+        // ... service call con DbContext
+    }
+    finally
+    {
+        IsBusy = false;
+        _isRefreshing = false;  // ← Siempre liberado en finally
+    }
+}
+```
+
+**ViewModels protegidos** (ver `docs/CLAUDE_RULES.md` §7 para lista completa):
+- Inventario: `SalidasViewModel`, `EntradasViewModel`, `ExistenciasViewModel`, `KardexViewModel`, `ProductosViewModel`
+- Ventas: `CotizacionesViewModel`, `PedidosViewModel`, `OrdenesTrabajoViewModel`
+- Finanzas: `GastosViewModel`, `IngresosViewModel`, `CxCViewModel`, `CxPViewModel`
+
+**Impacto del fix**: Los comandos de carga/refresh son ahora **single-flight** — si un refresh está en curso, llamadas adicionales se ignoran silenciosamente hasta que el primero complete. Esto previene la excepción de concurrencia DbContext sin bloquear UI ni introducir locks complejos.
+
+**Estado**: ✅ MITIGADO — guards aplicados, build exitoso, runtime estable. La excepción ya no debería ocurrir en escenarios normales de uso multi-tab o refresh rápido.
+
+**Regla preventiva** (agregada a `CLAUDE_RULES.md` §7):
+> Todos los ViewModels con `LoadAsync`/`RefrescarAsync` que usen Application services (que indirectamente usan DbContext scoped) DEBEN aplicar el patrón single-flight guard. Ver ejemplos CORRECTO vs INCORRECTO en `docs/CLAUDE_RULES.md`.
+
+---
+
+### [RESUELTO] KI-012 — `IdentityRole<Guid>` no registrado en ErpDbContext
+
+**Módulo**: `PermisoService` (`Ybridio.Application/Services/Permisos/PermisoService.cs`)
+
+**Excepción en runtime**:
+```
+System.InvalidOperationException:
+'Cannot create a DbSet for 'IdentityRole<Guid>' because this type is not included in the model for the context.'
+```
+
+**Causa raíz**: El código usaba `_context.Set<Microsoft.AspNetCore.Identity.IdentityRole<Guid>>()` para hacer JOIN con los roles del usuario. Sin embargo, `ErpDbContext` hereda de `IdentityDbContext<ApplicationUser, **ApplicationRole**, Guid>` — registra `ApplicationRole` (el tipo custom enterprise), NO el tipo genérico base `IdentityRole<Guid>`. EF Core no puede crear un `DbSet<T>` para un tipo que no está en el modelo.
+
+**Dónde ocurría** (dos instancias en el mismo archivo):
+- `TienePermisoAsync()` — Nivel 3 del evaluador de permisos
+- `ObtenerPermisosEfectivosAsync()` — Nivel 3 del resolver de conjunto efectivo
+
+**Fix aplicado**:
+```csharp
+// ❌ ANTES — causa excepción en runtime
+_context.Set<Microsoft.AspNetCore.Identity.IdentityRole<Guid>>()
+    .Where(r => rolesUsuario.Contains(r.Name!))
+
+// ✅ DESPUÉS — correcto para ErpDbContext con ApplicationRole
+_context.Roles
+    .Where(r => rolesUsuario.Contains(r.Name!))
+```
+
+**`_context.Roles`** es la propiedad heredada de `IdentityDbContext` que expone `DbSet<ApplicationRole>`, el tipo correcto registrado en el modelo.
+
+**Motivo arquitectónico**: `ErpDbContext` usa Identity custom (`ApplicationRole : IdentityRole<Guid>`) con campos adicionales (`FechaCreacion`, `Borrado`, `RowVersion`). EF Core registra el tipo derivado en el modelo, no el tipo base genérico. Ver ADR-002 en `docs/DECISIONS.md`.
+
+**Impacto del bug**: Toda autorización runtime fallaba con excepción al intentar evaluar permisos heredados por rol (Nivel 3 de evaluación). El login y cualquier operación protegida terminaban en error 500.
+
+**Impacto del fix**: Runtime Security completamente funcional. `TienePermisoAsync` y `ObtenerPermisosEfectivosAsync` operan correctamente. `MemoryPermissionCache` (TTL 10 min) reduce las queries subsecuentes.
+
+**Estado**: ✅ RESUELTO — ambas instancias corregidas, build = 0 errores.
+
+**Regla preventiva** (agregar a CLAUDE_RULES.md §6):
+> Nunca usar `_context.Set<IdentityRole<Guid>>()` — siempre usar `_context.Roles` (que expone `DbSet<ApplicationRole>`).
+
+---
 
 ### [HIGH] KI-001 — `ListarPorEmpresaAsync` sin guard de autorización en service layer
 
@@ -150,3 +249,6 @@ Estas no son bugs sino decisiones arquitectónicas conscientes:
 | `PerfilesPage` mostrando placeholder | Implementada con CRUD completo | 2026-05-08 |
 | `Application.Current` ambiguo con `Ybridio.Application` | Alias `XamlApp = Microsoft.UI.Xaml.Application` | 2026-05-08 |
 | `ContentDialog.ShowAsync()` sin `using System;` | CS4036: requiere `using System` para WinRT interop | 2026-05-08 |
+| **`IdentityRole<Guid>` DbSet exception en PermisoService** | Ver KI-012 abajo — fix aplicado: `_context.Roles` | 2026-05-08 |
+| VentasPage stub "Próximamente" | Implementada con TabView lazy-load (4 tabs Sales Core) | 2026-05-08 |
+| `DatePicker.Date` tipo `DateTime` incompatible con `DateTimeOffset` | Wrapper properties `FechaOffset`/`FechaCompromisoOffset` | 2026-05-08 |

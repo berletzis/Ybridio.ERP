@@ -64,17 +64,14 @@ public sealed partial class PedidosPage : Page, ILiveContextReporter
 
     private async System.Threading.Tasks.Task AbrirPedidoEnWorkspace(long id)
     {
-        var key = $"pedido-{id}";
-        if (_workspace.Exists(key)) { _workspace.ActivateTab(key); return; }
-
-        var result = await _pedidoService.ObtenerConDetallesAsync(id);
-        if (!result.Success) { ViewModel.ErrorMessage = result.Error ?? "Error al cargar."; return; }
-
-        _workspace.OpenTab(
-            key:         key,
+        await _workspace.OpenOrActivateDocumentTabAsync(
+            key:         $"pedido-{id}",
             title:       $"Pedido #{id}",
             icon:        "",
-            pageFactory: () => new PedidoDocumentoPage(result.Value),
+            dataLoader:  () => _pedidoService.ObtenerConDetallesAsync(id)
+                                .ContinueWith(t => t.Result.Success ? t.Result.Value : null),
+            pageFactory: dto => new PedidoDocumentoPage(dto!),
+            onError:     err => ViewModel.ErrorMessage = err,
             isClosable:  true);
     }
 }

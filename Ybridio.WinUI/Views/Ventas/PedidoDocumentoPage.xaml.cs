@@ -20,24 +20,52 @@ public sealed partial class PedidoDocumentoPage : Page
     {
         ViewModel  = new PedidoDocumentoViewModel(
             App.Services.GetRequiredService<IPedidoService>(),
+            App.Services.GetRequiredService<IVentaDocumentalService>(),
             App.Services.GetRequiredService<Ybridio.Application.Services.Autorizacion.IErpAuthorizationService>(),
             App.Services.GetRequiredService<SessionService>(),
             App.Services.GetRequiredService<Ybridio.WinUI.Services.Diagnostic.IOperationalObservabilityService>(),
             App.Services.GetRequiredService<Ybridio.WinUI.Services.Diagnostic.ICurrentContextTracker>());
         _workspace = App.Services.GetRequiredService<IWorkspaceService>();
         InitializeComponent();
-        ViewModel.NotificarOTGenerada = AbrirOTEnWorkspace;
+        ViewModel.NotificarOTGenerada    = AbrirOTEnWorkspace;
+        ViewModel.NotificarVentaGenerada = AbrirVentaEnWorkspace;
         ViewModel.Initialize(pedido);
     }
 
     private void AbrirOTEnWorkspace(OrdenTrabajoDto ot)
     {
-        _workspace.OpenTab(
+        _ = _workspace.OpenOrActivateDocumentTabAsync(
             key:         $"ot-{ot.Id}",
             title:       $"OT #{ot.Id}",
             icon:        "",
-            pageFactory: () => new OrdenTrabajoDocumentoPage(ot),
+            dataLoader:  () => System.Threading.Tasks.Task.FromResult<OrdenTrabajoDto?>(ot),
+            pageFactory: dto => new OrdenTrabajoDocumentoPage(dto!),
             isClosable:  true);
+    }
+
+    private void AbrirVentaEnWorkspace(VentaDocumentalDto venta)
+    {
+        _ = _workspace.OpenOrActivateDocumentTabAsync(
+            key:         $"venta-{venta.Id}",
+            title:       $"Venta #{venta.Id}",
+            icon:        "",
+            dataLoader:  () => System.Threading.Tasks.Task.FromResult<VentaDocumentalDto?>(venta),
+            pageFactory: dto => new VentaDocumentoPage(dto!),
+            isClosable:  true);
+    }
+
+    private async void BtnGenerarVenta_Click(object sender, RoutedEventArgs e)
+    {
+        if (!ViewModel.PuedeGenerarVenta) { ViewModel.ErrorMessage = "Este pedido no permite generar una venta."; return; }
+        var dialog = new ContentDialog
+        {
+            Title = "Generar Venta desde Pedido",
+            Content = $"¿Generar una venta documental desde el Pedido #{ViewModel.DocumentoId}? Se copiarán cliente, productos y observaciones.",
+            PrimaryButtonText = "Generar", SecondaryButtonText = "Cancelar",
+            DefaultButton = ContentDialogButton.Primary, XamlRoot = XamlRoot
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        await ViewModel.GenerarVentaCommand.ExecuteAsync(null);
     }
 
     private async void BtnAgregarLinea_Click(object sender, RoutedEventArgs e)

@@ -235,7 +235,8 @@ public sealed class InventarioService : IInventarioService
                 e.ProductoId,
                 e.Producto.Codigo,
                 e.Producto.Nombre,
-                e.Cantidad))
+                e.Cantidad,
+                e.Producto.StockMinimo))
             .ToListAsync(ct);
     }
 
@@ -279,7 +280,8 @@ public sealed class InventarioService : IInventarioService
                             e.ProductoId,
                             e.Producto.Codigo,
                             e.Producto.Nombre,
-                            e.Cantidad))
+                            e.Cantidad,
+                            e.Producto.StockMinimo))
                         .ToListAsync(ct);
                     return ServiceResult<IReadOnlyList<ExistenciaDto>>.Ok(result);
                 }
@@ -304,7 +306,8 @@ public sealed class InventarioService : IInventarioService
                 e.ProductoId,
                 e.Producto.Codigo,
                 e.Producto.Nombre,
-                e.Cantidad))
+                e.Cantidad,
+                e.Producto.StockMinimo))
             .ToListAsync(ct);
 
         return ServiceResult<IReadOnlyList<ExistenciaDto>>.Ok(lista);
@@ -338,5 +341,70 @@ public sealed class InventarioService : IInventarioService
                 m.Fecha,
                 m.Referencia))
             .ToListAsync(ct);
+    }
+
+    /// <inheritdoc/>
+    public async Task<ServiceResult<IReadOnlyList<KardexLineaDto>>> ListarKardexFiltradoAsync(
+        int       empresaId,
+        int?      productoId       = null,
+        int?      almacenId        = null,
+        int?      tipoMovimientoId = null,
+        DateTime? desde            = null,
+        DateTime? hasta            = null,
+        CancellationToken ct       = default)
+    {
+        if (!await _auth.PuedeAsync(PermisosClave.Kardex.Ver, ct))
+            return ServiceResult<IReadOnlyList<KardexLineaDto>>.Fail(
+                "Sin permiso para ver el kardex (kardex.ver).", ErrorCode.Unauthorized);
+
+        // ── Scope de almacén ───────────────────────────────────────────────────
+        IReadOnlyList<int> almacenesPermitidos = [];
+        if (_session.UsuarioId is { } uid)
+            almacenesPermitidos = await _scopeResolver.ObtenerAlmacentesPermitidosAsync(uid, ct);
+
+        var query = _context.MovimientosInventario
+            .AsNoTracking()
+            .Where(m => m.EmpresaId == empresaId);
+
+        if (productoId.HasValue)       query = query.Where(m => m.ProductoId       == productoId.Value);
+        if (almacenId.HasValue)        query = query.Where(m => m.AlmacenId        == almacenId.Value);
+        if (tipoMovimientoId.HasValue) query = query.Where(m => m.TipoMovimientoId == tipoMovimientoId.Value);
+        if (desde.HasValue)            query = query.Where(m => m.Fecha            >= desde.Value);
+        if (hasta.HasValue)            query = query.Where(m => m.Fecha            <= hasta.Value);
+
+        // Scope: si el usuario tiene almacenes restringidos y no se filtró almacén específico
+        if (almacenesPermitidos.Count > 0 && !almacenId.HasValue)
+            query = query.Where(m => almacenesPermitidos.Contains(m.AlmacenId));
+
+        var lista = await query
+            .OrderBy(m => m.Fecha)
+            .ThenBy(m => m.Id)
+            .Select(m => new KardexLineaDto(
+                m.Id,
+                m.EmpresaId,
+                m.ProductoId,
+                m.Producto.Codigo,
+                m.Producto.Nombre,
+                m.AlmacenId,
+                m.Almacen.Nombre,
+                m.SucursalId,
+                m.Sucursal != null ? m.Sucursal.Nombre : null,
+                m.TipoMovimientoId,
+                m.TipoMovimiento.Nombre,
+                m.TipoMovimiento.Signo,
+                m.Cantidad,
+                m.TipoMovimiento.Signo == 1 ? m.Cantidad : 0m,
+                m.TipoMovimiento.Signo == -1 ? m.Cantidad : 0m,
+                m.SaldoAcumulado,
+                m.CostoUnitario,
+                m.Fecha,
+                m.Folio,
+                m.Referencia,
+                m.ReferenciaId,
+                m.Observaciones,
+                null))   // UsuarioNombre: omitido en proyección EF para simplicidad
+            .ToListAsync(ct);
+
+        return ServiceResult<IReadOnlyList<KardexLineaDto>>.Ok(lista);
     }
 }
