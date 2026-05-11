@@ -39,12 +39,33 @@ public sealed class VentaDocumentalService : IVentaDocumentalService
     public async Task<ServiceResult<IReadOnlyList<VentaDocumentalResumenDto>>> ListarAsync(
         int empresaId, DateTime? desde = null, DateTime? hasta = null, CancellationToken ct = default)
     {
+        if (ct.IsCancellationRequested)
+            return ServiceResult<IReadOnlyList<VentaDocumentalResumenDto>>.Ok(
+                Array.Empty<VentaDocumentalResumenDto>());
+
         if (!await _auth.PuedeAsync(PermisosClave.Venta.Ver, ct))
             return ServiceResult<IReadOnlyList<VentaDocumentalResumenDto>>.Fail(
                 "Sin permiso (venta.ver).", ErrorCode.Unauthorized);
 
         var query = _context.Ventas.AsNoTracking()
             .Where(v => v.EmpresaId == empresaId && v.NombreCliente != null); // solo documentales
+
+        if (desde.HasValue) query = query.Where(v => v.Fecha >= desde.Value);
+        if (hasta.HasValue) query = query.Where(v => v.Fecha <= hasta.Value);
+
+        var lista = await query.OrderByDescending(v => v.Fecha).ThenByDescending(v => v.Id).ToListAsync(ct);
+        return ServiceResult<IReadOnlyList<VentaDocumentalResumenDto>>.Ok(lista.Select(MapToResumen).ToList());
+    }
+    {
+        if (!await _auth.PuedeAsync(PermisosClave.Venta.Ver, ct))
+            return ServiceResult<IReadOnlyList<VentaDocumentalResumenDto>>.Fail(
+                "Sin permiso (venta.ver).", ErrorCode.Unauthorized);
+
+        if (ct.IsCancellationRequested)
+            return ServiceResult<IReadOnlyList<VentaDocumentalResumenDto>>.Fail(
+                "Operación cancelada.", ErrorCode.Canceled);
+
+        if (!await _auth.PuedeAsync(PermisosClave.Venta.Ver, ct))
 
         if (desde.HasValue) query = query.Where(v => v.Fecha >= desde.Value);
         if (hasta.HasValue) query = query.Where(v => v.Fecha <= hasta.Value);

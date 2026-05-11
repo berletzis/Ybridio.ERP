@@ -1,3 +1,4 @@
+using System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -13,7 +14,7 @@ namespace Ybridio.WinUI.Views.Ventas;
 /// Host de Ventas Documentales — sigue el Document Surface UX Pattern (ADR-025 + ADR-031).
 /// Los documentos se abren inline reemplazando el listado, NO como tabs de workspace.
 /// </summary>
-public sealed partial class VentasDocumentalesPage : Page, ILiveContextReporter
+public sealed partial class VentasDocumentalesPage
 {
     private readonly IVentaDocumentalService _ventaService;
 
@@ -29,7 +30,14 @@ public sealed partial class VentasDocumentalesPage : Page, ILiveContextReporter
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
-        await ViewModel.RefrescarCommand.ExecuteAsync(null);
+        try
+        {
+            await ViewModel.RefrescarCommand.ExecuteAsync(null);
+        }
+        catch (OperationCanceledException)
+        {
+            // ADR-026: expected during navigation/lifecycle transitions.
+        }
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
@@ -62,10 +70,28 @@ public sealed partial class VentasDocumentalesPage : Page, ILiveContextReporter
     }
 
     private async void Busqueda_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
-        => await ViewModel.RefrescarCommand.ExecuteAsync(null);
+    {
+        try
+        {
+            await ViewModel.RefrescarCommand.ExecuteAsync(null);
+        }
+        catch (OperationCanceledException)
+        {
+            // ADR-026: expected during rapid query input/navigation.
+        }
+    }
 
     private async void FiltroTemporal_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        => await ViewModel.RefrescarCommand.ExecuteAsync(null);
+    {
+        try
+        {
+            await ViewModel.RefrescarCommand.ExecuteAsync(null);
+        }
+        catch (OperationCanceledException)
+        {
+            // ADR-026: expected during filter changes/lifecycle transitions.
+        }
+    }
 
     private async System.Threading.Tasks.Task AbrirVentaInlineAsync(long id)
     {

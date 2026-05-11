@@ -11,7 +11,7 @@ public enum ErrorCode
     // ── Genérico ──────────────────────────────────────────────────────────────
     NotFound,
     ValidationFailed,
-    Unauthorized,
+    Unauthorized
 
     // ── Autenticación ─────────────────────────────────────────────────────────
     InvalidCredentials,
