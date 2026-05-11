@@ -34,7 +34,12 @@ public sealed class ErpAuthorizationService : IErpAuthorizationService
         if (_session.UsuarioId is not { } uid)
             return false;
 
-        return await _permisos.TienePermisoAsync(uid, clave, ct);
+        // ADR-026 — Dual Strategy A:
+        // Authorization checks usan CancellationToken.None.
+        // Una autorización parcialmente cancelada deja la UI en estado ambiguo
+        // (botones/surfaces inconsistentes). El check es pequeño y crítico.
+        // SCOPE: solo authorization/security checks de corta duración.
+        return await _permisos.TienePermisoAsync(uid, clave, CancellationToken.None);
     }
 
     /// <inheritdoc/>

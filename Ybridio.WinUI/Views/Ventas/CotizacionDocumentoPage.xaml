@@ -46,6 +46,16 @@
             <AppBarButton Label="Cancelar Cotización" Click="BtnCancelarCotizacion_Click">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE711;"/></AppBarButton.Icon>
             </AppBarButton>
+
+            <!-- Document Surface Detachable Mode (ADR-027) + Window Detach Mode (ADR-028): acciones avanzadas opcionales -->
+            <CommandBar.SecondaryCommands>
+                <AppBarButton x:Name="BtnToggleDetach" Label="Desacoplar Surface" Click="BtnToggleDetach_Click">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE89A;"/></AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarButton x:Name="BtnAbrirEnVentana" Label="Abrir en Ventana" Click="BtnAbrirEnVentana_Click">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE8A7;"/></AppBarButton.Icon>
+                </AppBarButton>
+            </CommandBar.SecondaryCommands>
         </CommandBar>
 
         <!-- Header strip: título + badge de estado -->

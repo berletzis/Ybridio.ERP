@@ -36,6 +36,21 @@ public sealed class WindowManager : IWindowManager
     private readonly MainWindow _mainWindow;
     private readonly ILogger<WindowManager> _logger;
     private int _cascadeCount;
+    private int _detachedWindowsCount; // ADR-028: Window Detach Mode tracking
+
+    // ── Constantes de policy ─────────────────────────────────────────────────
+
+    /// <summary>
+    /// Límite máximo global de ventanas desacopladas (detached windows) activas simultáneamente.
+    /// Policy arquitectónica: Window Detach Mode — ADR-028.
+    /// </summary>
+    private const int MaxDetachedWindows = 2;
+
+    /// <summary>
+    /// Prefijo de convención para keys de ventanas detached.
+    /// Ventanas con key que empieza con este prefijo cuentan contra el límite global.
+    /// </summary>
+    private const string DetachedKeyPrefix = "detached:";
 
     // ── Constructor ──────────────────────────────────────────────────────────
 
@@ -64,6 +79,16 @@ public sealed class WindowManager : IWindowManager
 
         options ??= new WindowOptions();
         var internalKey = BuildKey<TWindow, TKey>(key);
+
+        // ── Policy: Window Detach Mode Limit (ADR-028) ──────────────────────
+        // Si la key indica ventana detached y ya hay 2 abiertas, lanzar excepción operacional
+        var isDetachedWindow = internalKey.StartsWith(DetachedKeyPrefix, StringComparison.Ordinal);
+        if (isDetachedWindow && _detachedWindowsCount >= MaxDetachedWindows)
+        {
+            _logger.LogWarning("[WindowManager] Límite detached windows alcanzado ({Current}/{Max}): {Key}",
+                _detachedWindowsCount, MaxDetachedWindows, internalKey);
+            throw new DetachedWindowLimitException(MaxDetachedWindows, _detachedWindowsCount);
+        }
 
         // Reutilizar instancia existente — nunca duplicar
         if (_windows.TryGetValue(internalKey, out var existing))
@@ -104,12 +129,30 @@ public sealed class WindowManager : IWindowManager
         };
         _windows[internalKey] = descriptor;
 
+        // Incrementar contador detached si aplica
+        if (isDetachedWindow)
+        {
+            _detachedWindowsCount++;
+            _logger.LogDebug("[WindowManager] Detached windows count: {Count}/{Max}",
+                _detachedWindowsCount, MaxDetachedWindows);
+        }
+
         // Limpiar al cerrar
         window.Closed += (_, _) =>
         {
             _windows.Remove(internalKey);
+
             if (options.PositionStrategy == WindowPositionStrategy.Cascade)
                 _cascadeCount = Math.Max(0, _cascadeCount - 1);
+
+            // Decrementar contador detached si aplica
+            if (isDetachedWindow)
+            {
+                _detachedWindowsCount = Math.Max(0, _detachedWindowsCount - 1);
+                _logger.LogDebug("[WindowManager] Detached window closed. Count: {Count}/{Max}",
+                    _detachedWindowsCount, MaxDetachedWindows);
+            }
+
             _logger.LogDebug("[WindowManager] Ventana cerrada: {Key}", internalKey);
         };
 

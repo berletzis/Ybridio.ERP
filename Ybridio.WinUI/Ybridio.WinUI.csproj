@@ -27,6 +27,7 @@
     <None Remove="Views\Ventas\PedidosPage.xaml" />
     <None Remove="Views\Ventas\OrdenesTrabajoPage.xaml" />
     <None Remove="Views\Ventas\CotizacionDocumentoPage.xaml" />
+    <None Remove="Views\Ventas\ClienteDocumentoPage.xaml" />
     <None Remove="Views\Ventas\PedidoDocumentoPage.xaml" />
     <None Remove="Views\Ventas\OrdenTrabajoDocumentoPage.xaml" />
     <None Remove="Views\Ventas\VentaDocumentoPage.xaml" />
@@ -56,6 +57,10 @@
     <None Remove="Views\LoginPage.xaml" />
     <None Remove="Views\POS\PosPage.xaml" />
     <None Remove="Views\ShellPage.xaml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Page Remove="Views\Ventas\ClienteDocumentoPage.xaml" />
+    <Page Remove="Windows\DetachedDocumentWindow.xaml" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Assets\SplashScreen.scale-200.png" />
@@ -90,6 +95,18 @@
   <ItemGroup>
     <ProjectReference Include="..\Ybridio.Application\Ybridio.Application.csproj" />
     <ProjectReference Include="..\Ybridio.Infrastructure\Ybridio.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Windows\DetachedDocumentWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Include="Views\Ventas\ClienteDocumentoPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
   </ItemGroup>
 
   <ItemGroup>

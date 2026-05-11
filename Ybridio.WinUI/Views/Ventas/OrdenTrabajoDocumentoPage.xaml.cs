@@ -10,10 +10,13 @@ using Ybridio.WinUI.ViewModels.Ventas;
 
 namespace Ybridio.WinUI.Views.Ventas;
 
-/// <summary>Documento de OT persistente en WorkspaceService.</summary>
+/// <summary>Documento de OT — Document Surface inline (ADR-031).</summary>
 public sealed partial class OrdenTrabajoDocumentoPage : Page
 {
     public OrdenTrabajoDocumentoViewModel ViewModel { get; }
+
+    /// <summary>Callback invocado al cerrar el Document Surface e ir al listado (ADR-031).</summary>
+    public Func<System.Threading.Tasks.Task>? OnCerrar { get; set; }
 
     public OrdenTrabajoDocumentoPage(OrdenTrabajoDto? ot)
     {
@@ -26,6 +29,11 @@ public sealed partial class OrdenTrabajoDocumentoPage : Page
 
         InitializeComponent();
         ViewModel.Initialize(ot);
+    }
+
+    private async void BtnVolver_Click(object sender, RoutedEventArgs e)
+    {
+        if (OnCerrar is not null) await OnCerrar();
     }
 
     private async void BtnAgregarMaterial_Click(object sender, RoutedEventArgs e)

@@ -34,16 +34,47 @@ public sealed partial class ClientesViewModel : BaseContextViewModel
     [ObservableProperty] private string     successMessage = string.Empty;
     [ObservableProperty] private string     busqueda       = string.Empty;
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(EditarCommand))]
     [NotifyCanExecuteChangedFor(nameof(EliminarCommand))]
     private ClienteDto? clienteSeleccionado;
+
+    // ── Document Surface UX Pattern (ADR-025 + ADR-030) ─────────────────────
+    private bool _isDocumentSurfaceVisible;
+    /// <summary>
+    /// Indica si el Document Surface está visible (reemplaza grid listado).
+    /// </summary>
+    public bool IsDocumentSurfaceVisible
+    {
+        get => _isDocumentSurfaceVisible;
+        set => SetProperty(ref _isDocumentSurfaceVisible, value);
+    }
+
+    private object? _documentSurfaceContent;
+    /// <summary>
+    /// Contenido del Document Surface (instancia ClienteDocumentoPage o null).
+    /// </summary>
+    public object? DocumentSurfaceContent
+    {
+        get => _documentSurfaceContent;
+        set => SetProperty(ref _documentSurfaceContent, value);
+    }
+
+    // ── Document Surface Detachable Mode (ADR-027 + ADR-030) ────────────────
+    private bool _isDocumentSurfaceDetached;
+    /// <summary>
+    /// Indica si el Document Surface está en modo desacoplado (split view).
+    /// false (default) = Content Replacement (grid XOR surface)
+    /// true = Detached Mode (grid + surface simultáneos side-by-side)
+    /// </summary>
+    public bool IsDocumentSurfaceDetached
+    {
+        get => _isDocumentSurfaceDetached;
+        set => SetProperty(ref _isDocumentSurfaceDetached, value);
+    }
 
     private IReadOnlyList<ClienteDto> _todos = [];
     public ObservableCollection<ClienteDto> Clientes { get; } = [];
 
     public Visibility IsEmptyState => Clientes.Count == 0 && !IsBusy ? Visibility.Visible : Visibility.Collapsed;
-
-    public Action<ClienteDto?>? SolicitarNuevoEditar;
 
     public ClientesViewModel(
         IClienteService                  service,
@@ -65,8 +96,49 @@ public sealed partial class ClientesViewModel : BaseContextViewModel
     partial void OnBusquedaChanged(string value) => AplicarFiltro();
     partial void OnIsBusyChanged(bool value)     => OnPropertyChanged(nameof(IsEmptyState));
 
-    [RelayCommand] private void Nuevo() => SolicitarNuevoEditar?.Invoke(null);
-    [RelayCommand(CanExecute = nameof(HaySeleccion))] private void Editar() => SolicitarNuevoEditar?.Invoke(ClienteSeleccionado);
+    // ── Document Surface UX Pattern Commands (ADR-025 + ADR-030) ────────────
+
+    /// <summary>
+    /// Abre el Document Surface para crear un nuevo cliente.
+    /// </summary>
+    public void AbrirNuevoCliente()
+    {
+        DocumentSurfaceContent = null;
+        IsDocumentSurfaceVisible = true;
+        IsDocumentSurfaceDetached = false; // Default: content replacement mode
+    }
+
+    /// <summary>
+    /// Abre el Document Surface para editar un cliente existente.
+    /// </summary>
+    public void AbrirEditarCliente(ClienteDto cliente)
+    {
+        DocumentSurfaceContent = cliente;
+        IsDocumentSurfaceVisible = true;
+        IsDocumentSurfaceDetached = false; // Default: content replacement mode
+    }
+
+    /// <summary>
+    /// Cierra el Document Surface y vuelve al grid de listado.
+    /// </summary>
+    public async Task CerrarDocumentSurfaceAsync()
+    {
+        IsDocumentSurfaceVisible = false;
+        IsDocumentSurfaceDetached = false; // Reset detached state
+        DocumentSurfaceContent = null;
+        await LoadAsync(); // Refrescar grid después de cerrar
+    }
+
+    // ── Document Surface Detachable Mode Commands (ADR-027 + ADR-030) ───────
+
+    /// <summary>
+    /// Alterna entre modo acoplado (content replacement) y modo desacoplado (split view).
+    /// </summary>
+    public void ToggleDetach()
+    {
+        if (!IsDocumentSurfaceVisible) return; // Guard obligatorio
+        IsDocumentSurfaceDetached = !IsDocumentSurfaceDetached;
+    }
 
     [RelayCommand(CanExecute = nameof(HaySeleccion))]
     private async Task EliminarAsync(CancellationToken ct = default)

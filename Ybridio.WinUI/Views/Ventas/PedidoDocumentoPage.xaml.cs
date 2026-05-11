@@ -16,6 +16,9 @@ public sealed partial class PedidoDocumentoPage : Page
     private readonly IWorkspaceService _workspace;
     public PedidoDocumentoViewModel ViewModel { get; }
 
+    /// <summary>Callback invocado al cerrar el Document Surface e ir al listado (ADR-031).</summary>
+    public Func<System.Threading.Tasks.Task>? OnCerrar { get; set; }
+
     public PedidoDocumentoPage(PedidoDto? pedido)
     {
         ViewModel  = new PedidoDocumentoViewModel(
@@ -52,6 +55,11 @@ public sealed partial class PedidoDocumentoPage : Page
             dataLoader:  () => System.Threading.Tasks.Task.FromResult<VentaDocumentalDto?>(venta),
             pageFactory: dto => new VentaDocumentoPage(dto!),
             isClosable:  true);
+    }
+
+    private async void BtnVolver_Click(object sender, RoutedEventArgs e)
+    {
+        if (OnCerrar is not null) await OnCerrar();
     }
 
     private async void BtnGenerarVenta_Click(object sender, RoutedEventArgs e)

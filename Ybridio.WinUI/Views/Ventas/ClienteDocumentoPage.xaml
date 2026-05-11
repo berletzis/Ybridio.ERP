@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page x:Class="Ybridio.WinUI.Views.Ventas.ClienteDocumentoPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- CommandBar ADR-030: Document Surface UX Pattern -->
+        <CommandBar Grid.Row="0" DefaultLabelPosition="Right" HorizontalAlignment="Left" Margin="8,0,0,0">
+            <AppBarButton x:Name="BtnVolverALista" Label="Volver a Lista" Click="BtnVolverALista_Click">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE72B;"/></AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarSeparator/>
+            <AppBarButton Label="Guardar" Click="BtnGuardar_Click">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE74E;"/></AppBarButton.Icon>
+            </AppBarButton>
+            <CommandBar.SecondaryCommands>
+                <AppBarButton x:Name="BtnToggleDetach" Label="Desacoplar Surface" Click="BtnToggleDetach_Click">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE8A7;"/></AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarButton x:Name="BtnAbrirEnVentana" Label="Abrir en Ventana" Click="BtnAbrirEnVentana_Click">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE78B;"/></AppBarButton.Icon>
+                </AppBarButton>
+            </CommandBar.SecondaryCommands>
+        </CommandBar>
+
+        <!-- Formulario Cliente -->
+        <ScrollViewer Grid.Row="1" Padding="16">
+            <StackPanel Spacing="12" MaxWidth="640" HorizontalAlignment="Left">
+
+                <TextBlock x:Name="TxtMensaje" Visibility="Collapsed" TextWrapping="Wrap"/>
+
+                <TextBox x:Name="TxtNombre"
+                         Header="Nombre *"
+                         PlaceholderText="Nombre completo o razón social"/>
+
+                <TextBox x:Name="TxtRFC"
+                         Header="RFC"
+                         PlaceholderText="RFC del cliente (opcional)"/>
+
+                <TextBox x:Name="TxtEmail"
+                         Header="Email"
+                         PlaceholderText="correo@ejemplo.com"/>
+
+                <TextBox x:Name="TxtTelefono"
+                         Header="Teléfono"
+                         PlaceholderText="(55) 0000-0000"/>
+
+                <TextBox x:Name="TxtDireccion"
+                         Header="Dirección"
+                         PlaceholderText="Dirección completa"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         MinHeight="72"/>
+
+                <TextBox x:Name="TxtNotas"
+                         Header="Notas internas"
+                         PlaceholderText="Notas visibles solo internamente"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         MinHeight="72"/>
+
+                <TextBox x:Name="TxtLimiteCredito"
+                         Header="Límite de crédito"
+                         PlaceholderText="0.00"
+                         InputScope="Number"/>
+
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Page>

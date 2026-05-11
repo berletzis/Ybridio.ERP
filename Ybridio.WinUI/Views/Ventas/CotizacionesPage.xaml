@@ -8,6 +8,7 @@
 
     <Page.Resources>
         <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
     </Page.Resources>
 
     <Grid>
@@ -55,15 +56,34 @@
         </Grid>
 
         <!--
-            Document Surface UX Pattern:
-            El grid de listado y el Document Surface coexisten en Grid.Row="2" usando el mismo espacio.
-            Solo uno es visible a la vez, controlado por ViewModel.IsDocumentSurfaceVisible.
-            Cuando el usuario hace clic en "Nueva" o "Editar", el grid se oculta y aparece el Document Surface.
-            Después de Guardar o "Volver a Lista", el surface se cierra y el grid vuelve a mostrarse.
+            Document Surface UX Pattern + Detachable Mode (ADR-027):
+            Tres estados visuales posibles:
+            1. Normal (grid visible, surface oculta): IsDocumentSurfaceVisible=false, IsDocumentSurfaceDetached=false
+            2. Content Replacement (surface visible, grid oculto): IsDocumentSurfaceVisible=true, IsDocumentSurfaceDetached=false
+            3. Detached (ambos visibles side-by-side): IsDocumentSurfaceVisible=true, IsDocumentSurfaceDetached=true
+
+            ARQUITECTURA CORREGIDA (no duplicar ListView):
+            - Grid principal con Grid.Row="2" controla el layout general
+            - VisualStateManager cambia la estructura del Grid según IsDocumentSurfaceDetached
+            - UN solo ListView compartido (no duplicado) se mueve entre layouts
         -->
         <Grid Grid.Row="2">
-            <!-- Listado de Cotizaciones (visible por defecto) -->
-            <Border Margin="20,4,20,0" Background="White" BorderBrush="#E5E5E5" BorderThickness="1"
+            <Grid.ColumnDefinitions>
+                <!-- En modo normal/content replacement: solo columna 0 visible (span 3) -->
+                <!-- En modo detached: columna 0 (listado), columna 1 (splitter), columna 2 (surface) -->
+                <ColumnDefinition x:Name="ListadoColumn" Width="*"/>
+                <ColumnDefinition x:Name="SplitterColumn" Width="0"/>
+                <ColumnDefinition x:Name="SurfaceColumn" Width="0"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- ═══ Listado de Cotizaciones (compartido entre modos) ═══════════════ -->
+            <!-- Visible cuando: NO está en content replacement ó está en modo detached -->
+            <Border x:Name="ListadoBorder"
+                    Grid.Column="0"
+                    Margin="20,4,20,0"
+                    Background="White"
+                    BorderBrush="#E5E5E5"
+                    BorderThickness="1"
                     Visibility="{x:Bind ViewModel.IsDocumentSurfaceVisible, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}">
                 <Grid>
                     <ListView Style="{StaticResource OutlookDataGridStyle}"
@@ -123,8 +143,12 @@
                 </Grid>
             </Border>
 
-            <!-- Document Surface (visible solo cuando IsDocumentSurfaceVisible = true) -->
+            <!-- ═══ Document Surface ══════════════════════════════════════════════ -->
+            <!-- En modo normal/content replacement: ocupa toda la fila (Grid.Column="0", Grid.ColumnSpan="3") -->
+            <!-- En modo detached: ocupa solo columna 2 (lado derecho del split) -->
             <ContentPresenter x:Name="DocumentSurfacePresenter"
+                              Grid.Column="0"
+                              Grid.ColumnSpan="3"
                               Margin="20,4,20,0"
                               Content="{x:Bind ViewModel.DocumentSurfaceContent, Mode=OneWay}"
                               Visibility="{x:Bind ViewModel.IsDocumentSurfaceVisible, Mode=OneWay}"/>

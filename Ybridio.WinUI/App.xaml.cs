@@ -75,7 +75,7 @@ public partial class App : Microsoft.UI.Xaml.Application
         // Alias para que ErpDbContext reciba ISessionContext por DI
         services.AddSingleton<ISessionContext>(sp => sp.GetRequiredService<SessionService>());
         services.AddSingleton<INavigationService, NavigationService>();
-        services.AddSingleton<IWindowManager, WindowManager>();
+        services.AddSingleton<IWindowManager, WindowManager>(); // ADR-029: Centralized Window Management (incluye Window Detach Mode)
         services.AddSingleton<IWorkspaceService, WorkspaceService>();
         services.AddSingleton<IOperationalObservabilityService, OperationalObservabilityService>();
         services.AddSingleton<ICurrentContextTracker, CurrentContextTracker>();

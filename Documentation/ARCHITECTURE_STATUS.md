@@ -1,8 +1,8 @@
 # Architecture Status — Ybridio ERP
 
-> Última actualización: 2026-05-09 → **Document Surface UX Standardization** (Piloto Cotizaciones: reemplazar Workspace Tabs innecesarios con Document Surfaces contextuales embebidos para CRUDs ligeros)  
+> Última actualización: 2026-05-10 → **Document Surface Visual Separation Standard** (ADR-031: eliminación tabs documentales ensimados, jerarquía UX oficial, Pedidos/OT/Ventas Documentales migrados a inline Document Surface)  
 > Build: ✅ 0 errores | BD: YBRIDIO-26 | Docs relacionados: `DECISIONS.md` · `ROADMAP.md` · `KNOWN_ISSUES.md` · `CLAUDE_RULES.md`  
-> Fix crítico: `IdentityRole<Guid>` → `_context.Roles` en PermisoService (KI-012, ADR-014)
+> Fix crítico reciente: `IdentityRole<Guid>` → `_context.Roles` (KI-012, ADR-014); DbContext concurrency → single-flight guard (ADR-026); Document Surface detachable mode piloto Cotizaciones (ADR-027); **Window Detach Mode piloto Cotizaciones (ADR-028)**; **Window Management centralizado bajo WindowManager (ADR-029)**; **Document Surface Visual Separation Standard — Pedidos/OT/Ventas inline (ADR-031)**
 
 ## Estado general
 
@@ -37,6 +37,64 @@
 | **Workflow Actions Layer** (Pedido→Venta, OT→Entregada, Navegación Cruzada Venta↔Pedido) | — | — | — | ✅ |
 | **Inventory Operational Completion Layer** (Kardex operacional, stock bajo, trazabilidad, existencias seguras) | — | — | ✅ | ✅ |
 | **Operational Inventory Experience** (Navegación VentaOrigen, columnas Usuario/Proveedor/VentaId, estado visual stock, dashboard light) | — | — | ✅ | ✅ |
+| **Document Surface Visual Separation** (Pedidos/OT/Ventas Documentales → inline Document Surface, anti-pattern tabs eliminado) | — | — | — | ✅ |
+
+---
+
+## Document Surface Visual Separation Standard — ADR-031 (implementado 2026-05-10)
+
+### Problema resuelto
+
+Tabs documentales ensimados/translúcidos en Pedidos, Órdenes de Trabajo y Ventas Documentales: los CRUDs simples se abrían como tabs de workspace, produciendo doble jerarquía visual y apariencia browser/IDE.
+
+### Solución aplicada
+
+| Módulo | Antes (anti-pattern) | Ahora (ADR-031) |
+|---|---|---|
+| Clientes | `_workspace.OpenTab(...)` | Inline Document Surface (ADR-030 Fase 1) |
+| Productos | `_workspace.OpenTab(...)` | Inline Document Surface (ADR-030 Fase 2) |
+| Cotizaciones | Tab workspace piloto | Inline + Detachable + Window Detach (ADR-025/027/028) |
+| **Pedidos** | `_workspace.OpenTab(...)` | **Inline Document Surface (ADR-031)** |
+| **Órdenes de Trabajo** | `_workspace.OpenTab(...)` | **Inline Document Surface (ADR-031)** |
+| **Ventas Documentales** | `_workspace.OpenTab(...)` | **Inline Document Surface (ADR-031)** |
+
+### Jerarquía visual oficial (obligatoria)
+
+```
+Tabs módulo (navegación principal)
+    ↓
+Document Surface Header
+    breadcrumb: Módulo › Título | badge estado | botón ← volver
+    ↓
+Toolbar operacional (CommandBar del documento)
+    ↓
+Contenido formulario / grid de detalles
+```
+
+### Estado de build
+
+✅ 0 errores de compilación después de la migración.
+
+### Archivos cambiados
+
+- `PedidosViewModel.cs`: estado de surface explícito (`IsDocumentSurfaceVisible`, `DocumentSurfaceContent`)
+- `OrdenesTrabajoViewModel.cs`: estado de surface explícito
+- `VentasDocumentalesViewModel.cs`: estado de surface explícito
+- `PedidosPage.xaml` + `.cs`: listado ocultable + `ContentPresenter` inline; eliminado `_workspace.OpenTab`
+- `OrdenesTrabajoPage.xaml` + `.cs`: mismo patrón
+- `VentasDocumentalesPage.xaml` + `.cs`: mismo patrón
+- `PedidoDocumentoPage.xaml` + `.cs`: header operacional + `OnCerrar` callback
+- `OrdenTrabajoDocumentoPage.xaml` + `.cs`: header operacional + `OnCerrar` callback
+- `VentaDocumentoPage.xaml` + `.cs`: header operacional + `OnCerrar` callback
+
+### WorkspaceService — uso reservado
+
+`IWorkspaceService.OpenTab` / `OpenOrActivateDocumentTabAsync` quedan reservados para:
+- Navegación cruzada entre documentos relacionados (ej: abrir Pedido origen desde una Venta)
+- Workflows multi-paso complejos (OT diseño → producción → QA)
+- Análisis persistente multi-documento
+
+**Documentación completa**: `Documentation/ADR-031-Document-Surface-Visual-Separation-Standard.md`
 
 ---
 
@@ -158,6 +216,11 @@ Página estática (`ArquitecturaSegPage`) integrada como documentación viva:
 │    ✅ Single-instance policy (ADR-021)          │
 │    ✅ OpenOrActivateDocumentTabAsync helper     │
 │    ✅ Key/title conventions formalizadas        │
+│  - WindowManager → IWindowManager (ADR-029)      │
+│    ✅ Single source of truth window lifecycle   │
+│    ✅ Detached windows policy (máx 2)           │
+│    ✅ Convention key prefix enforcement         │
+│    ✅ Ownership Win32 automático + cleanup      │
 │  - RuntimeDiagnosticService (observabilidad)     │
 │  - IErpAuthorizationService (consumo en UI)      │
 ├─────────────────────────────────────────────────┤
@@ -528,6 +591,111 @@ Padding top = TabItem.MinHeight + SelectionBar.Height + Visual Spacing
 ❌ TranslateTransform/RenderTransform offsets (hack visual, NO estructural)  
 ❌ Z-index tricks (NO resuelve overlap real)  
 
+**Documentación actualizada**:
+- `Documentation/DECISIONS.md`: ADR-024 Workspace TabView Content Host Separation
+- `Documentation/CLAUDE_RULES.md` §16: actualizada con Padding interno obligatorio
+- `Documentation/ARCHITECTURE_STATUS.md`: este documento (estado Workspace runtime + visual)
+
+---
+
+## Security Runtime Concurrency Stabilization (implementado 2026-05-09)
+
+### Problema identificado
+
+**DbContext concurrency exceptions** durante navegación rápida runtime:
+- Navegación rápida entre módulos (Clientes ↔ Cotizaciones ↔ Pedidos)
+- Activación/desactivación Document Surfaces embebidos
+- Múltiples tabs Workspace con pre-checks autorización concurrentes
+- `OnNavigatedTo` + bindings runtime + `AsyncRelayCommand` pre-checks simultáneos
+- Runtime Diagnostic Panel refresh + navegación usuario
+- Resultado: `System.InvalidOperationException: "A second operation was started on this context instance before a previous operation completed."`
+
+**Causa raíz**: Múltiples evaluaciones concurrentes de `PermisoService.TienePermisoAsync(...)` y `ObtenerPermisosEfectivosAsync(...)` usando el mismo `ErpDbContext` scoped durante navegación runtime.
+
+### Solución implementada
+
+**ADR-026**: Single-flight pattern en `PermisoService` usando `SemaphoreSlim` global para serializar evaluaciones de permisos runtime.
+
+| Componente | Cambio |
+|---|---|
+| `PermisoService.TienePermisoAsync` | Agregado `await _authSemaphore.WaitAsync(ct)` antes de queries EF Core; `finally { _authSemaphore.Release(); }` |
+| `PermisoService.ObtenerPermisosEfectivosAsync` | Agregado single-flight guard con double-check pattern (caché antes y después del lock) |
+| `PermisoService` (campo) | `private static readonly SemaphoreSlim _authSemaphore = new(1, 1);` |
+
+### Patrón aplicado
+
+```csharp
+// Single-flight guard: serializar evaluaciones de permisos runtime
+await _authSemaphore.WaitAsync(ct);
+try
+{
+    // Lógica de evaluación: override → perfiles → roles
+    // (queries EF Core usando _context scoped)
+}
+finally
+{
+    _authSemaphore.Release();  // Siempre liberar en finally
+}
+```
+
+**Por qué necesario**:
+- `ErpDbContext` es **scoped** (correctamente según arquitectura EF Core)
+- `PermisoService` es **scoped** (inyectado en `ErpAuthorizationService` scoped)
+- Navegación runtime dispara **múltiples evaluaciones concurrentes** del mismo servicio scoped
+- EF Core **NO permite operaciones concurrentes** en el mismo contexto scoped
+- Serialización garantiza **un solo thread evaluando permisos a la vez** sin cambiar arquitectura DI
+
+**Alternativas descartadas**:
+- ❌ Per-permission semaphore con `ConcurrentDictionary`: overhead de tracking, limpieza de diccionario creciente
+- ❌ Lock statement tradicional: semánticamente equivalente, semaphore más explícito para async/await
+- ❌ Task.Run para aislar DbContext: anti-pattern prohibido (ADR-020), race conditions
+- ❌ DbContext singleton: viola arquitectura EF Core, causaría más problemas de state
+- ❌ Caché agresivo: `MemoryPermissionCache` ya existe, NO elimina problema en `TienePermisoAsync` individual
+- ❌ Rehacer Security Foundation: NO permitido (regla crítica §3), problema es runtime concurrency
+
+### Resultado runtime esperado
+
+✅ **SIN exceptions DbContext** durante navegación rápida multi-módulo  
+✅ **Autorización consistente** (permisos correctos aplicados)  
+✅ **Navegación fluida** sin degradación UX perceptible  
+✅ **Document Surfaces estables** (activar/desactivar sin crashes)  
+✅ **Workspace tabs concurrentes** (pre-checks múltiples seguros)  
+✅ **Runtime Diagnostic Panel compatible** (refresh automático sin colisiones)  
+
+### Validación runtime requerida
+
+El usuario debe validar:
+1. Navegar rápidamente Clientes → Cotizaciones → Pedidos (cambiar tabs cada 1-2 segundos)
+2. Abrir/cerrar Document Surfaces (Nueva Cotización → guardar → editar → volver) repetidamente
+3. Ejecutar múltiples refresh simultáneos (F5 en varios módulos)
+4. Confirmar ausencia de `InvalidOperationException` relacionada con DbContext
+5. Verificar autorización correcta (comandos habilitados/deshabilitados según permisos)
+6. Validar navegación fluida sin latencia excesiva
+
+### Anti-patterns documentados
+
+```csharp
+// ❌ NO aislar DbContext con Task.Run
+Task.Run(() => await _permisos.TienePermisoAsync(...));
+
+// ❌ NO cambiar DbContext a singleton
+services.AddSingleton<ErpDbContext>();  // PROHIBIDO
+
+// ❌ NO capturar DbContext en campos static
+private static ErpDbContext _ctx;  // PROHIBIDO
+
+// ❌ NO usar lock tradicional sin considerar async
+lock (_lock) { await _context.SaveChangesAsync(); }  // Deadlock risk
+```
+
+### Documentación actualizada
+
+- `Documentation/DECISIONS.md`: ADR-026 Security Runtime Concurrency Stabilization
+- `Documentation/CLAUDE_RULES.md` §7: nueva subsección "Security Runtime Concurrency"
+- `Documentation/ARCHITECTURE_STATUS.md`: este documento (estado runtime security stabilization)
+- `Documentation/KNOWN_ISSUES.md`: documentación problema DbContext concurrency original + solución
+
+---
 **Validación requerida**: Abrir múltiples documentos (Cotización, Pedido, Venta, OT) y verificar: 1) underline NO invade contenido, 2) tabs NO parecen ensimados, 3) separación clara Workspace Header/contenido, 4) UX limpia sin overlap, 5) responsive correcto múltiples DPI.
 
 ---
@@ -663,6 +831,266 @@ public async Task GuardarAsync()
 - Expandir gradualmente a otros módulos CRUD ligeros según validación
 
 **Referencia**: ADR-025, CLAUDE_RULES.md §12
+
+---
+
+### Document Surface Detachable Mode Extension (implementado 2026-05-09)
+
+**Objetivo**: Extender el Document Surface UX Pattern con un **modo desacoplado opcional** que permite visualización simultánea grid+surface para escenarios de multitarea ligera controlada sin regresar a Workspace Tabs infinitos.
+
+**Problema identificado**:
+- Document Surface content replacement funciona correctamente para operación diaria PYME simple/rápida
+- **PERO** existen escenarios operacionales válidos: comparar información, copiar datos, consultar lista mientras edita
+- Limitación content replacement puro: usuario pierde visibilidad del grid cuando abre documento
+- **NO queremos** volver a Workspace Tabs globales para CRUDs simples (caos UX evitado con ADR-025)
+- Necesidad: multitarea ligera **ocasional bajo demanda usuario**, manteniendo simplicidad por defecto
+
+**Solución implementada**: Document Surface Detachable Mode (§ADR-027)
+
+**Principio arquitectónico extendido**:
+```
+Workspace Tabs             = workflows persistentes, multi-documento complejo, importante
+Document Surfaces Normal   = operación rápida contextual (grid XOR surface) DEFAULT
+Document Surface Detached  = multitarea ligera (grid + surface simultáneos) OPCIONAL
+```
+
+**Piloto implementado**:
+- ✅ **Cotizaciones** (detachable mode completo)
+- 🔲 Clientes (pendiente validación piloto)
+- 🔲 Productos (pendiente validación piloto)
+
+**Limitaciones arquitectónicas obligatorias**:
+- SOLO 1 Document Surface desacoplada activa por módulo (NO múltiples surfaces simultáneas)
+- Activación explícita mediante botón discreto "Desacoplar Surface" en CommandBar secundario documento
+- Default SIEMPRE es content replacement mode (grid XOR surface)
+- NO floating windows OS reales
+- NO dock managers enterprise
+- State preservation: filtros, selección, scroll mantienen durante acoplar/desacoplar
+
+**Componentes nuevos ADR-027**:
+
+| Archivo | Propósito |
+|---|---|
+| `BoolToVisibilityConverter.cs` | Converter directo bool→Visibility para mostrar split view cuando detached=true |
+| `CotizacionesViewModel.IsDocumentSurfaceDetached` | Estado de modo desacoplado (false por defecto) |
+| `CotizacionesViewModel.ToggleDetach()` | Alterna entre content replacement y split view |
+| `CotizacionDocumentoPage.ToggleDetach` | Callback desacoplar invocado desde botón documento |
+| `CotizacionesPage.xaml` dual layout | Rama normal (grid XOR surface) + rama detached (split columns 2*/3*) |
+
+**Arquitectura detachable mode**:
+
+```csharp
+// ViewModel módulo (piloto Cotizaciones)
+[ObservableProperty] private bool isDocumentSurfaceDetached;
+
+[RelayCommand]
+public void ToggleDetach()
+{
+    if (!IsDocumentSurfaceVisible) return; // Guard obligatorio
+    IsDocumentSurfaceDetached = !IsDocumentSurfaceDetached;
+}
+
+public void AbrirNuevaCotizacion()
+{
+    DocumentSurfaceContent = null;
+    IsDocumentSurfaceVisible = true;
+    IsDocumentSurfaceDetached = false; // Default: content replacement
+}
+
+public async Task CerrarDocumentSurfaceAsync()
+{
+    IsDocumentSurfaceVisible = false;
+    IsDocumentSurfaceDetached = false; // Reset detached state
+    DocumentSurfaceContent = null;
+    await RefrescarAsync();
+}
+```
+
+```xaml
+<!-- Page del módulo (XAML dual layout) -->
+<Grid Grid.Row="2">
+    <!-- Rama 1: Modo Normal / Content Replacement (default) -->
+    <Grid Visibility="{x:Bind ViewModel.IsDocumentSurfaceDetached, Mode=OneWay, 
+                               Converter={StaticResource InverseBoolToVisibilityConverter}}">
+        <Border Visibility="{x:Bind ViewModel.IsDocumentSurfaceVisible, ..., InverseBool...}">
+            <ListView ... />
+        </Border>
+        <ContentPresenter Content="{x:Bind ViewModel.DocumentSurfaceContent, ...}"
+                          Visibility="{x:Bind ViewModel.IsDocumentSurfaceVisible, ...}"/>
+    </Grid>
+
+    <!-- Rama 2: Modo Desacoplado (split view side-by-side) -->
+    <Grid Visibility="{x:Bind ViewModel.IsDocumentSurfaceDetached, Mode=OneWay, 
+                               Converter={StaticResource BoolToVisibilityConverter}}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="2*" MinWidth="400"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="3*" MinWidth="600"/>
+        </Grid.ColumnDefinitions>
+        <Border Grid.Column="0"><ListView ... /></Border>
+        <Border Grid.Column="1" Width="1" Background="#E5E5E5"/>  <!-- Separador -->
+        <ContentPresenter Grid.Column="2" Content="{x:Bind ViewModel.DocumentSurfaceContent, ...}"/>
+    </Grid>
+</Grid>
+```
+
+```xaml
+<!-- Document Surface (XAML) -->
+<CommandBar>
+    <!-- Comandos primarios: Volver a Lista, Guardar, etc. -->
+    ...
+    <!-- Detachable Mode: acción avanzada opcional -->
+    <CommandBar.SecondaryCommands>
+        <AppBarButton Label="Desacoplar Surface" Click="BtnToggleDetach_Click">
+            <AppBarButton.Icon><FontIcon Glyph="&#xE89A;"/></AppBarButton.Icon>
+        </AppBarButton>
+    </CommandBar.SecondaryCommands>
+</CommandBar>
+```
+
+**UX Rules Detachable Mode**:
+
+1. **Modo normal por defecto**: content replacement (grid XOR surface) es comportamiento DEFAULT
+2. **Activación bajo demanda**: usuario activa detach mediante botón discreto CommandBar secundario
+3. **Multitarea ligera controlada**: SOLO 1 surface desacoplada por módulo
+4. **Split view limpio**: layout grid columnas con separador visual, NO floating windows, mantiene Outlook 2026 style
+5. **State preservation**: filtros, selección, scroll preservados durante acoplar/desacoplar
+6. **Reset automático**: estado detached resetea al cerrar surface (NO persistir entre aperturas)
+
+**Resultado UX esperado ADR-027**:
+
+✅ **UX simple por defecto** — content replacement sigue siendo modo normal PYME-friendly  
+✅ **Multitarea ligera opcional** — usuario puede desacoplar cuando necesita comparar/consultar  
+✅ **Sin caos Workspace Tabs** — CRUDs simples NO vuelven a generar tabs infinitos  
+✅ **Split view limpio** — grid+surface simultáneos sin dock managers enterprise pesados  
+✅ **State preservation** — filtros/selección mantienen al alternar modos  
+✅ **Piloto acotado** — validación Cotizaciones antes de expandir a otros módulos  
+✅ **Runtime Observability compatible** — NO genera overhead adicional ni regresiones DbContext  
+
+**Anti-patterns evitados ADR-027**:
+
+❌ Múltiples surfaces desacopladas simultáneas (límite 1 por módulo)  
+❌ Floating windows OS reales (mantener embedded layout)  
+❌ Dock managers enterprise complejos (overhead innecesario)  
+❌ Split view permanente por defecto (UX ruido visual constante)  
+❌ Detach sin Document Surface activo (guard obligatorio `if (!IsDocumentSurfaceVisible) return;`)  
+❌ Persistir estado detached entre aperturas (resetear siempre en `AbrirNueva/Editar/Cerrar`)  
+❌ Volver a Workspace Tabs para CRUDs simples (pattern evitado con ADR-025)  
+
+**Validación runtime requerida**:
+1. Nueva Cotización → desacoplar surface → navegar grid mientras edita → acoplar → guardar
+2. Editar Cotización → desacoplar → seleccionar otra en grid → comparar → acoplar → continuar
+3. Abrir/cerrar Document Surface repetidamente → confirmar reset estado detached correcto
+4. Navegar entre módulos con surface desacoplada → confirmar lifecycle correcto sin leaks
+5. Validar ausencia overlap visual, layout responsive, split view limpio
+6. Confirmar NO regresión DbContext concurrency (compatible ADR-026 single-flight guard)
+
+**Referencia**: ADR-027, CLAUDE_RULES.md §12.1 Detachable Extension
+
+---
+
+### Window Management Standards — Centralized Runtime Authority (implementado 2026-05-10)
+
+**Objetivo**: Formalizar **`WindowManager` como single source of truth OBLIGATORIO** para TODO window lifecycle management en el ERP. Consolidar window runtime behavior bajo una autoridad centralizada, eliminar implementaciones paralelas, establecer policies globales enforcement, y definir anti-patterns oficiales explícitos.
+
+**Problema identificado**:
+- Window Detach Mode piloto inicial (ADR-028) creó servicio paralelo `IDetachedWindowManager`/`DetachedWindowManager`
+- **Tracking duplicado** de ventanas activas (`_windows` en WindowManager + `_activeWindows` en DetachedWindowManager)
+- **Lifecycle management inconsistente**: ownership Win32, cleanup handlers, z-order, focus dispersos entre managers
+- **Policy enforcement fragmentado**: límite máximo 2 detached windows vivía en manager secundario, NO centralizado
+- **Riesgo de leaks** por cleanup disperso y handlers duplicados en múltiples archivos
+- **Violación DRY**: lógica `new Window()`, `AppWindow.GetFromWindowId(...)`, resize, activate, closed handlers duplicada
+- **Manual window creation** disperso en Pages/ViewModels fuera de managers oficiales
+
+**Solución implementada**: Window Management Standards (ADR-029)
+
+**Principio arquitectónico oficial**:
+```
+WindowManager = ÚNICA autoridad runtime para window lifecycle
+TODO window creation/tracking/policy/cleanup → centralizado bajo WindowManager
+Convention key prefix → policy enforcement automático (ej: "detached:" → max 2)
+Pages/ViewModels → SOLO una línea lógica: _windowManager.OpenWindow(...)
+```
+
+**Consolidación técnica ejecutada**:
+
+| Acción | Detalle |
+|---|---|
+| ✅ Extensión `WindowManager.cs` | Contador `_detachedWindowsCount`, constantes `MaxDetachedWindows=2` y `DetachedKeyPrefix="detached:"`, validación límite en `OpenWindow` |
+| ✅ Exception tipada | `DetachedWindowLimitException` operacional para UI (try/catch + ContentDialog) |
+| ✅ Window helper code-only | `DetachedDocumentWindow.xaml.cs` en `Views/Detached/` (sin XAML, evita source-gen issues) |
+| ✅ Migración UI | `CotizacionDocumentoPage.xaml.cs` → usa `IWindowManager`, key `"detached:cotizacion:{id}"`, try/catch exception |
+| ✅ Eliminación duplicación | `IDetachedWindowManager.cs`, `DetachedWindowManager.cs`, DI registration secundaria eliminados |
+| ✅ Build | 0 errores |
+
+**Lifecycle centralizado `WindowManager`**:
+- ✅ Creación vía factory pattern (`OpenWindow<TWindow, TKey>(key, factory, options)`)
+- ✅ Ownership Win32 automático (z-order garantizado sobre MainWindow)
+- ✅ Tamaño y posicionamiento (CenterOwner, CenterScreen, Cascade)
+- ✅ Activación y focus multi-layer (`BringDescriptorToFront`)
+- ✅ Reutilización instancias existentes vía key (NO duplicar ventanas)
+- ✅ Tracking centralizado único (`_windows` dictionary)
+- ✅ Cleanup automático (`window.Closed` handler registrado internamente)
+- ✅ Policy enforcement global (ej: detached max 2, validado antes de crear)
+- ✅ Logging diagnóstico centralizado `[WindowManager]`
+
+**Detached Windows Policy oficial (ADR-028+029)**:
+- Límite máximo global: **2 detached windows activas simultáneas**
+- Convention enforcement: keys con prefix `"detached:"` activan policy automáticamente
+- Exception operacional: `DetachedWindowLimitException` cuando límite alcanzado
+- UI handling: try/catch + `ContentDialog` claro al usuario
+
+```csharp
+// Pattern oficial: detached window opening
+var detachedKey = $"detached:cotizacion:{cotizacionId}";
+
+try
+{
+    _windowManager.OpenWindow<DetachedDocumentWindow, string>(
+        key: detachedKey,
+        factory: () => new DetachedDocumentWindow(documentPage, titulo),
+        options: new WindowOptions { Width = 1200, Height = 800 });
+}
+catch (DetachedWindowLimitException ex)
+{
+    // Mostrar ContentDialog operacional
+    await MostrarMensajeLimiteVentanasAsync(ex);
+}
+```
+
+**Anti-patterns oficiales PROHIBIDOS (ADR-029)**:
+
+❌ `new Window()` fuera de factories pasadas a `WindowManager.OpenWindow(...)`  
+❌ `AppWindow` manual disperso en Pages/ViewModels  
+❌ Lifecycle handlers duplicados (`window.Closed += ...` fuera del manager)  
+❌ Tracking paralelo ventanas (`_ventanasAbiertasPorMi` counters locales)  
+❌ Services window management secundarios (`IDetachedWindowManager`, `IDialogManager`, etc.)  
+❌ Window ownership Win32 manual fuera del manager  
+❌ Policy enforcement fragmentado (validaciones límite en ViewModels/Pages)  
+
+**Convention key prefixes oficiales**:
+- `detached:` → máximo 2 simultáneas (ADR-028+029)
+- `dialog:` → (futuro) máximo 3 simultáneas
+- `wizard:` → (futuro) solo 1 activo
+- `detail:` → sin límite
+
+**Extensión futura**: Nuevas policies (ej: máx 3 dialogs, solo 1 wizard) se agregan **EXCLUSIVAMENTE** en `WindowManager.cs`. Convention key prefix permite políticas sin romper API.
+
+**Runtime validation pendiente**:
+1. Abrir ventana detached Cotización → confirmar creación correcta
+2. Abrir segunda ventana detached → confirmar límite máximo 2 enforced
+3. Intentar abrir tercera → confirmar `DetachedWindowLimitException` + ContentDialog
+4. Cerrar ventana detached → confirmar cleanup + decremento contador
+5. Reabrir ventana ya existente → confirmar reutilización vía key (NO duplicar)
+6. Navegación rápida + detached windows → confirmar SIN leaks evidentes
+7. Activación/focus ventanas múltiples → confirmar z-order correcto
+8. Integración Runtime Diagnostic Panel → confirmar tracking visible (futuro)
+
+**Estado**: ✅ **IMPLEMENTADO — Centralizado bajo WindowManager** (ADR-029). Build exitoso, tracking centralizado, policy global, anti-patterns formalizados.
+
+**Documentación completa**: Ver `Documentation/ADR-029-Window-Management-Standards.md`, `Documentation/CLAUDE_RULES.md` §13
+
+**Referencia**: ADR-029, KI-015, CLAUDE_RULES.md §3 (WindowManager agregado a lista NO Rehacer)
 
 ---
 

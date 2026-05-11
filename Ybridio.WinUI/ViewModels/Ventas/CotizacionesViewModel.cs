@@ -52,6 +52,15 @@ public sealed partial class CotizacionesViewModel : BaseContextViewModel
     /// </summary>
     [ObservableProperty] private object? documentSurfaceContent;
 
+    // ── Document Surface Detachable Mode (ADR-027) ──────────────────────────
+    /// <summary>
+    /// Indica si el Document Surface está en modo desacoplado (detached).
+    /// false (default) = Content Replacement (grid XOR surface)
+    /// true = Detached Mode (grid + surface simultáneos side-by-side)
+    /// Permite multitarea ligera controlada sin volver a Workspace Tabs infinitos.
+    /// </summary>
+    [ObservableProperty] private bool isDocumentSurfaceDetached;
+
     private bool _isRefreshing;
 
     private IReadOnlyList<CotizacionResumenDto> _todas = [];
@@ -144,6 +153,7 @@ public sealed partial class CotizacionesViewModel : BaseContextViewModel
     {
         DocumentSurfaceContent = null; // Preparar para nueva instancia
         IsDocumentSurfaceVisible = true;
+        IsDocumentSurfaceDetached = false; // Default: content replacement mode
     }
 
     /// <summary>
@@ -154,6 +164,7 @@ public sealed partial class CotizacionesViewModel : BaseContextViewModel
     {
         DocumentSurfaceContent = cotizacion;
         IsDocumentSurfaceVisible = true;
+        IsDocumentSurfaceDetached = false; // Default: content replacement mode
     }
 
     /// <summary>
@@ -163,8 +174,23 @@ public sealed partial class CotizacionesViewModel : BaseContextViewModel
     public async Task CerrarDocumentSurfaceAsync()
     {
         IsDocumentSurfaceVisible = false;
+        IsDocumentSurfaceDetached = false; // Reset detached state
         DocumentSurfaceContent = null;
         await RefrescarAsync(); // Refrescar grid después de cerrar
+    }
+
+    // ── Document Surface Detachable Mode Commands (ADR-027) ─────────────────
+
+    /// <summary>
+    /// Alterna entre modo acoplado (content replacement) y modo desacoplado (split view).
+    /// Modo acoplado: grid XOR surface
+    /// Modo desacoplado: grid + surface simultáneos side-by-side (multitarea ligera)
+    /// </summary>
+    [RelayCommand]
+    public void ToggleDetach()
+    {
+        if (!IsDocumentSurfaceVisible) return; // Solo permitir detach cuando surface está activo
+        IsDocumentSurfaceDetached = !IsDocumentSurfaceDetached;
     }
 
     protected override Task OnContextChangedAsync() => RefrescarAsync();

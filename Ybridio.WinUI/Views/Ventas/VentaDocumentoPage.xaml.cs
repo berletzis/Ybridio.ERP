@@ -23,6 +23,9 @@ public sealed partial class VentaDocumentoPage : Page
     private readonly IPedidoService         _pedidoService;
     public VentaDocumentoViewModel ViewModel { get; }
 
+    /// <summary>Callback invocado al cerrar el Document Surface e ir al listado (ADR-031).</summary>
+    public Func<System.Threading.Tasks.Task>? OnCerrar { get; set; }
+
     public VentaDocumentoPage(VentaDocumentalDto? venta)
     {
         ViewModel = new VentaDocumentoViewModel(
@@ -45,6 +48,11 @@ public sealed partial class VentaDocumentoPage : Page
     {
         if (CombTipoPago.SelectedIndex >= 0)
             ViewModel.TipoPagoVenta = (TipoPago)CombTipoPago.SelectedIndex;
+    }
+
+    private async void BtnVolver_Click(object sender, RoutedEventArgs e)
+    {
+        if (OnCerrar is not null) await OnCerrar();
     }
 
     /// <summary>Abre el Pedido origen de esta venta en el Workspace, si existe.</summary>

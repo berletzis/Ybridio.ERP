@@ -46,6 +46,7 @@ El proyecto utiliza arquitectura modular por capas:
 - Security Foundation
 - Runtime Observability
 - WorkspaceService
+- WindowManager (ADR-029: single source of truth window lifecycle)
 - SessionService
 - Navegación principal / Shell
 - Arquitectura existente
@@ -268,6 +269,54 @@ Si ocurre `System.InvalidOperationException: "A second operation was started on 
 
 3. **Verificar que el guard se libera en `finally`**, no antes.
 
+### Security Runtime Concurrency (ADR-026)
+
+**Patrón aplicado**: `PermisoService` usa **single-flight guard** con `SemaphoreSlim` global para serializar evaluaciones de permisos runtime y evitar DbContext concurrency exceptions durante navegación, Document Surface activation, y pre-checks simultáneos.
+
+```csharp
+// ✅ CORRECTO — PermisoService.TienePermisoAsync
+private static readonly SemaphoreSlim _authSemaphore = new(1, 1);
+
+public async Task<bool> TienePermisoAsync(
+    Guid usuarioId, string clave, CancellationToken ct = default)
+{
+    if (string.IsNullOrWhiteSpace(clave))
+        return false;
+
+    await _authSemaphore.WaitAsync(ct);  // ← Single-flight: serializar evaluaciones
+    try
+    {
+        // Lógica de evaluación: override → perfiles → roles
+        // (queries EF Core usando _context scoped)
+    }
+    finally
+    {
+        _authSemaphore.Release();  // ← Siempre liberar en finally
+    }
+}
+```
+
+**Por qué necesario**:
+- Navegación rápida entre módulos (Clientes ↔ Cotizaciones ↔ Pedidos)
+- Activación/desactivación Document Surfaces
+- Pre-checks autorización en `OnNavigatedTo` + bindings + comandos async
+- Runtime Diagnostic Panel refresh + navegación usuario
+- Múltiples tabs Workspace con evaluaciones concurrentes
+
+**Resultado**: SIN `InvalidOperationException` DbContext, autorización consistente, navegación estable.
+
+**Anti-patterns prohibidos**:
+```csharp
+// ❌ NO aislar DbContext con Task.Run
+Task.Run(() => await _permisos.TienePermisoAsync(...));
+
+// ❌ NO cambiar DbContext a singleton
+services.AddSingleton<ErpDbContext>();  // PROHIBIDO
+
+// ❌ NO capturar DbContext en campos static
+private static ErpDbContext _ctx;  // PROHIBIDO
+```
+
 ---
 
 ## 8. Observabilidad y diagnóstico
@@ -379,6 +428,41 @@ public MyPage()
 ### ContentDialog: siempre con XamlRoot
 Los `ContentDialog` requieren `XamlRoot = XamlRoot` desde la Page. Los callbacks `Action<T>?` en ViewModels son el patrón establecido para abrir diálogos desde la Page.
 
+### UX Button Styles Standard — Regla Anti-Proliferación
+
+Los estilos de botón definidos en `App.xaml` deben tener **nombres semánticos orientados a contexto UX**, no nombres técnicos/genéricos.
+
+#### Regla principal
+
+**❌ PROHIBIDO** — nombres técnicos/genéricos que no portan contexto:
+```xml
+<!-- No describe dónde ni por qué se usa. Cualquier botón transparente "califica". -->
+<Style x:Key="TransparentButtonStyle" TargetType="Button"/>
+<Style x:Key="GhostButtonStyle" TargetType="Button"/>
+<Style x:Key="FlatButtonStyle" TargetType="Button"/>
+```
+
+**✅ OBLIGATORIO** — nombres semánticos que reflejan contexto UX real:
+```xml
+<!-- Claro: solo para acción de retroceso en Document Surface headers. -->
+<Style x:Key="DocumentSurfaceBackActionButtonStyle" TargetType="Button"/>
+```
+
+#### Estilos de botón definidos (catálogo oficial)
+
+| Estilo | Contexto de uso | Dónde NO usar |
+|---|---|---|
+| `DocumentSurfaceBackActionButtonStyle` | Botón `←` volver en Document Surface headers (ADR-031). Fondo transparente, sin borde, padding 6px, CornerRadius 4. | Fuera de Document Surface headers. Botones primarios. Acciones de guardado. |
+| `AccentButtonStyle` *(WinUI built-in)* | Acción primaria de un formulario (Guardar, Confirmar). | Acciones secundarias o destructivas. |
+
+#### Regla de creación de nuevos estilos
+
+Antes de crear un nuevo estilo de botón:
+1. **¿Existe ya uno que aplique semánticamente?** → reutilizarlo.
+2. **¿El contexto es diferente?** → crear uno nuevo con nombre semántico (NO genérico).
+3. **Documentar** el nuevo estilo en este catálogo y con comentario XML en `App.xaml`.
+4. **Nunca** crear un estilo genérico reutilizable "para cualquier botón transparente" — eso es proliferación garantizada.
+
 ---
 
 ## 11. Grid Standards
@@ -402,7 +486,94 @@ Las command bars deben: ser context-aware, reutilizar el estándar ERP, mantener
 
 ---
 
-## 13. SQL Server — Sin Migraciones EF
+## 13. Window Management Standards — Centralized Runtime Authority (ADR-029)
+
+**`WindowManager` es single source of truth OBLIGATORIO para TODO window lifecycle management.**
+
+### Regla crítica: NO window management manual
+
+```csharp
+// ❌ PROHIBIDO: new Window() fuera de WindowManager
+var window = new Window { Title = "Detalle" };
+var hwnd = WindowNative.GetWindowHandle(window);
+var appWindow = AppWindow.GetFromWindowId(Win32Interop.GetWindowIdFromWindow(hwnd));
+appWindow.Resize(new SizeInt32(900, 700));
+window.Activate();
+
+// ✅ CORRECTO: usar WindowManager centralizado
+_windowManager.OpenWindow<ProductoDetailWindow, int>(
+    productoId,
+    () => new ProductoDetailWindow(producto),
+    new WindowOptions { Width = 900, Height = 700 });
+```
+
+### Anti-patterns explícitos
+
+**PROHIBIDO**:
+- `new Window()` fuera de factories pasadas a `WindowManager.OpenWindow(...)`
+- `AppWindow` manual disperso en Pages/ViewModels
+- Lifecycle handlers duplicados (`window.Closed += ...` fuera de manager)
+- Tracking paralelo de ventanas (`_ventanasAbiertasPorMi` counters locales)
+- Services window management secundarios (`IDetachedWindowManager`, `IDialogManager`, etc.)
+- Window ownership Win32 manual fuera del manager
+- Policy enforcement fragmentado (validaciones límite en ViewModels)
+
+### Detached Windows Policy (ADR-028 + ADR-029)
+
+**Límite máximo global**: 2 ventanas detached activas simultáneamente.
+
+**Convention**: Keys con prefix `"detached:"` activan policy límite automáticamente.
+
+```csharp
+// Detached window key convention
+var detachedKey = $"detached:cotizacion:{cotizacionId}";
+
+try
+{
+    _windowManager.OpenWindow<DetachedDocumentWindow, string>(
+        key: detachedKey,
+        factory: () => new DetachedDocumentWindow(documentPage, titulo),
+        options: new WindowOptions { Width = 1200, Height = 800 });
+}
+catch (DetachedWindowLimitException ex)
+{
+    // Mostrar ContentDialog operacional al usuario
+    await MostrarMensajeLimiteVentanasAsync(ex);
+}
+```
+
+### Lifecycle centralizado
+
+`WindowManager` maneja automáticamente:
+- ✅ Creación vía factory
+- ✅ Ownership Win32 para z-order garantizado
+- ✅ Tamaño y posicionamiento (CenterOwner, CenterScreen, Cascade)
+- ✅ Activación y focus (BringToFront multi-layer)
+- ✅ Reutilización instancias existentes (NO duplicar)
+- ✅ Tracking centralizado (`_windows` dictionary único)
+- ✅ Cleanup automático (`window.Closed` handler)
+- ✅ Policy enforcement global (ej: máximo 2 detached)
+- ✅ Logging diagnóstico `[WindowManager]`
+
+**Pages/ViewModels contienen SOLO**: una línea lógica `_windowManager.OpenWindow(...)`.
+
+**NO dispersar**: creación manual, ownership, resize, activate, closed handlers, tracking.
+
+### Extensión futura
+
+Nuevas policies (ej: máximo 3 dialogs, solo 1 wizard) se agregan **EXCLUSIVAMENTE** en `WindowManager`.
+
+**Convention key prefixes**:
+- `detached:` → máximo 2 simultáneas (ADR-028)
+- `dialog:` → (futuro) máximo 3 simultáneas
+- `wizard:` → (futuro) solo 1 activo
+- `detail:` → sin límite
+
+**Documentación completa**: Ver `Documentation/ADR-029-Window-Management-Standards.md`
+
+---
+
+## 14. SQL Server — Sin Migraciones EF
 
 **No usar** migraciones automáticas de EF Core.
 
@@ -420,7 +591,7 @@ Todo cambio de esquema requiere:
 
 ---
 
-## 14. Naming Standards
+## 15. Naming Standards
 
 Mantener: nomenclaturas en español, coherencia DbContext/SQL/entidades.
 
@@ -439,12 +610,12 @@ Mantener: nomenclaturas en español, coherencia DbContext/SQL/entidades.
 **Lifetimes DI obligatorios**:
 - Servicios Application → `Scoped`
 - ViewModels WinUI → `Transient`
-- UI Services (Session, Workspace) → `Singleton`
+- UI Services (Session, Workspace, **WindowManager**) → `Singleton`
 - `IPermissionCache` → `Singleton`
 
 ---
 
-## 15. Performance
+## 16. Performance
 
 **No degradar**: grids, EF queries, navegación, observabilidad, runtime.
 
@@ -454,7 +625,7 @@ Mantener: nomenclaturas en español, coherencia DbContext/SQL/entidades.
 
 ---
 
-## 16. MiniERP PYME Philosophy
+## 17. MiniERP PYME Philosophy
 
 Este ERP está orientado a **PYMES**.
 
@@ -1336,14 +1507,14 @@ Reducir el caos de Workspace Tabs innecesarios para operaciones CRUD ligeras/con
 
 ### Reglas Oficiales UX
 
-#### 1. Layout: Content Replacement
+#### 1. Layout: Content Replacement (Modo Normal — Default)
 
-**USAR**:
+**USAR POR DEFECTO**:
 - `ContentPresenter` o panel reemplazable dentro del módulo
 - Un solo contenido visible a la vez: **grid de listado XOR Document Surface**
 - Cuando el surface está activo, el grid se oculta completamente
 
-**NO**:
+**NO POR DEFECTO**:
 - Split view permanente
 - Grid de dos columnas (listado | surface)
 - Layouts master-detail complejos
@@ -1353,6 +1524,104 @@ Reducir el caos de Workspace Tabs innecesarios para operaciones CRUD ligeras/con
 - Menos ruido visual
 - Mayor enfoque operacional
 - Mejor para PYME
+
+**EXTENSIÓN OPCIONAL: Detachable Mode (§ADR-027)**
+
+Permitir **bajo demanda del usuario** alternar a **split view side-by-side** (grid + surface simultáneos) para escenarios de multitarea ligera controlada.
+
+**CUÁNDO USAR Detachable Mode**:
+- Usuario necesita comparar información entre documentos
+- Copiar datos mientras consulta grid
+- Revisar listado sin cerrar documento activo
+- Multitarea ligera ocasional
+
+**LIMITACIONES OBLIGATORIAS**:
+- SOLO 1 Document Surface desacoplada activa por módulo (NO múltiples surfaces simultáneas)
+- Activación explícita mediante botón discreto "Desacoplar Surface" en CommandBar secundario del documento
+- Default siempre es Content Replacement (grid XOR surface)
+- NO floating windows OS reales
+- NO dock managers enterprise
+- Piloto inicial SOLO Cotizaciones
+
+**Layout Detachable Mode**:
+```xaml
+<!-- Dos ramas de visualización controladas por IsDocumentSurfaceDetached -->
+
+<!-- Rama 1: Modo Normal/Content Replacement (default) -->
+<Grid Visibility="{x:Bind ViewModel.IsDocumentSurfaceDetached, Mode=OneWay, 
+                           Converter={StaticResource InverseBoolToVisibilityConverter}}">
+    <Border Visibility="{x:Bind ViewModel.IsDocumentSurfaceVisible, ..., InverseBool...}">
+        <ListView ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}" ... />
+    </Border>
+    <ContentPresenter Content="{x:Bind ViewModel.DocumentSurfaceContent, Mode=OneWay}"
+                      Visibility="{x:Bind ViewModel.IsDocumentSurfaceVisible, Mode=OneWay}"/>
+</Grid>
+
+<!-- Rama 2: Modo Desacoplado (split view activado bajo demanda) -->
+<Grid Visibility="{x:Bind ViewModel.IsDocumentSurfaceDetached, Mode=OneWay, 
+                           Converter={StaticResource BoolToVisibilityConverter}}">
+    <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="2*" MinWidth="400"/>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="3*" MinWidth="600"/>
+    </Grid.ColumnDefinitions>
+    <!-- Grid izquierda -->
+    <Border Grid.Column="0"><ListView ... /></Border>
+    <!-- Separador visual -->
+    <Border Grid.Column="1" Width="1" Background="#E5E5E5"/>
+    <!-- Document Surface derecha -->
+    <ContentPresenter Grid.Column="2" Content="{x:Bind ViewModel.DocumentSurfaceContent, ...}"/>
+</Grid>
+```
+
+**ViewModel Detachable Extension**:
+```csharp
+[ObservableProperty] private bool isDocumentSurfaceDetached;
+
+[RelayCommand]
+public void ToggleDetach()
+{
+    if (!IsDocumentSurfaceVisible) return; // Guard obligatorio
+    IsDocumentSurfaceDetached = !IsDocumentSurfaceDetached;
+}
+
+public void AbrirNuevaCotizacion()
+{
+    DocumentSurfaceContent = null;
+    IsDocumentSurfaceVisible = true;
+    IsDocumentSurfaceDetached = false; // Default: content replacement
+}
+
+public async Task CerrarDocumentSurfaceAsync()
+{
+    IsDocumentSurfaceVisible = false;
+    IsDocumentSurfaceDetached = false; // Reset detached state
+    DocumentSurfaceContent = null;
+    await RefrescarAsync();
+}
+```
+
+**UX Rules Detachable Mode**:
+- Botón "Desacoplar Surface" en `CommandBar.SecondaryCommands` del documento (NO primario)
+- Estado detached debe resetear al cerrar surface (NO persistir entre aperturas)
+- NO permitir detach cuando surface no está visible
+- Workspace Tabs siguen siendo para workflows largos/multi-documento complejo
+- Mantener Outlook 2026 style limpio, NO enterprise dock visual
+
+**Anti-patterns Detachable**:
+```csharp
+// ❌ NO múltiples surfaces desacopladas
+if (DetachedSurfacesCount > 1) // PROHIBIDO
+
+// ❌ NO floating windows OS
+new Window { Content = surface }; // PROHIBIDO
+
+// ❌ NO split view permanente por defecto
+IsDocumentSurfaceDetached = true; // por defecto PROHIBIDO (debe ser false)
+
+// ❌ NO desacoplar sin surface activa
+if (!IsDocumentSurfaceVisible) ToggleDetach(); // guard obligatorio
+```
 
 #### 2. Transiciones
 
@@ -1589,3 +1858,77 @@ Confirmar:
 - ✅ WorkspaceService intacto
 
 ---
+
+## 12. Document Surface Visual Separation Standard (ADR-031) — OBLIGATORIO
+
+### Jerarquía UX oficial
+
+```
+Tabs módulo (navegación)
+    ↓
+Document Surface Header (documento activo — operacional)
+    ↓
+Toolbar operacional (CommandBar documento)
+    ↓
+Contenido formulario/grid
+```
+
+**NUNCA** mezclar niveles visuales.
+
+### Regla: CRUDs simples → Inline Document Surface
+
+Los siguientes casos **NO deben** abrir tabs de workspace:
+- Nueva/editar Pedido
+- Nueva/editar OT
+- Nueva/editar Venta
+- Cualquier CRUD simple de módulo
+
+**Usar siempre**: `IsDocumentSurfaceVisible` + `DocumentSurfaceContent` + `ContentPresenter` inline.
+
+**PROHIBIDO** para CRUDs simples:
+```csharp
+// ❌ ANTI-PATTERN: genera tab documental ensimado
+_workspace.OpenTab(key: "pedido-nuevo-...", ...);
+_workspace.OpenOrActivateDocumentTabAsync(key: "pedido-123", ...);
+```
+
+**CORRECTO** para CRUDs simples:
+```csharp
+// ✅ PATTERN: inline Document Surface
+var page = new PedidoDocumentoPage(null);
+page.OnCerrar = async () => await ViewModel.CerrarDocumentSurfaceAsync();
+ViewModel.AbrirDocumento(page);
+```
+
+`IWorkspaceService` queda reservado para: navegación cruzada entre documentos relacionados, workflows multi-paso complejos, análisis persistente.
+
+### Anti-patterns PROHIBIDOS (Document Surface)
+
+- Línea azul estilo tab en documento activo
+- Close × estilo tab en documento activo
+- Transparencia/overlay sobre tabs de módulo
+- Header tipo browser (Chrome/Edge look)
+- Tabs documentales bajo tabs de módulo
+- Apariencia IDE/docking (Visual Studio look)
+
+### Document Surface Header estándar
+
+Debe incluir obligatoriamente:
+- Botón `←` volver al listado (callback `OnCerrar`)
+- Breadcrumb ligero: `Módulo › Título documento`
+- Badge de estado del documento
+- Fondo `LayerFillColorDefaultBrush`, borde inferior sutil `#E5E5E5`
+
+### Módulos con Document Surface correcto
+
+- ✅ Clientes (ADR-030 Fase 1)
+- ✅ Productos (ADR-030 Fase 2)
+- ✅ Cotizaciones (ADR-025/027/028 — piloto)
+- ✅ Pedidos (ADR-031)
+- ✅ Órdenes de Trabajo (ADR-031)
+- ✅ Ventas Documentales (ADR-031)
+
+**Documentación completa**: `Documentation/ADR-031-Document-Surface-Visual-Separation-Standard.md`
+
+---
+

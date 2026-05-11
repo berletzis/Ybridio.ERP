@@ -5,18 +5,16 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
 using Ybridio.Application.Services.Venta;
 using Ybridio.WinUI.Services.Diagnostic;
-using Ybridio.WinUI.Services.Workspace;
 using Ybridio.WinUI.ViewModels.Ventas;
 
 namespace Ybridio.WinUI.Views.Ventas;
 
 /// <summary>
-/// Grid list de ventas documentales.
-/// Abre documentos individuales en el Workspace. Sigue el patrón de PedidosPage.
+/// Host de Ventas Documentales — sigue el Document Surface UX Pattern (ADR-025 + ADR-031).
+/// Los documentos se abren inline reemplazando el listado, NO como tabs de workspace.
 /// </summary>
 public sealed partial class VentasDocumentalesPage : Page, ILiveContextReporter
 {
-    private readonly IWorkspaceService       _workspace;
     private readonly IVentaDocumentalService _ventaService;
 
     public VentasDocumentalesViewModel ViewModel { get; }
@@ -24,7 +22,6 @@ public sealed partial class VentasDocumentalesPage : Page, ILiveContextReporter
     public VentasDocumentalesPage()
     {
         ViewModel     = App.Services.GetRequiredService<VentasDocumentalesViewModel>();
-        _workspace    = App.Services.GetRequiredService<IWorkspaceService>();
         _ventaService = App.Services.GetRequiredService<IVentaDocumentalService>();
         InitializeComponent();
     }
@@ -46,25 +43,22 @@ public sealed partial class VentasDocumentalesPage : Page, ILiveContextReporter
 
     private void BtnNuevo_Click(object sender, RoutedEventArgs e)
     {
-        var key = $"venta-nueva-{System.Guid.NewGuid():N}";
-        _workspace.OpenTab(
-            key:         key,
-            title:       "Nueva Venta",
-            icon:        "",
-            pageFactory: () => new VentaDocumentoPage(null),
-            isClosable:  true);
+        // ADR-031: nueva venta se abre inline como Document Surface, NO como workspace tab
+        var page = new VentaDocumentoPage(null);
+        page.OnCerrar = async () => await ViewModel.CerrarDocumentSurfaceAsync();
+        ViewModel.AbrirDocumentoVenta(page);
     }
 
     private async void BtnAbrir_Click(object sender, RoutedEventArgs e)
     {
         if (ViewModel.VentaSeleccionada is null) return;
-        await AbrirVentaEnWorkspaceAsync(ViewModel.VentaSeleccionada.Id);
+        await AbrirVentaInlineAsync(ViewModel.VentaSeleccionada.Id);
     }
 
     private void Lista_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
     {
         if (ViewModel.VentaSeleccionada is null) return;
-        _ = AbrirVentaEnWorkspaceAsync(ViewModel.VentaSeleccionada.Id);
+        _ = AbrirVentaInlineAsync(ViewModel.VentaSeleccionada.Id);
     }
 
     private async void Busqueda_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
@@ -73,19 +67,23 @@ public sealed partial class VentasDocumentalesPage : Page, ILiveContextReporter
     private async void FiltroTemporal_SelectionChanged(object sender, SelectionChangedEventArgs e)
         => await ViewModel.RefrescarCommand.ExecuteAsync(null);
 
-    private async System.Threading.Tasks.Task AbrirVentaEnWorkspaceAsync(long id)
+    private async System.Threading.Tasks.Task AbrirVentaInlineAsync(long id)
     {
-        var key = $"venta-{id}";
-        if (_workspace.Exists(key)) { _workspace.ActivateTab(key); return; }
+        ViewModel.IsBusy = true;
+        ViewModel.ErrorMessage = string.Empty;
+        try
+        {
+            var result = await _ventaService.ObtenerConDetallesAsync(id);
+            if (!result.Success) { ViewModel.ErrorMessage = result.Error ?? "Error al cargar."; return; }
 
-        var result = await _ventaService.ObtenerConDetallesAsync(id);
-        if (!result.Success) { ViewModel.ErrorMessage = result.Error ?? "Error al cargar."; return; }
-
-        _workspace.OpenTab(
-            key:         key,
-            title:       $"Venta #{id}",
-            icon:        "",
-            pageFactory: () => new VentaDocumentoPage(result.Value),
-            isClosable:  true);
+            // ADR-031: documento se carga como surface inline, SIN workspace tab
+            var page = new VentaDocumentoPage(result.Value);
+            page.OnCerrar = async () => await ViewModel.CerrarDocumentSurfaceAsync();
+            ViewModel.AbrirDocumentoVenta(page);
+        }
+        finally
+        {
+            ViewModel.IsBusy = false;
+        }
     }
 }

@@ -6,21 +6,22 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
 using Ybridio.Application.Services.Venta;
 using Ybridio.WinUI.Services.Diagnostic;
-using Ybridio.WinUI.Services.Workspace;
 using Ybridio.WinUI.ViewModels.Ventas;
 
 namespace Ybridio.WinUI.Views.Ventas;
 
+/// <summary>
+/// Host de Pedidos — sigue el Document Surface UX Pattern (ADR-025 + ADR-031).
+/// Los documentos se abren inline reemplazando el listado, NO como tabs de workspace.
+/// </summary>
 public sealed partial class PedidosPage : Page, ILiveContextReporter
 {
-    private readonly IWorkspaceService _workspace;
-    private readonly IPedidoService    _pedidoService;
+    private readonly IPedidoService _pedidoService;
     public PedidosViewModel ViewModel { get; }
 
     public PedidosPage()
     {
         ViewModel      = App.Services.GetRequiredService<PedidosViewModel>();
-        _workspace     = App.Services.GetRequiredService<IWorkspaceService>();
         _pedidoService = App.Services.GetRequiredService<IPedidoService>();
         InitializeComponent();
     }
@@ -42,36 +43,44 @@ public sealed partial class PedidosPage : Page, ILiveContextReporter
 
     private void BtnNuevo_Click(object sender, RoutedEventArgs e)
     {
-        _workspace.OpenTab(
-            key:         $"pedido-nuevo-{Guid.NewGuid():N}",
-            title:       "Nuevo Pedido",
-            icon:        "",
-            pageFactory: () => new PedidoDocumentoPage(null),
-            isClosable:  true);
+        // ADR-031: nuevo documento se abre inline como Document Surface, NO como workspace tab
+        var page = new PedidoDocumentoPage(null);
+        page.OnCerrar = async () => await ViewModel.CerrarDocumentSurfaceAsync();
+        ViewModel.AbrirNuevoPedido(page);
     }
 
     private async void BtnAbrir_Click(object sender, RoutedEventArgs e)
     {
         if (ViewModel.PedidoSeleccionado is null) return;
-        await AbrirPedidoEnWorkspace(ViewModel.PedidoSeleccionado.Id);
+        await AbrirPedidoInlineAsync(ViewModel.PedidoSeleccionado.Id);
     }
 
     private void Lista_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
     {
         if (ViewModel.PedidoSeleccionado is null) return;
-        _ = AbrirPedidoEnWorkspace(ViewModel.PedidoSeleccionado.Id);
+        _ = AbrirPedidoInlineAsync(ViewModel.PedidoSeleccionado.Id);
     }
 
-    private async System.Threading.Tasks.Task AbrirPedidoEnWorkspace(long id)
+    private async System.Threading.Tasks.Task AbrirPedidoInlineAsync(long id)
     {
-        await _workspace.OpenOrActivateDocumentTabAsync(
-            key:         $"pedido-{id}",
-            title:       $"Pedido #{id}",
-            icon:        "",
-            dataLoader:  () => _pedidoService.ObtenerConDetallesAsync(id)
-                                .ContinueWith(t => t.Result.Success ? t.Result.Value : null),
-            pageFactory: dto => new PedidoDocumentoPage(dto!),
-            onError:     err => ViewModel.ErrorMessage = err,
-            isClosable:  true);
+        ViewModel.IsBusy = true;
+        ViewModel.ErrorMessage = string.Empty;
+        try
+        {
+            var result = await _pedidoService.ObtenerConDetallesAsync(id);
+            if (!result.Success)
+            {
+                ViewModel.ErrorMessage = result.Error ?? "Error al cargar el pedido.";
+                return;
+            }
+            // ADR-031: documento se carga como surface inline, SIN workspace tab
+            var page = new PedidoDocumentoPage(result.Value);
+            page.OnCerrar = async () => await ViewModel.CerrarDocumentSurfaceAsync();
+            ViewModel.AbrirEditarPedido(page);
+        }
+        finally
+        {
+            ViewModel.IsBusy = false;
+        }
     }
 }

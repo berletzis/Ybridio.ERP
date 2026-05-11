@@ -11,8 +11,10 @@ using Ybridio.Application.Services.Producto;
 using Ybridio.Application.Services.Venta;
 using Ybridio.Domain.Ventas;
 using Ybridio.WinUI.Services;
+using Ybridio.WinUI.Services.Windowing;
 using Ybridio.WinUI.Services.Workspace;
 using Ybridio.WinUI.ViewModels.Ventas;
+using Ybridio.WinUI.Views.Detached;
 using ClienteDto     = Ybridio.Application.DTOs.Ventas.ClienteDto;
 using CotizacionDto  = Ybridio.Application.DTOs.Ventas.CotizacionDto;
 using PedidoDto      = Ybridio.Application.DTOs.Ventas.PedidoDto;
@@ -27,10 +29,12 @@ namespace Ybridio.WinUI.Views.Ventas;
 /// </summary>
 public sealed partial class CotizacionDocumentoPage : Page
 {
-    private readonly IWorkspaceService   _workspace;
-    private readonly IProductoService    _productoService;
-    private readonly IInventarioService  _inventarioService;
-    private readonly SessionService      _session;
+    private readonly IWorkspaceService         _workspace;
+    private readonly IProductoService          _productoService;
+    private readonly IInventarioService        _inventarioService;
+    private readonly SessionService            _session;
+    private readonly IWindowManager            _windowManager;         // ADR-029: Centralized Window Management
+    private readonly CotizacionDto?            _cotizacionOriginal;    // ADR-028: snapshot para ventanas detached
     public CotizacionDocumentoViewModel ViewModel { get; }
 
     public CotizacionDocumentoPage(CotizacionDto? cotizacion)
@@ -43,10 +47,12 @@ public sealed partial class CotizacionDocumentoPage : Page
             App.Services.GetRequiredService<Ybridio.WinUI.Services.Diagnostic.IOperationalObservabilityService>(),
             App.Services.GetRequiredService<Ybridio.WinUI.Services.Diagnostic.ICurrentContextTracker>());
 
-        _workspace         = App.Services.GetRequiredService<IWorkspaceService>();
-        _productoService   = App.Services.GetRequiredService<IProductoService>();
-        _inventarioService = App.Services.GetRequiredService<IInventarioService>();
-        _session           = App.Services.GetRequiredService<SessionService>();
+        _workspace              = App.Services.GetRequiredService<IWorkspaceService>();
+        _productoService        = App.Services.GetRequiredService<IProductoService>();
+        _inventarioService      = App.Services.GetRequiredService<IInventarioService>();
+        _session                = App.Services.GetRequiredService<SessionService>();
+        _windowManager          = App.Services.GetRequiredService<IWindowManager>();
+        _cotizacionOriginal     = cotizacion; // Guardar snapshot original
 
         InitializeComponent();
 
@@ -60,9 +66,81 @@ public sealed partial class CotizacionDocumentoPage : Page
     /// </summary>
     public Action? VolverALista { get; set; }
 
+    /// <summary>
+    /// Callback invocado cuando el usuario hace clic en "Desacoplar Surface" (ADR-027).
+    /// Alterna entre modo acoplado (content replacement) y modo desacoplado (split view).
+    /// Permite multitarea ligera controlada sin volver a Workspace Tabs infinitos.
+    /// </summary>
+    public Action? ToggleDetach { get; set; }
+
     private void BtnVolverALista_Click(object sender, RoutedEventArgs e)
     {
         VolverALista?.Invoke();
+    }
+
+    // ── Document Surface Detachable Mode (ADR-027) ───────────────────────────
+
+    private void BtnToggleDetach_Click(object sender, RoutedEventArgs e)
+    {
+        ToggleDetach?.Invoke();
+    }
+
+    // ── Document Surface Window Detach Mode (ADR-028 + ADR-029) ──────────────
+
+    /// <summary>
+    /// Abre el documento de cotización actual en una ventana OS real independiente.
+    /// LIMITACIÓN ARQUITECTÓNICA: Máximo 2 ventanas desacopladas simultáneas (ADR-028).
+    /// Usa WindowManager centralizado (ADR-029) con key prefix "detached:" para policy enforcement.
+    /// Crea nueva instancia del documento page con snapshot original del DTO para evitar conflictos de state.
+    /// </summary>
+    private void BtnAbrirEnVentana_Click(object sender, RoutedEventArgs e)
+    {
+        var titulo = _cotizacionOriginal is not null
+            ? $"Cotización - {_cotizacionOriginal.NombreCliente}"
+            : "Nueva Cotización";
+
+        // Key con prefix "detached:" activa policy de límite máximo 2 ventanas en WindowManager
+        var cotizacionId = _cotizacionOriginal?.Id.ToString() ?? Guid.NewGuid().ToString();
+        var detachedKey  = $"detached:cotizacion:{cotizacionId}";
+
+        try
+        {
+            _windowManager.OpenWindow<DetachedDocumentWindow, string>(
+                key: detachedKey,
+                factory: () =>
+                {
+                    // Crear nueva instancia de la página con snapshot del documento original
+                    // IMPORTANTE: Cada ventana tiene su propia instancia de página y ViewModel para evitar conflictos de state
+                    var nuevaPagina = new CotizacionDocumentoPage(_cotizacionOriginal);
+                    return new DetachedDocumentWindow(nuevaPagina, titulo);
+                },
+                options: new WindowOptions
+                {
+                    Width  = 1200,
+                    Height = 800,
+                    PositionStrategy = WindowPositionStrategy.CenterScreen
+                });
+        }
+        catch (DetachedWindowLimitException ex)
+        {
+            // Mostrar mensaje operacional al usuario cuando límite es alcanzado
+            _ = MostrarMensajeLimiteVentanasAsync(ex);
+        }
+    }
+
+    /// <summary>
+    /// Muestra dialog operacional cuando se alcanza el límite de ventanas detached (máximo 2).
+    /// </summary>
+    private async System.Threading.Tasks.Task MostrarMensajeLimiteVentanasAsync(DetachedWindowLimitException ex)
+    {
+        var dialog = new ContentDialog
+        {
+            Title           = "Límite de ventanas alcanzado",
+            Content         = ex.Message,
+            CloseButtonText = "Entendido",
+            XamlRoot        = this.XamlRoot
+        };
+        await dialog.ShowAsync();
     }
 
     private void AbrirPedidoEnWorkspace(PedidoDto pedido)

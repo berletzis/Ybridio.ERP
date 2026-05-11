@@ -3,7 +3,13 @@
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:dto="using:Ybridio.Application.DTOs.Ventas"
+      xmlns:converters="using:Ybridio.WinUI.Converters"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <Page.Resources>
+        <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+    </Page.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
@@ -53,7 +59,8 @@
             </ComboBox>
         </Grid>
 
-        <Border Grid.Row="2" Margin="20,4,20,0" Background="White" BorderBrush="#E5E5E5" BorderThickness="1">
+        <Border Grid.Row="2" Margin="20,4,20,0" Background="White" BorderBrush="#E5E5E5" BorderThickness="1"
+                Visibility="{x:Bind ViewModel.IsDocumentSurfaceVisible, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}">
             <Grid>
                 <ListView Style="{StaticResource OutlookDataGridStyle}"
                           ItemsSource="{x:Bind ViewModel.OrdenesTrabajo, Mode=OneWay}"
@@ -118,6 +125,12 @@
                                 IsHitTestVisible="False"/>
             </Grid>
         </Border>
+
+        <!-- ADR-031: Document Surface operacional — reemplaza el listado. SIN apariencia tab. -->
+        <ContentPresenter Grid.Row="2"
+                          Margin="20,4,20,0"
+                          Content="{x:Bind ViewModel.DocumentSurfaceContent, Mode=OneWay}"
+                          Visibility="{x:Bind ViewModel.IsDocumentSurfaceVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
         <Border Grid.Row="3" Style="{StaticResource ErpGridStatusBarStyle}" Margin="20,0,20,16">
             <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">

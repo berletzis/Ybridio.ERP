@@ -29,6 +29,57 @@ public sealed partial class VentasDocumentalesViewModel : BaseContextViewModel
     [ObservableProperty] private string                       _filtroTemporal = "30 dias";
     [ObservableProperty] private VentaDocumentalResumenDto?   _ventaSeleccionada;
 
+    // ── Document Surface UX Pattern (ADR-025 + ADR-030 + ADR-031) ────────────
+    private bool    _isDocumentSurfaceVisible;
+    private object? _documentSurfaceContent;
+    private bool    _isDocumentSurfaceDetached;
+
+    /// <summary>Indica si el Document Surface está visible (reemplaza el listado).</summary>
+    public bool IsDocumentSurfaceVisible
+    {
+        get => _isDocumentSurfaceVisible;
+        set => SetProperty(ref _isDocumentSurfaceVisible, value);
+    }
+
+    /// <summary>Contenido actual del Document Surface (página de documento).</summary>
+    public object? DocumentSurfaceContent
+    {
+        get => _documentSurfaceContent;
+        set => SetProperty(ref _documentSurfaceContent, value);
+    }
+
+    /// <summary>Indica si el surface está en modo split/detached.</summary>
+    public bool IsDocumentSurfaceDetached
+    {
+        get => _isDocumentSurfaceDetached;
+        set => SetProperty(ref _isDocumentSurfaceDetached, value);
+    }
+
+    /// <summary>Abre el Document Surface con una página de Venta.</summary>
+    public void AbrirDocumentoVenta(object page)
+    {
+        DocumentSurfaceContent    = page;
+        IsDocumentSurfaceVisible  = true;
+        IsDocumentSurfaceDetached = false;
+    }
+
+    /// <summary>Cierra el Document Surface y vuelve al listado.</summary>
+    public async Task CerrarDocumentSurfaceAsync()
+    {
+        IsDocumentSurfaceVisible  = false;
+        IsDocumentSurfaceDetached = false;
+        DocumentSurfaceContent    = null;
+        await RefrescarCommand.ExecuteAsync(null);
+    }
+
+    /// <summary>Alterna el modo split/detached del Document Surface.</summary>
+    public void ToggleDetach()
+    {
+        if (!IsDocumentSurfaceVisible) return;
+        IsDocumentSurfaceDetached = !IsDocumentSurfaceDetached;
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     public ObservableCollection<VentaDocumentalResumenDto> Ventas { get; } = [];
 
     public VentasDocumentalesViewModel(
@@ -76,6 +127,12 @@ public sealed partial class VentasDocumentalesViewModel : BaseContextViewModel
                 Ventas.Add(v);
 
             ReportarContexto();
+        }
+        catch (TaskCanceledException)
+        {
+            // ADR-026: Expected during navigation/lifecycle transitions.
+            // [RelayCommand] cancels previous invocation on re-entry or page unload.
+            // Not an error — UX remains clean, no crash, no Debugger.Break.
         }
         finally { IsBusy = false; }
     }

@@ -37,6 +37,65 @@ public sealed partial class PedidosViewModel : BaseContextViewModel
     [NotifyCanExecuteChangedFor(nameof(AvanzarEstatusCommand))]
     private PedidoResumenDto? pedidoSeleccionado;
 
+    // ── Document Surface UX Pattern (ADR-025 + ADR-030 + ADR-031) ────────────
+    private bool    _isDocumentSurfaceVisible;
+    private object? _documentSurfaceContent;
+    private bool    _isDocumentSurfaceDetached;
+
+    /// <summary>Indica si el Document Surface está visible (reemplaza el listado).</summary>
+    public bool IsDocumentSurfaceVisible
+    {
+        get => _isDocumentSurfaceVisible;
+        set => SetProperty(ref _isDocumentSurfaceVisible, value);
+    }
+
+    /// <summary>Contenido actual del Document Surface (página de documento).</summary>
+    public object? DocumentSurfaceContent
+    {
+        get => _documentSurfaceContent;
+        set => SetProperty(ref _documentSurfaceContent, value);
+    }
+
+    /// <summary>Indica si el surface está en modo split/detached.</summary>
+    public bool IsDocumentSurfaceDetached
+    {
+        get => _isDocumentSurfaceDetached;
+        set => SetProperty(ref _isDocumentSurfaceDetached, value);
+    }
+
+    /// <summary>Abre el Document Surface para un nuevo pedido.</summary>
+    public void AbrirNuevoPedido(object page)
+    {
+        DocumentSurfaceContent    = page;
+        IsDocumentSurfaceVisible  = true;
+        IsDocumentSurfaceDetached = false;
+    }
+
+    /// <summary>Abre el Document Surface para editar un pedido existente.</summary>
+    public void AbrirEditarPedido(object page)
+    {
+        DocumentSurfaceContent    = page;
+        IsDocumentSurfaceVisible  = true;
+        IsDocumentSurfaceDetached = false;
+    }
+
+    /// <summary>Cierra el Document Surface y vuelve al listado.</summary>
+    public async Task CerrarDocumentSurfaceAsync()
+    {
+        IsDocumentSurfaceVisible  = false;
+        IsDocumentSurfaceDetached = false;
+        DocumentSurfaceContent    = null;
+        await RefrescarCommand.ExecuteAsync(null);
+    }
+
+    /// <summary>Alterna el modo split/detached del Document Surface.</summary>
+    public void ToggleDetach()
+    {
+        if (!IsDocumentSurfaceVisible) return;
+        IsDocumentSurfaceDetached = !IsDocumentSurfaceDetached;
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     private bool _isRefreshing;
 
     private IReadOnlyList<PedidoResumenDto> _todos = [];
