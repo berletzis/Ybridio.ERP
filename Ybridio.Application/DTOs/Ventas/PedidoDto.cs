@@ -20,7 +20,7 @@ public sealed record PedidoDto(
     long                          Id,
     int                           EmpresaId,
     int?                          SucursalId,
-    int?                          ClienteId,
+    int?                          RelacionComercialId,
     string                        NombreCliente,
     long?                         CotizacionId,
     EstatusPedido                 Estatus,
@@ -33,7 +33,7 @@ public sealed record PedidoDto(
 
 /// <summary>DTO para actualizar el encabezado de un pedido existente.</summary>
 public sealed record ActualizarPedidoDto(
-    int?      ClienteId,
+    int?      RelacionComercialId,
     string    NombreCliente,
     DateTime  Fecha,
     DateTime? FechaEntregaCompromiso,
@@ -43,7 +43,7 @@ public sealed record ActualizarPedidoDto(
 public sealed record CrearPedidoDto(
     int                                EmpresaId,
     int?                               SucursalId,
-    int?                               ClienteId,
+    int?                               RelacionComercialId,
     string                             NombreCliente,
     long?                              CotizacionId,
     DateTime                           Fecha,

@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using System;
 using System.Threading.Tasks;
 using Ybridio.WinUI.Services;
 
@@ -23,7 +24,17 @@ public abstract partial class BaseContextViewModel : ObservableObject
         session.SucursalChanged += HandleSucursalChanged;
     }
 
-    private async void HandleSucursalChanged(int _) => await OnContextChangedAsync();
+    private async void HandleSucursalChanged(int _)
+    {
+        try
+        {
+            await OnContextChangedAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            // ADR-026: expected lifecycle cancellation during context/branch switch.
+        }
+    }
 
     /// <summary>
     /// Sobreescribir para recargar datos cuando cambia la tienda activa.

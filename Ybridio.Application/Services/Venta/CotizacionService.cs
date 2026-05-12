@@ -74,10 +74,10 @@ public sealed class CotizacionService : ICotizacionService
 
         var cotizacion = new Cotizacion
         {
-            EmpresaId         = dto.EmpresaId,
-            SucursalId        = dto.SucursalId,
-            ClienteId         = dto.ClienteId,
-            NombreCliente     = dto.NombreCliente.Trim(),
+            EmpresaId              = dto.EmpresaId,
+            SucursalId             = dto.SucursalId,
+            RelacionComercialId    = dto.RelacionComercialId,
+            NombreCliente          = dto.NombreCliente.Trim(),
             Estatus           = EstatusCotizacion.Borrador,
             Fecha             = dto.Fecha,
             FechaVigencia     = dto.FechaVigencia,
@@ -159,7 +159,7 @@ public sealed class CotizacionService : ICotizacionService
         if (c.Estatus == EstatusCotizacion.Cancelada)
             return ServiceResult<CotizacionDto>.Fail("No se puede editar una cotización cancelada.", ErrorCode.ValidationFailed);
 
-        c.ClienteId             = dto.ClienteId;
+        c.RelacionComercialId   = dto.RelacionComercialId;
         c.NombreCliente         = dto.NombreCliente.Trim();
         c.Fecha                 = dto.Fecha;
         c.FechaVigencia         = dto.FechaVigencia;
@@ -250,10 +250,10 @@ public sealed class CotizacionService : ICotizacionService
 
         var pedido = new Pedido
         {
-            EmpresaId         = c.EmpresaId,
-            SucursalId        = c.SucursalId,
-            ClienteId         = c.ClienteId,
-            NombreCliente     = c.NombreCliente,
+            EmpresaId              = c.EmpresaId,
+            SucursalId             = c.SucursalId,
+            RelacionComercialId    = c.RelacionComercialId,
+            NombreCliente          = c.NombreCliente,
             CotizacionId      = c.Id,
             Estatus           = EstatusPedido.Nuevo,
             Fecha             = DateTime.Today,
@@ -268,14 +268,14 @@ public sealed class CotizacionService : ICotizacionService
         _context.Pedidos.Add(pedido);
         await _context.SaveChangesAsync(ct);
 
-        return ServiceResult<PedidoDto>.Ok(new(pedido.Id, pedido.EmpresaId, pedido.SucursalId, pedido.ClienteId,
+        return ServiceResult<PedidoDto>.Ok(new(pedido.Id, pedido.EmpresaId, pedido.SucursalId, pedido.RelacionComercialId,
             pedido.NombreCliente, pedido.CotizacionId, pedido.Estatus, "Nuevo", pedido.Fecha,
             pedido.FechaEntregaCompromiso, pedido.Total, pedido.Observaciones,
             detalles.Select(d => new DetalleLineaDto(d.Id, d.ProductoId, d.Descripcion, d.Cantidad, d.PrecioUnitario, d.Importe)).ToList()));
     }
 
     private static CotizacionDto MapToDto(Cotizacion c) =>
-        new(c.Id, c.EmpresaId, c.SucursalId, c.ClienteId, c.NombreCliente,
+        new(c.Id, c.EmpresaId, c.SucursalId, c.RelacionComercialId, c.NombreCliente,
             c.Estatus, EstatusTexto(c.Estatus), c.Fecha, c.FechaVigencia,
             c.Subtotal, c.Total, c.Observaciones,
             c.Detalles.Select(d => new DetalleLineaDto(d.Id, d.ProductoId, d.Descripcion, d.Cantidad, d.PrecioUnitario, d.Importe)).ToList());

@@ -4,6 +4,7 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:vm="using:Ybridio.WinUI.ViewModels.Ventas"
       xmlns:dto="using:Ybridio.Application.DTOs.Ventas"
+      xmlns:selector="using:Ybridio.WinUI.Controls.Selector"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
     <Grid>
@@ -50,7 +51,7 @@
         <Border Grid.Row="1" Background="{ThemeResource LayerFillColorDefaultBrush}"
                 BorderBrush="#E5E5E5" BorderThickness="0,0,0,1" Padding="12,8,20,8">
             <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                <Button Click="BtnVolver_Click" Style="{StaticResource TransparentButtonStyle}"
+                <Button Click="BtnVolver_Click" Style="{StaticResource DocumentSurfaceBackActionButtonStyle}"
                         ToolTipService.ToolTip="Volver al listado">
                     <FontIcon Glyph="&#xE76B;" FontSize="14"/>
                 </Button>
@@ -81,8 +82,13 @@
 
                 <StackPanel Grid.Column="0" Grid.Row="0" Spacing="4">
                     <TextBlock Text="Cliente *" FontWeight="SemiBold" FontSize="12"/>
-                    <TextBox PlaceholderText="Nombre del cliente"
-                             Text="{x:Bind ViewModel.NombreCliente, Mode=TwoWay}"/>
+                    <!-- ADR-037: RelacionComercialSelectorControl — patrón institucional obligatorio -->
+                    <selector:RelacionComercialSelectorControl
+                        x:Name="SelectorCliente"
+                        PlaceholderText="Buscar socio comercial por nombre, RFC o email..."
+                        EmpresaId="{x:Bind ViewModel.EmpresaId, Mode=OneWay}"
+                        IsEnabled="{x:Bind ViewModel.PuedeEditar, Mode=OneWay}"
+                        SelectionChanged="SelectorCliente_SelectionChanged"/>
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Grid.Row="0" Spacing="4">

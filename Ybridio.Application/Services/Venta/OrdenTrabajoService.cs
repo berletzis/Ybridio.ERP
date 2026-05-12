@@ -75,7 +75,7 @@ public sealed class OrdenTrabajoService : IOrdenTrabajoService
         {
             EmpresaId         = dto.EmpresaId,
             SucursalId        = dto.SucursalId,
-            ClienteId         = dto.ClienteId,
+            RelacionComercialId         = dto.RelacionComercialId,
             NombreCliente     = dto.NombreCliente.Trim(),
             PedidoId          = dto.PedidoId,
             Estatus           = EstatusOrdenTrabajo.Nueva,
@@ -200,7 +200,7 @@ public sealed class OrdenTrabajoService : IOrdenTrabajoService
         if (string.IsNullOrWhiteSpace(dto.Descripcion))
             return ServiceResult<OrdenTrabajoDto>.Fail("La descripción del trabajo es obligatoria.", ErrorCode.ValidationFailed);
 
-        ot.ClienteId            = dto.ClienteId;
+        ot.RelacionComercialId            = dto.RelacionComercialId;
         ot.NombreCliente        = dto.NombreCliente.Trim();
         ot.Fecha                = dto.Fecha;
         ot.FechaCompromiso      = dto.FechaCompromiso;
@@ -233,7 +233,7 @@ public sealed class OrdenTrabajoService : IOrdenTrabajoService
             && o.Estatus is not (EstatusOrdenTrabajo.Entregada or EstatusOrdenTrabajo.Cancelada));
 
     private static OrdenTrabajoDto MapToDto(OrdenTrabajo o) =>
-        new(o.Id, o.EmpresaId, o.SucursalId, o.ClienteId, o.NombreCliente, o.PedidoId,
+        new(o.Id, o.EmpresaId, o.SucursalId, o.RelacionComercialId, o.NombreCliente, o.PedidoId,
             o.Estatus, EstatusTexto(o.Estatus), o.Fecha, o.FechaCompromiso,
             o.Descripcion, o.Observaciones, o.ResponsableId, o.Total,
             o.Materiales.Select(m => new DetalleLineaDto(m.Id, m.ProductoId, m.Descripcion, m.Cantidad, m.PrecioUnitario, m.Importe)).ToList());

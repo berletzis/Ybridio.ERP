@@ -19,7 +19,8 @@ public class Pedido : AuditableEntity
     public int   EmpresaId   { get; set; }
     public int?  SucursalId  { get; set; }
 
-    public int?   ClienteId     { get; set; }
+    /// <summary>Relación comercial vinculada al pedido (nullable para mostrador).</summary>
+    public int?   RelacionComercialId { get; set; }
     /// <summary>Nombre del cliente al momento del pedido (denormalizado).</summary>
     public string NombreCliente { get; set; } = string.Empty;
 
@@ -38,9 +39,9 @@ public class Pedido : AuditableEntity
     public string? Observaciones  { get; set; }
 
     // Navegación
-    public Empresa     Empresa     { get; set; } = null!;
-    public Sucursal?   Sucursal    { get; set; }
-    public Cliente?    Cliente     { get; set; }
-    public Cotizacion? Cotizacion  { get; set; }
-    public ICollection<PedidoDetalle> Detalles { get; set; } = [];
+    public Empresa              Empresa             { get; set; } = null!;
+    public Sucursal?            Sucursal            { get; set; }
+    public RelacionComercial?   RelacionComercial   { get; set; }
+    public Cotizacion?          Cotizacion          { get; set; }
+    public ICollection<PedidoDetalle> Detalles      { get; set; } = [];
 }

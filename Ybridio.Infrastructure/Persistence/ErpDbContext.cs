@@ -34,19 +34,24 @@ public class ErpDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
     }
 
     // ── core ──────────────────────────────────────────────────────────────────
-    public DbSet<Empresa> Empresas => Set<Empresa>();
-    public DbSet<Sucursal>  Sucursales  => Set<Sucursal>();
+    public DbSet<Empresa>  Empresas   => Set<Empresa>();
+    public DbSet<Sucursal> Sucursales => Set<Sucursal>();
+
+    // ── directorio (business partners) ────────────────────────────────────────
+    public DbSet<Persona>            Personas             => Set<Persona>();
+    public DbSet<EmpresaComercial>   EmpresasComerciales  => Set<EmpresaComercial>();
+    public DbSet<RelacionComercial>  RelacionesComerciales => Set<RelacionComercial>();
 
     // ── catalogos ─────────────────────────────────────────────────────────────
-    public DbSet<Cliente>          Clientes          => Set<Cliente>();
-    public DbSet<Producto>         Productos         => Set<Producto>();
+    public DbSet<Cliente>           Clientes          => Set<Cliente>();
+    public DbSet<Producto>          Productos         => Set<Producto>();
     public DbSet<ProductoCategoria> ProductoCategorias => Set<ProductoCategoria>();
-    public DbSet<ProductoSucursal>   ProductoSucursales   => Set<ProductoSucursal>();
-    public DbSet<Proveedor>        Proveedores       => Set<Proveedor>();
-    public DbSet<UnidadMedida>     UnidadesMedida    => Set<UnidadMedida>();
+    public DbSet<ProductoSucursal>  ProductoSucursales   => Set<ProductoSucursal>();
+    public DbSet<Proveedor>         Proveedores       => Set<Proveedor>();
+    public DbSet<UnidadMedida>      UnidadesMedida    => Set<UnidadMedida>();
     public DbSet<CategoriaProducto> CategoriasProducto => Set<CategoriaProducto>();
-    public DbSet<TipoProducto>     TiposProducto     => Set<TipoProducto>();
-    public DbSet<TipoImpuesto>     TiposImpuesto     => Set<TipoImpuesto>();
+    public DbSet<TipoProducto>      TiposProducto     => Set<TipoProducto>();
+    public DbSet<TipoImpuesto>      TiposImpuesto     => Set<TipoImpuesto>();
 
     // ── compras ───────────────────────────────────────────────────────────────
     public DbSet<OrdenCompra>          OrdenesCompra          => Set<OrdenCompra>();

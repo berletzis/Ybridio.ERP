@@ -2,8 +2,10 @@ using System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Ybridio.Application.DTOs.Directorio;
 using Ybridio.Application.DTOs.Ventas;
 using Ybridio.Application.Services.Autorizacion;
+using Ybridio.Application.Services.Directorio;
 using Ybridio.Application.Services.Venta;
 using Ybridio.Domain.Ventas;
 using Ybridio.WinUI.Services;
@@ -30,6 +32,7 @@ public sealed partial class VentaDocumentoPage : Page
     {
         ViewModel = new VentaDocumentoViewModel(
             App.Services.GetRequiredService<IVentaDocumentalService>(),
+            App.Services.GetRequiredService<IRelacionComercialService>(),
             App.Services.GetRequiredService<IErpAuthorizationService>(),
             App.Services.GetRequiredService<SessionService>(),
             App.Services.GetRequiredService<ICurrentContextTracker>());
@@ -52,80 +55,125 @@ public sealed partial class VentaDocumentoPage : Page
 
     private async void BtnVolver_Click(object sender, RoutedEventArgs e)
     {
-        if (OnCerrar is not null) await OnCerrar();
+        try
+        {
+            if (OnCerrar is not null) await OnCerrar();
+        }
+        catch (OperationCanceledException)
+        {
+            // ADR-026: expected lifecycle cancellation during document close/navigation.
+        }
+    }
+
+    // ── Handler RelacionComercialSelectorControl (ADR-038) ─────────────────
+
+    private void SelectorCliente_SelectionChanged(object? sender, DirectorioSelectorDto? entidad)
+    {
+        if (entidad is not null)
+            ViewModel.SeleccionarCliente(entidad);
+        else
+            ViewModel.LimpiarCliente();
     }
 
     /// <summary>Abre el Pedido origen de esta venta en el Workspace, si existe.</summary>
     private async void BtnAbrirPedidoOrigen_Click(object sender, RoutedEventArgs e)
     {
         if (ViewModel.PedidoOrigenId is not { } pedidoId) return;
-        await _workspace.OpenOrActivateDocumentTabAsync(
-            key:         $"pedido-{pedidoId}",
-            title:       $"Pedido #{pedidoId}",
-            icon:        "",
-            dataLoader:  () => _pedidoService.ObtenerConDetallesAsync(pedidoId)
-                                .ContinueWith(t => t.Result.Success ? t.Result.Value : null),
-            pageFactory: dto => new PedidoDocumentoPage(dto!),
-            onError:     err => ViewModel.ErrorMessage = err,
-            isClosable:  true);
+        try
+        {
+            await _workspace.OpenOrActivateDocumentTabAsync(
+                key:         $"pedido-{pedidoId}",
+                title:       $"Pedido #{pedidoId}",
+                icon:        "",
+                dataLoader:  () => _pedidoService.ObtenerConDetallesAsync(pedidoId)
+                                    .ContinueWith(t => t.Result.Success ? t.Result.Value : null),
+                pageFactory: dto => new PedidoDocumentoPage(dto!),
+                onError:     err => ViewModel.ErrorMessage = err,
+                isClosable:  true);
+        }
+        catch (OperationCanceledException)
+        {
+            // ADR-026: expected lifecycle cancellation during workspace tab open/navigation.
+        }
     }
 
     private async void BtnAgregarLinea_Click(object sender, RoutedEventArgs e)
     {
-        var detalle = await MostrarDialogoNuevaLinea();
-        if (detalle is not null)
-            await ViewModel.AgregarDetalleLocalAsync(detalle);
+        try
+        {
+            var detalle = await MostrarDialogoNuevaLinea();
+            if (detalle is not null)
+                await ViewModel.AgregarDetalleLocalAsync(detalle);
+        }
+        catch (OperationCanceledException)
+        {
+            // ADR-026: expected lifecycle cancellation.
+        }
     }
 
     private async void BtnRegistrarPago_Click(object sender, RoutedEventArgs e)
     {
-        if (!ViewModel.PuedeRegistrarPago)
+        try
         {
-            ViewModel.ErrorMessage = "La venta debe estar Confirmada para registrar un pago.";
-            return;
+            if (!ViewModel.PuedeRegistrarPago)
+            {
+                ViewModel.ErrorMessage = "La venta debe estar Confirmada para registrar un pago.";
+                return;
+            }
+
+            var txtMonto     = new TextBox { PlaceholderText = "Monto", Text = ViewModel.SaldoPendiente.ToString("F2") };
+            var cmbFormaPago = new ComboBox { Width = double.NaN };
+            cmbFormaPago.Items.Add(new ComboBoxItem { Content = "Efectivo",      Tag = "Efectivo" });
+            cmbFormaPago.Items.Add(new ComboBoxItem { Content = "Transferencia", Tag = "Transferencia" });
+            cmbFormaPago.Items.Add(new ComboBoxItem { Content = "Cheque",        Tag = "Cheque" });
+            cmbFormaPago.Items.Add(new ComboBoxItem { Content = "Otro",          Tag = "Otro" });
+            cmbFormaPago.SelectedIndex = 0;
+            var txtRef = new TextBox { PlaceholderText = "Referencia (opcional)" };
+
+            void Lbl(StackPanel p, string t) => p.Children.Add(new TextBlock { Text = t, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+            var panel = new StackPanel { Spacing = 8 };
+            Lbl(panel, "Monto *"); panel.Children.Add(txtMonto);
+            Lbl(panel, "Forma de pago *"); panel.Children.Add(cmbFormaPago);
+            Lbl(panel, "Referencia"); panel.Children.Add(txtRef);
+
+            var dialog = new ContentDialog
+            {
+                Title = "Registrar Pago", PrimaryButtonText = "Registrar", SecondaryButtonText = "Cancelar",
+                DefaultButton = ContentDialogButton.Primary, XamlRoot = XamlRoot, Content = panel
+            };
+
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+            if (!decimal.TryParse(txtMonto.Text, out var monto) || monto <= 0)
+            {
+                ViewModel.ErrorMessage = "Monto invalido."; return;
+            }
+            var forma = (cmbFormaPago.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "Efectivo";
+            await ViewModel.RegistrarPagoAsync(monto, forma, txtRef.Text.Trim().NullIfEmpty());
         }
-
-        var txtMonto     = new TextBox { PlaceholderText = "Monto", Text = ViewModel.SaldoPendiente.ToString("F2") };
-        var cmbFormaPago = new ComboBox { Width = double.NaN };
-        cmbFormaPago.Items.Add(new ComboBoxItem { Content = "Efectivo",      Tag = "Efectivo" });
-        cmbFormaPago.Items.Add(new ComboBoxItem { Content = "Transferencia", Tag = "Transferencia" });
-        cmbFormaPago.Items.Add(new ComboBoxItem { Content = "Cheque",        Tag = "Cheque" });
-        cmbFormaPago.Items.Add(new ComboBoxItem { Content = "Otro",          Tag = "Otro" });
-        cmbFormaPago.SelectedIndex = 0;
-        var txtRef = new TextBox { PlaceholderText = "Referencia (opcional)" };
-
-        void Lbl(StackPanel p, string t) => p.Children.Add(new TextBlock { Text = t, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
-        var panel = new StackPanel { Spacing = 8 };
-        Lbl(panel, "Monto *"); panel.Children.Add(txtMonto);
-        Lbl(panel, "Forma de pago *"); panel.Children.Add(cmbFormaPago);
-        Lbl(panel, "Referencia"); panel.Children.Add(txtRef);
-
-        var dialog = new ContentDialog
+        catch (OperationCanceledException)
         {
-            Title = "Registrar Pago", PrimaryButtonText = "Registrar", SecondaryButtonText = "Cancelar",
-            DefaultButton = ContentDialogButton.Primary, XamlRoot = XamlRoot, Content = panel
-        };
-
-        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
-        if (!decimal.TryParse(txtMonto.Text, out var monto) || monto <= 0)
-        {
-            ViewModel.ErrorMessage = "Monto invalido."; return;
+            // ADR-026: expected lifecycle cancellation.
         }
-        var forma = (cmbFormaPago.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "Efectivo";
-        await ViewModel.RegistrarPagoAsync(monto, forma, txtRef.Text.Trim().NullIfEmpty());
     }
 
     private async void BtnCancelarVenta_Click(object sender, RoutedEventArgs e)
     {
-        if (!ViewModel.PuedeCancelar) { ViewModel.ErrorMessage = "Esta venta no se puede cancelar."; return; }
-        var dialog = new ContentDialog
+        try
         {
-            Title = "Confirmar cancelacion", Content = "Cancelar esta venta?",
-            PrimaryButtonText = "Si", SecondaryButtonText = "No",
-            DefaultButton = ContentDialogButton.Secondary, XamlRoot = XamlRoot
-        };
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-            await ViewModel.CancelarVentaAsync();
+            if (!ViewModel.PuedeCancelar) { ViewModel.ErrorMessage = "Esta venta no se puede cancelar."; return; }
+            var dialog = new ContentDialog
+            {
+                Title = "Confirmar cancelacion", Content = "Cancelar esta venta?",
+                PrimaryButtonText = "Si", SecondaryButtonText = "No",
+                DefaultButton = ContentDialogButton.Secondary, XamlRoot = XamlRoot
+            };
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+                await ViewModel.CancelarVentaAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            // ADR-026: expected lifecycle cancellation.
+        }
     }
 
     private async System.Threading.Tasks.Task<DetalleLineaEditable?> MostrarDialogoNuevaLinea()

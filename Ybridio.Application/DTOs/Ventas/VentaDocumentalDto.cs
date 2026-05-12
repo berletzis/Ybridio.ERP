@@ -23,7 +23,7 @@ public sealed record VentaDocumentalDto(
     long                              Id,
     int                               EmpresaId,
     int                               SucursalId,
-    int?                              ClienteId,
+    int?                              RelacionComercialId,
     string                            NombreCliente,
     EstatusVenta                      Estatus,
     string                            EstatusTexto,
@@ -43,7 +43,7 @@ public sealed record VentaDocumentalDto(
 public sealed record CrearVentaDocumentalDto(
     int                                EmpresaId,
     int                                SucursalId,
-    int?                               ClienteId,
+    int?                               RelacionComercialId,
     string                             NombreCliente,
     TipoPago                           TipoPago,
     DateTime                           Fecha,
@@ -53,7 +53,7 @@ public sealed record CrearVentaDocumentalDto(
 
 /// <summary>DTO para actualizar el encabezado de una venta en Borrador.</summary>
 public sealed record ActualizarVentaDocumentalDto(
-    int?     ClienteId,
+    int?     RelacionComercialId,
     string   NombreCliente,
     TipoPago TipoPago,
     DateTime Fecha,

@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Ybridio.Application.Services.Auth;
 using Ybridio.Application.Services.Autorizacion;
 using Ybridio.Application.Services.Caja;
+using Ybridio.Application.Services.Directorio;
 using Ybridio.Application.Services.Venta;
 using Ybridio.Application.Services.Finanzas;
 using Ybridio.Application.Services.Inventario;
@@ -10,7 +11,6 @@ using Ybridio.Application.Services.Producto;
 using Ybridio.Application.Services.Empresa;
 using Ybridio.Application.Services.Seguridad;
 using Ybridio.Application.Services.Sucursal;
-using Ybridio.Application.Services.Venta;
 
 namespace Ybridio.Application.Extensions;
 
@@ -35,6 +35,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISalidaService, SalidaService>();
         services.AddScoped<IClienteService, ClienteService>();
         services.AddScoped<ICotizacionService, CotizacionService>();
+
+        // ── Directorio (Business Partners — ADR-036/ADR-038) ──────────────────
+        services.AddScoped<IPersonaService, PersonaService>();
+        services.AddScoped<IEmpresaComercialService, EmpresaComercialService>();
+        services.AddScoped<IRelacionComercialService, RelacionComercialService>();
+        services.AddScoped<IDirectorioService, DirectorioService>();
         services.AddScoped<IPedidoService, PedidoService>();
         services.AddScoped<IOrdenTrabajoService, OrdenTrabajoService>();
         services.AddScoped<IVentaDocumentalService, VentaDocumentalService>();

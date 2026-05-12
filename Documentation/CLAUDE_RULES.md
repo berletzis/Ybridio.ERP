@@ -2,7 +2,137 @@
 
 > Estas reglas aplican para TODOS los requerimientos futuros del proyecto.  
 > Claude Code debe leer y respetar este documento ANTES de implementar cualquier cambio.  
-> Estas reglas son **permanentes** y forman parte oficial de la arquitectura del ERP.
+> Estas reglas son **permanentes** y forman parte oficial de la arquitectura del ERP.  
+> Última actualización: 2026-05-12 (ADR-041: Operational Editable Document Lines Pattern)
+
+---
+
+## 0a. Operational Editable Document Lines Pattern (ADR-041)
+
+**Todo grid de líneas de documento comercial DEBE cumplir este estándar.**
+
+### Anti-patrones PROHIBIDOS
+
+- `DetalleLineaEditable` como POCO plano sin `INotifyPropertyChanged` — la columna Importe no refresca.
+- Abrir modal pesado solo para editar cantidad — excesiva fricción operacional.
+- Duplicar la fórmula `Cantidad × PrecioUnitario` en múltiples lugares.
+- Almacenar `Importe` como campo editable en el modelo — debe ser propiedad calculada.
+- Recalcular totales solo en `CollectionChanged` — no detecta mutaciones en líneas existentes.
+
+### Reglas obligatorias
+
+```csharp
+// ✅ DetalleLineaEditable DEBE implementar INotifyPropertyChanged
+public sealed class DetalleLineaEditable : INotifyPropertyChanged { ... }
+
+// ✅ Importe es siempre propiedad calculada
+public decimal Importe => _cantidad * _precioUnitario;
+
+// ✅ Setter de Cantidad notifica Importe y dispara callback
+private void SetCantidad(decimal value) {
+    _cantidad = value;
+    OnPropertyChanged(nameof(Cantidad));
+    OnPropertyChanged(nameof(CantidadDouble));
+    OnPropertyChanged(nameof(Importe));
+    CantidadCambiadaCallback?.Invoke();
+}
+
+// ✅ WirarLinea conecta el callback (única vez, en el ViewModel)
+private DetalleLineaEditable WirarLinea(DetalleLineaEditable linea) {
+    linea.CantidadCambiadaCallback = () => { IsDirty = true; RecalcularTotales(); };
+    return linea;
+}
+
+// ✅ Entry point único para actualizar cantidad
+await ViewModel.ActualizarCantidadAsync(linea, nuevaCantidad);
+// negativo → ignorar, 0 → eliminar línea, positivo → actualizar
+```
+
+### XAML obligatorio para columna Cantidad
+
+```xml
+<!-- ✅ NumberBox inline — NUNCA TextBlock estático para cantidad editable -->
+<NumberBox Value="{x:Bind CantidadDouble, Mode=TwoWay}"
+           Minimum="0" SpinButtonPlacementMode="Hidden"
+           HorizontalContentAlignment="Right"
+           Tag="{x:Bind}"
+           ValueChanged="NumberBox_Cantidad_ValueChanged"/>
+
+<!-- ✅ Importe y PrecioUnitario con Mode=OneWay para responder a INPC -->
+<TextBlock Text="{x:Bind Importe, Mode=OneWay, Converter={StaticResource CurrencyConverter}}"/>
+```
+
+### Handler code-behind obligatorio
+
+```csharp
+private async void NumberBox_Cantidad_ValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args) {
+    if (double.IsNaN(args.NewValue) || args.NewValue == args.OldValue) return;
+    if (sender.Tag is not DetalleLineaEditable linea) return;
+    // Solo persistir en BD para docs existentes; TwoWay binding ya aplicó en UI
+    if (!ViewModel.IsNuevo)
+        await ViewModel.ActualizarCantidadAsync(linea, (decimal)args.NewValue);
+}
+```
+
+---
+
+## 0. Operational Commercial Document Pattern (ADR-040)
+
+**Todo documento comercial ERP (Cotización, Pedido, etc.) DEBE cumplir este estándar mínimo.**
+
+### Anti-patrones PROHIBIDOS
+
+- Líneas duplicadas del mismo producto — siempre merge (sumar cantidad).
+- Auto-save silencioso al cerrar — la decisión es del usuario.
+- Perder cliente visual o runtime state en cualquier modo.
+- Cálculos de totales en múltiples lugares — centralizar en RecalcularTotales().
+- IVA hardcodeado (0.16) — usar `FiscalConstants.TasaIvaEstandar`.
+- Lógica fiscal en UI/code-behind.
+
+### Reglas obligatorias
+
+```csharp
+// ✅ Merge-or-add siempre (no líneas duplicadas)
+await ViewModel.AgregarOIncrementarDetalleAsync(detalle);
+
+// ✅ Constante fiscal centralizada
+using Ybridio.Domain.Common;
+decimal impuestos = basIva * FiscalConstants.TasaIvaEstandar;
+
+// ✅ Fórmula estándar de totales
+// Subtotal   = SUM(Cantidad × PrecioUnitario)
+// Impuestos  = SUM(líneas con IvaAplicable) × TasaIvaEstandar
+// Total      = Subtotal + Impuestos
+
+// ✅ IsDirty se marca en TODA mutación
+IsDirty = true;  // al agregar/eliminar línea, cambiar cliente, cambiar observaciones
+
+// ✅ IsDirty se resetea SOLO tras guardar exitosamente
+IsDirty = false;
+
+// ✅ Confirmación antes de cerrar cuando IsDirty
+if (!await MostrarConfirmacionCierreAsync()) return;
+```
+
+### Estructura de métodos obligatoria para documentos comerciales
+
+- `ObtenerLineaExistente(productoId)` — busca línea existente del mismo producto
+- `AgregarOIncrementarDetalleAsync(detalle)` — entry point principal: merge-or-add
+- `IncrementarCantidadAsync(linea, incremento)` — suma cantidad, persiste si es doc existente
+- `RecalcularTotales()` — único punto de cálculo; llama a `CalcularSubtotal()` + `CalcularImpuestos()`
+- `CalcularSubtotal()` — `SUM(Detalles.Importe)`
+- `CalcularImpuestos()` — `SUM(líneas IVA) × FiscalConstants.TasaIvaEstandar`
+- `MostrarConfirmacionCierreAsync()` — diálogo: Guardar / No Guardar / Cancelar
+
+### Visibilidad de cliente
+
+- El cliente seleccionado DEBE mostrarse en TODOS los modos: nuevo, edición, inline, standalone.
+- Chip/selector DEBE restaurarse en rehost (ADR-039).
+
+### Formato monetario
+
+- Usar siempre `DecimalToCurrencyConverter` en XAML para valores financieros.
+- NUNCA mostrar decimales sin formato tipo `3337.000000000`.
 
 ---
 
@@ -478,6 +608,329 @@ Todos los grids deben usar: buscador, contador de registros, virtualización, fi
 
 ---
 
+## 11b. Visual Design System (ADR-033) — OBLIGATORIO
+
+### Styles/ = Source of Truth Visual
+
+`Styles/` es la **fuente de verdad visual oficial** del ERP. Todo estilo reutilizable vive ahí.
+
+**`App.xaml` es SOLO bootstrap** — merges + `XamlControlsResources`. NUNCA contiene estilos.
+
+### Estructura oficial
+
+```
+Styles/
+  Styles.xaml                       ← Dictionary maestro (único punto de entrada)
+  Layout/LayoutBase.xaml            ← Spacing tokens + content boundary + containers (ADR-034)
+  CommandBars/CommandBarsBase.xaml  ← CommandBar styles operacionales (ADR-034)
+  Buttons/ButtonsBase.xaml          ← Botones e interacciones
+  DataGrid/DataGridBase.xaml        ← Listas, grids, tablas
+  Forms/FormBase.xaml               ← Formularios CRUD
+  Tabs/TabsBase.xaml                ← Navegación por tabs (Module + Workspace layers)
+```
+
+### Reglas obligatorias para IA y desarrolladores
+
+#### 1. NUNCA agregar estilos en App.xaml
+
+```xaml
+<!-- ❌ PROHIBIDO -->
+<!-- App.xaml -->
+<Style x:Key="CualquierEstilo" TargetType="Button">...</Style>
+
+<!-- ✅ CORRECTO -->
+<!-- Styles/Buttons/ButtonsBase.xaml -->
+<Style x:Key="MiEstiloSemántico" TargetType="Button">...</Style>
+```
+
+#### 2. Naming semántico obligatorio
+
+El nombre del estilo debe expresar **intención UX**, no apariencia visual.
+
+```
+❌ PROHIBIDO              ✅ CORRECTO
+TransparentButtonStyle  → DocumentSurfaceBackActionButtonStyle
+GrayButtonStyle         → ModuleSecondaryActionButtonStyle
+BlueCard                → WorkspaceActiveDocumentCardStyle
+MainGridStyle           → ModuleListViewContainerStyle
+GenericTab              → OutlookTabItemStyle / WorkspaceTabItemStyle
+```
+
+#### 3. PROHIBIDO estilos inline
+
+```xaml
+<!-- ❌ PROHIBIDO — estilos inline como solución rápida -->
+<Button>
+    <Button.Style>
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+    </Button.Style>
+</Button>
+
+<!-- ✅ CORRECTO — usar StaticResource del Design System -->
+<Button Style="{StaticResource DocumentSurfaceBackActionButtonStyle}"/>
+```
+
+#### 4. Antes de crear un estilo nuevo
+
+1. Buscar en `Styles/` si ya existe uno compatible.
+2. Si existe, reusar. PROHIBIDO duplicar estilos visualmente similares con nombres distintos.
+3. Si no existe, crear en el subdirectorio semántico correcto.
+4. Registrar en `Styles/Styles.xaml` si es un nuevo subdominio.
+
+#### 5. Agregar un nuevo dominio visual
+
+```
+1. Crear  Styles/<Dominio>/<Dominio>Base.xaml
+2. Agregar en Styles/Styles.xaml:
+   <ResourceDictionary Source="ms-appx:///Styles/<Dominio>/<Dominio>Base.xaml"/>
+3. Registrar en .csproj como <Page Update="Styles\<Dominio>\<Dominio>Base.xaml"> con MSBuild:Compile
+4. Documentar en Documentation/CLAUDE_RULES.md §Design System
+5. Registrar en Documentation/DECISIONS.md como ADR
+```
+
+### Subdominios actuales y su responsabilidad
+
+| Archivo | Responsabilidad | Estilos / Tokens actuales |
+|---|---|---|
+| `Layout/LayoutBase.xaml` | Spacing tokens + content boundary + containers | `ErpSpace*`, `ErpContentBoundary*`, `ErpCommandBarPadding`, `ErpOperationalCardStyle`, `ErpTotalesCardStyle` |
+| `CommandBars/CommandBarsBase.xaml` | CommandBar operacionales | `ErpModuleCommandBarStyle`, `ErpDocumentCommandBarStyle` |
+| `Buttons/ButtonsBase.xaml` | Botones e interacciones | `DocumentSurfaceBackActionButtonStyle` |
+| `DataGrid/DataGridBase.xaml` | Listas, grids, tablas | `ErpListViewItemStyle`, constantes `ErpRowHeight`, etc. |
+| `Forms/FormBase.xaml` | Formularios CRUD | `ErpFormTitleStyle`, constantes `ErpFormFieldSpacing`, etc. |
+| `Tabs/TabsBase.xaml` | Tabs de navegación | `OutlookTabItemStyle`, `WorkspaceTabItemStyle` |
+
+### Anti-patterns PROHIBIDOS
+
+```
+❌ Estilos nuevos en App.xaml
+❌ Nombres ambiguos (describe apariencia, no contexto UX)
+❌ Estilos inline (<Button.Style>...)
+❌ Copiar/pegar estilos entre archivos
+❌ Duplicar visual states con nombres distintos
+❌ Design System improvisado sin ADR
+❌ Estilos huérfanos (definidos pero nunca usados)
+```
+
+---
+
+## 11c. Pixel Perfect Operational Layout System (ADR-034) — OBLIGATORIO
+
+### Regla fundamental
+
+**PROHIBIDO** márgenes, padding o spacing arbitrarios. Todo spacing proviene de tokens del Layout System.
+
+### Spacing scale oficial
+
+```xaml
+<!-- ✅ CORRECTO — usar tokens -->
+<StackPanel Spacing="{StaticResource ErpSpace8}"/>
+<Border Margin="{StaticResource ErpContentBoundaryThickness}"/>
+
+<!-- ❌ PROHIBIDO — valores hardcoded arbitrarios -->
+<StackPanel Spacing="7"/>
+<Border Margin="13,0,13,0"/>
+```
+
+### Content boundary rule
+
+Todos los elementos operacionales (CommandBar, grids, forms, status, totales) comparten la **misma boundary horizontal de 20px**.
+
+```xaml
+<!-- ✅ CORRECTO — CommandBar alineada con contenido -->
+<CommandBar Style="{StaticResource ErpModuleCommandBarStyle}"/>
+<Border Style="{StaticResource ErpOperationalCardStyle}">...</Border>
+
+<!-- ❌ PROHIBIDO — CommandBar desalineada -->
+<CommandBar HorizontalAlignment="Left" Margin="8,0,0,0"/>
+```
+
+### Document Surface visibility rule
+
+Cuando `IsDocumentSurfaceVisible=true`, la status bar del listado **debe ocultarse**:
+
+```xaml
+<!-- ✅ CORRECTO -->
+<Border Style="{StaticResource ErpGridStatusBarStyle}"
+        Margin="{StaticResource ErpStatusRegionMargin}"
+        Visibility="{x:Bind ViewModel.IsDocumentSurfaceVisible, Mode=OneWay,
+                     Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+```
+
+### Tokens de referencia rápida
+
+| Token | Valor | Uso |
+|---|---|---|
+| `ErpContentBoundaryThickness` | `20,0,20,0` | Margin lateral estándar |
+| `ErpContentBoundaryWithTopGap` | `20,8,20,0` | Cards/grids con gap superior |
+| `ErpContentBoundaryBottom` | `20,0,20,16` | Último elemento de página |
+| `ErpCommandBarPadding` | `6,0,0,0` | Alinea CommandBar con 20px boundary |
+| `ErpFilterRegionPadding` | `20,8,20,4` | Row de búsqueda/filtros |
+| `ErpStatusRegionMargin` | `20,0,20,8` | Status bar |
+| `ErpDocumentHeaderPadding` | `20,8,20,8` | Header strip de Document Surface |
+| `ErpDocumentFormPadding` | `16,12,16,12` | Padding interno de form cards |
+
+---
+
+## 11d. Operational Column Density System (ADR-035) — OBLIGATORIO
+
+### Regla fundamental
+
+**PROHIBIDO** anchos de columna arbitrarios (`Width="150"`, `Width="200"`).
+La distribución de columnas surge del sistema operacional institucional.
+
+### Tipos de columna oficiales
+
+| Tipo | Ancho XAML | Token | Ejemplos |
+|---|---|---|---|
+| **PRIMARY EXPANDABLE** | `Width="*"` o `Width="2*"` | — (star, inline) | Cliente, Nombre, Producto, Descripción |
+| **COMPACT SEMANTIC** | token fijo | `OgColCompact` (90), `OgColDate` (100), `OgColStatus` (110) | Folio, Fecha, Estado, Tipo |
+| **FINANCIAL COMPACT** | token fijo | `OgColFinancial` (130) | Total, Precio, Costo, LimiteCredito |
+| **GUTTER** | token fijo | `OgColGutter` (8) | Primera columna siempre |
+
+### Fill strategy obligatoria
+
+La columna principal operacional SIEMPRE debe ocupar el espacio sobrante útil con `Width="*"`.
+
+```xaml
+<!-- ✅ CORRECTO — Cliente expandible, sin desierto visual central -->
+<Grid.ColumnDefinitions>
+    <ColumnDefinition Width="{StaticResource OgColGutter}"/>    <!-- gutter -->
+    <ColumnDefinition Width="{StaticResource OgColCompact}"/>   <!-- Folio -->
+    <ColumnDefinition Width="*"/>                               <!-- Cliente PRIMARY EXPANDABLE -->
+    <ColumnDefinition Width="{StaticResource OgColDate}"/>      <!-- Fecha -->
+    <ColumnDefinition Width="{StaticResource OgColStatus}"/>    <!-- Estado -->
+    <ColumnDefinition Width="{StaticResource OgColFinancial}"/> <!-- Total -->
+</Grid.ColumnDefinitions>
+
+<!-- ❌ PROHIBIDO — anchos arbitrarios, columna principal no expandible -->
+<Grid.ColumnDefinitions>
+    <ColumnDefinition Width="8"/>
+    <ColumnDefinition Width="70"/>
+    <ColumnDefinition Width="3*"/>   <!-- "3*" no elimina espacio muerto si hay otras grandes -->
+    <ColumnDefinition Width="100"/>
+    <ColumnDefinition Width="150"/>  <!-- arbitrario -->
+    <ColumnDefinition Width="200"/>  <!-- arbitrario -->
+</Grid.ColumnDefinitions>
+```
+
+### El header SIEMPRE debe ser idéntico al DataTemplate
+
+Las definiciones de columnas del `<Border OgHeaderContainerStyle>` y las del `<DataTemplate>` deben ser **exactamente iguales** para mantener alineación visual perfecta.
+
+---
+
+## 11e. Financial Formatting Semantics (ADR-035) — OBLIGATORIO
+
+### Regla fundamental
+
+**TODO** valor financiero visible en el UI debe incluir símbolo monetario.
+
+```
+✅ CORRECTO: $3,337.00  $347,746.00  $0.00
+❌ PROHIBIDO: 3337.00   347746.00    0
+```
+
+### Cómo formatear — SIEMPRE converter, NUNCA ViewModel
+
+```xaml
+<!-- ✅ CORRECTO — usar DecimalToCurrencyConverter en el binding -->
+<TextBlock Text="{x:Bind Total, Converter={StaticResource CurrencyConverter}, Mode=OneTime}"
+           Style="{StaticResource OgCurrencyTextStyle}"/>
+
+<!-- ❌ PROHIBIDO — formatear en el ViewModel -->
+<!-- ViewModel: public string TotalFormateado => Total.ToString("C"); -->
+
+<!-- ❌ PROHIBIDO — mostrar decimal crudo sin converter -->
+<TextBlock Text="{x:Bind Total}"/>
+```
+
+### Declarar converter en Page.Resources
+
+```xaml
+<Page.Resources>
+    <converters:DecimalToCurrencyConverter x:Key="CurrencyConverter"/>
+</Page.Resources>
+```
+
+### Estilo obligatorio para valores financieros
+
+```xaml
+Style="{StaticResource OgCurrencyTextStyle}"
+<!-- o equivalente: -->
+Style="{StaticResource OgCellFinancialStyle}"
+```
+
+Ambos aplican: `FontWeight=SemiBold`, `TextAlignment=Right`, `FontSize=13`.
+
+### Anti-patterns PROHIBIDOS
+
+```
+❌ Mostrar decimales sin símbolo monetario ($)
+❌ Formatear en ViewModel o code-behind
+❌ Alinear valores financieros a la izquierda
+❌ Usar FontWeight=Normal en columnas monetarias
+❌ Columnas financieras sin OgColFinancial (130px)
+```
+
+---
+
+## 11f. Business Partner Model (ADR-036) — OBLIGATORIO
+
+### Entidades del dominio (Ybridio.Domain.Catalogos)
+
+| Entidad | Schema BD | Propósito |
+|---|---|---|
+| `Persona` | `core.Persona` | Persona física / contacto del directorio |
+| `EmpresaComercial` | `core.EmpresaComercial` | Empresa externa (no tenant) con RFC |
+| `RelacionComercial` | `core.RelacionComercial` | Rol comercial del socio frente al tenant |
+| `TipoRelacionComercial` | enum | `Prospecto`, `Cliente`, `Proveedor`, `Mixto` |
+
+### Reglas obligatorias
+
+- Todos los documentos de venta (`Cotizacion`, `Pedido`, `OrdenTrabajo`, `Venta`, `Factura`) usan **`RelacionComercialId`** como FK. Nunca `ClienteId`.
+- `NombreCliente` se mantiene como campo **denormalizado** para integridad histórica de documentos.
+- El selector de socios en documentos usa **`RelacionComercialSelectorDto`** y **`IRelacionComercialService.ListarParaSelectorAsync`**.
+- `RelacionComercial` tiene FK exclusiva a `Persona` XOR `EmpresaComercial` — nunca ambas a la vez.
+- Los nuevos permisos son **`Directorio.Ver`** y **`Directorio.Editar`** (`PermisosClave.Directorio`).
+- El módulo shell se llama **`"Directorio"`** (no `"Contactos"`).
+
+### DTOs del selector (WinUI)
+
+```csharp
+// En Ybridio.Application.DTOs.Directorio
+public sealed class RelacionComercialSelectorDto
+{
+    public int    Id                { get; init; }
+    public string NombreSocio       { get; init; } = string.Empty;  // NombreCompleto o RazonSocial
+    public string TipoSocio         { get; init; } = string.Empty;  // "Persona Física" o "Empresa"
+    public string TipoRelacionDisplay { get; init; } = string.Empty; // "Cliente", "Proveedor", etc.
+}
+```
+
+### XAML — DataTemplate del AutoSuggestBox
+
+```xaml
+xmlns:dir="using:Ybridio.Application.DTOs.Directorio"
+...
+<DataTemplate x:DataType="dir:RelacionComercialSelectorDto">
+    <!-- usar NombreSocio, TipoSocio, TipoRelacionDisplay -->
+</DataTemplate>
+```
+
+### Anti-patterns PROHIBIDOS
+
+```
+❌ Usar ClienteId en documentos de venta nuevos
+❌ Usar IClienteService en nuevos ViewModels
+❌ Crear RelacionComercial con PersonaId Y EmpresaComercialId simultáneamente
+❌ Exponer entidades de dominio directamente a la UI (pasar por DTOs)
+❌ Lógica de negocio de socios comerciales en WinUI
+```
+
+---
+
 ## 12. Command Bars
 
 Las command bars deben: ser context-aware, reutilizar el estándar ERP, mantener agrupación consistente.
@@ -632,6 +1085,55 @@ Este ERP está orientado a **PYMES**.
 **No convertirlo en**: SAP, Oracle, ERP financiero corporativo.
 
 **Mantener**: simplicidad, rapidez, claridad operacional.
+
+---
+
+## 17b. Regla de Dominio — RelacionComercial es Entidad Transaccional (ADR-038)
+
+**REGLA OBLIGATORIA (no negociable)**: `RelacionComercial` es un vínculo comercial operativo/transaccional. NO es un catálogo maestro de UI.
+
+### Source of truth del Directorio
+
+| Entidad | Rol |
+|---|---|
+| `core.Persona` | Source of truth para personas físicas / contactos |
+| `core.EmpresaComercial` | Source of truth para empresas externas / personas morales |
+| `core.RelacionComercial` | Vínculo operativo — solo existe cuando hay transacción real |
+
+### GetOrCreate Pattern — obligatorio para todo flujo comercial
+
+```csharp
+// ✅ CORRECTO — al guardar cotización/pedido/venta/OT
+var rc = await _relacionComercialService.GetOrCreateAsync(
+    _session.EmpresaId, _entidadDirectorioSeleccionada!, _session.Usuario.Id, ct);
+RelacionComercialId = rc.Value;
+```
+
+### Selector institucional — busca el Directorio directamente
+
+```csharp
+// ✅ CORRECTO — IDirectorioService + DirectorioSelectorDto
+var resultados = await _directorioService.BuscarParaSelectorAsync(empresaId, termino, ct);
+
+// ❌ PROHIBIDO — selector que busca RelacionComercial
+var resultados = await _relacionComercialService.ListarParaSelectorAsync(empresaId, termino, ct);
+```
+
+### Anti-patterns PROHIBIDOS (ADR-038)
+
+- ❌ Usar `RelacionComercial` como catálogo de búsqueda para selectores UI.
+- ❌ Normalización masiva preventiva que genere `RelacionComercial` vacías.
+- ❌ Exigir existencia previa de `RelacionComercial` para que una entidad aparezca en el selector.
+- ❌ Scripts `.sql` que creen `RelacionComercial` en bulk sin transacción real de por medio.
+- ❌ Sincronización artificial Directorio ↔ `RelacionComercial`.
+- ❌ Crear `RelacionComercial` fantasma solo para alimentar UI.
+
+### Flujo esperado
+
+1. Usuario busca en selector → `IDirectorioService` → retorna `Persona` o `EmpresaComercial`.
+2. Usuario selecciona → ViewModel guarda `DirectorioSelectorDto?`.
+3. Al guardar documento → `GetOrCreateAsync()` → reutiliza o crea `RelacionComercial`.
+4. Documento se persiste con `RelacionComercialId` ya resuelto.
 
 ---
 
@@ -1492,136 +1994,153 @@ El Workspace debe sentirse:
 
 ---
 
-## 12. Document Surface UX Pattern (§ADR-025)
+## 12. Document Surface UX Pattern (§ADR-032 — Patrón Institucional Oficial)
 
 ### Objetivo
 
-Reducir el caos de Workspace Tabs innecesarios para operaciones CRUD ligeras/contextuales, usando **Document Surfaces** embebidos dentro del módulo activo que reemplazan temporalmente el grid de listado.
+Apertura de documentos CRUD/documentales con dos modos exclusivos y claramente diferenciados. Sin estados ambiguos.
 
 ### Principio
 
-**Workspace Tabs** = workflows persistentes, multi-documento, complejos, importantes.  
-**Document Surfaces** = operación rápida contextual (Nuevo/Editar/Abrir) que no requiere tab persistente.
+**INLINE contextual** = el documento reemplaza el grid dentro del módulo. El usuario permanece en contexto. Rápido y operacional.  
+**WINDOW standalone** = ventana OS real independiente (via `IWindowManager`). Multitarea real. El módulo regresa al grid.
+
+**NO existe un tercer modo.** Split view, detachable, y hybrid fueron eliminados (ADR-032).
 
 ---
 
-### Reglas Oficiales UX
+### Reglas Oficiales UX (ADR-032)
 
-#### 1. Layout: Content Replacement (Modo Normal — Default)
+#### 1. Layout: Content Replacement (INLINE — único modo contextual)
 
-**USAR POR DEFECTO**:
-- `ContentPresenter` o panel reemplazable dentro del módulo
-- Un solo contenido visible a la vez: **grid de listado XOR Document Surface**
-- Cuando el surface está activo, el grid se oculta completamente
+**ÚNICO modo contextual** — cuando el surface está activo, el grid se oculta completamente:
 
-**NO POR DEFECTO**:
-- Split view permanente
-- Grid de dos columnas (listado | surface)
-- Layouts master-detail complejos
-
-**Razón**:
-- UX más limpia
-- Menos ruido visual
-- Mayor enfoque operacional
-- Mejor para PYME
-
-**EXTENSIÓN OPCIONAL: Detachable Mode (§ADR-027)**
-
-Permitir **bajo demanda del usuario** alternar a **split view side-by-side** (grid + surface simultáneos) para escenarios de multitarea ligera controlada.
-
-**CUÁNDO USAR Detachable Mode**:
-- Usuario necesita comparar información entre documentos
-- Copiar datos mientras consulta grid
-- Revisar listado sin cerrar documento activo
-- Multitarea ligera ocasional
-
-**LIMITACIONES OBLIGATORIAS**:
-- SOLO 1 Document Surface desacoplada activa por módulo (NO múltiples surfaces simultáneas)
-- Activación explícita mediante botón discreto "Desacoplar Surface" en CommandBar secundario del documento
-- Default siempre es Content Replacement (grid XOR surface)
-- NO floating windows OS reales
-- NO dock managers enterprise
-- Piloto inicial SOLO Cotizaciones
-
-**Layout Detachable Mode**:
 ```xaml
-<!-- Dos ramas de visualización controladas por IsDocumentSurfaceDetached -->
-
-<!-- Rama 1: Modo Normal/Content Replacement (default) -->
-<Grid Visibility="{x:Bind ViewModel.IsDocumentSurfaceDetached, Mode=OneWay, 
-                           Converter={StaticResource InverseBoolToVisibilityConverter}}">
-    <Border Visibility="{x:Bind ViewModel.IsDocumentSurfaceVisible, ..., InverseBool...}">
+<Grid Grid.Row="2">
+    <!-- Listado — visible cuando NO hay surface activo -->
+    <Border Visibility="{x:Bind ViewModel.IsDocumentSurfaceVisible, Mode=OneWay,
+                                  Converter={StaticResource InverseBoolToVisibilityConverter}}">
         <ListView ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}" ... />
     </Border>
+    <!-- Document Surface INLINE — reemplaza el grid -->
     <ContentPresenter Content="{x:Bind ViewModel.DocumentSurfaceContent, Mode=OneWay}"
                       Visibility="{x:Bind ViewModel.IsDocumentSurfaceVisible, Mode=OneWay}"/>
 </Grid>
-
-<!-- Rama 2: Modo Desacoplado (split view activado bajo demanda) -->
-<Grid Visibility="{x:Bind ViewModel.IsDocumentSurfaceDetached, Mode=OneWay, 
-                           Converter={StaticResource BoolToVisibilityConverter}}">
-    <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="2*" MinWidth="400"/>
-        <ColumnDefinition Width="Auto"/>
-        <ColumnDefinition Width="3*" MinWidth="600"/>
-    </Grid.ColumnDefinitions>
-    <!-- Grid izquierda -->
-    <Border Grid.Column="0"><ListView ... /></Border>
-    <!-- Separador visual -->
-    <Border Grid.Column="1" Width="1" Background="#E5E5E5"/>
-    <!-- Document Surface derecha -->
-    <ContentPresenter Grid.Column="2" Content="{x:Bind ViewModel.DocumentSurfaceContent, ...}"/>
-</Grid>
 ```
 
-**ViewModel Detachable Extension**:
+#### 2. Controles del documento según modo
+
+**Modo INLINE** (`EsInlineMode = true`): mostrar:
+- `BtnVolverALista` — "← Volver a Lista" (cierra el surface)
+- `BtnAbrirEnVentana` en `SecondaryCommands` — "Abrir en nueva ventana"
+
+**Modo WINDOW standalone** (`EsInlineMode = false` / default): ocultar ambos. La ventana es standalone y no pertenece al módulo.
+
+Implementación estándar:
+
 ```csharp
-[ObservableProperty] private bool isDocumentSurfaceDetached;
-
-[RelayCommand]
-public void ToggleDetach()
+public bool EsInlineMode
 {
-    if (!IsDocumentSurfaceVisible) return; // Guard obligatorio
-    IsDocumentSurfaceDetached = !IsDocumentSurfaceDetached;
+    get => _esInlineMode;
+    set
+    {
+        _esInlineMode = value;
+        var vis = value ? Visibility.Visible : Visibility.Collapsed;
+        BtnVolverALista.Visibility   = vis;
+        BtnAbrirEnVentana.Visibility = vis;
+    }
 }
+private bool _esInlineMode;
+```
 
-public void AbrirNuevaCotizacion()
+#### 3. Window Mode — apertura de ventana OS real
+
+Al pulsar "Abrir en nueva ventana":
+1. Abrir ventana real usando `IWindowManager.OpenWindow<DetachedDocumentWindow, string>(key: "detached:...", ...)`.
+2. Invocar `VolverALista?.Invoke()` para cerrar el inline surface y devolver el módulo al grid.
+3. La nueva página se crea sin `EsInlineMode = true` (controles inline ocultos por defecto).
+
+```csharp
+private void BtnAbrirEnVentana_Click(object sender, RoutedEventArgs e)
 {
-    DocumentSurfaceContent = null;
-    IsDocumentSurfaceVisible = true;
-    IsDocumentSurfaceDetached = false; // Default: content replacement
+    _windowManager.OpenWindow<DetachedDocumentWindow, string>(
+        key: $"detached:modulo:{id}",
+        factory: () => new DetachedDocumentWindow(new DocumentoPage(dto), titulo),
+        options: new WindowOptions { Width = 1200, Height = 800 });
+    VolverALista?.Invoke(); // cierra inline automáticamente
 }
+```
+
+#### 4. Wiring en el módulo host
+
+```csharp
+private void AbrirInline(MiDto dto)
+{
+    var page = new MiDocumentoPage(dto);
+    page.VolverALista = async () => await ViewModel.CerrarDocumentSurfaceAsync();
+    page.EsInlineMode = true; // activa controles inline
+    ViewModel.DocumentSurfaceContent   = page;
+    ViewModel.IsDocumentSurfaceVisible = true;
+}
+```
+
+#### 5. ViewModel del módulo (mínimo requerido)
+
+```csharp
+[ObservableProperty] private bool    isDocumentSurfaceVisible;
+[ObservableProperty] private object? documentSurfaceContent;
 
 public async Task CerrarDocumentSurfaceAsync()
 {
     IsDocumentSurfaceVisible = false;
-    IsDocumentSurfaceDetached = false; // Reset detached state
-    DocumentSurfaceContent = null;
+    DocumentSurfaceContent   = null;
     await RefrescarAsync();
 }
 ```
 
-**UX Rules Detachable Mode**:
-- Botón "Desacoplar Surface" en `CommandBar.SecondaryCommands` del documento (NO primario)
-- Estado detached debe resetear al cerrar surface (NO persistir entre aperturas)
-- NO permitir detach cuando surface no está visible
-- Workspace Tabs siguen siendo para workflows largos/multi-documento complejo
-- Mantener Outlook 2026 style limpio, NO enterprise dock visual
+**PROHIBIDO agregar**: `IsDocumentSurfaceDetached`, `ToggleDetach`, split column definitions, layout mutation code.
 
-**Anti-patterns Detachable**:
+---
+
+### Anti-Patterns PROHIBIDOS (ADR-032)
+
 ```csharp
-// ❌ NO múltiples surfaces desacopladas
-if (DetachedSurfacesCount > 1) // PROHIBIDO
+// ❌ PROHIBIDO — split view / detachable mode
+IsDocumentSurfaceDetached = true;
+AjustarLayoutDetached(isDetached);
+ToggleDetach?.Invoke();
 
-// ❌ NO floating windows OS
-new Window { Content = surface }; // PROHIBIDO
+// ❌ PROHIBIDO — columnas split en XAML
+<ColumnDefinition x:Name="SplitterColumn" Width="4"/>
+<ColumnDefinition x:Name="SurfaceColumn" Width="3*"/>
 
-// ❌ NO split view permanente por defecto
-IsDocumentSurfaceDetached = true; // por defecto PROHIBIDO (debe ser false)
+// ❌ PROHIBIDO — menú contextual vacío o decorativo
+<AppBarButton Label="Desacoplar Surface" .../>  // sin utilidad real
 
-// ❌ NO desacoplar sin surface activa
-if (!IsDocumentSurfaceVisible) ToggleDetach(); // guard obligatorio
+// ❌ PROHIBIDO — ventanas sin WindowManager
+new Window { Content = page };
+
+// ❌ PROHIBIDO — mostrar BtnVolverALista en ventana standalone
+page.EsInlineMode = false; // default correcto; NO llamar para standalone
 ```
+
+---
+
+### Implementación de referencia: Cotizaciones (módulo piloto ADR-032)
+
+- `CotizacionesViewModel` — solo `IsDocumentSurfaceVisible` + `DocumentSurfaceContent` + `CerrarDocumentSurfaceAsync`.
+- `CotizacionesPage.xaml` — grid de content replacement, sin split columns.
+- `CotizacionesPage.xaml.cs` — wiring limpio con `EsInlineMode = true`.
+- `CotizacionDocumentoPage.xaml` — `BtnVolverALista` y `BtnAbrirEnVentana` con `Visibility="Collapsed"` default.
+- `CotizacionDocumentoPage.xaml.cs` — `EsInlineMode` setter + `BtnAbrirEnVentana_Click` abre ventana y cierra inline.
+
+Este es el patrón a replicar para Clientes, Productos, Pedidos, Ventas, Órdenes de Trabajo y demás módulos CRUD/documentales.
+
+
+
+
+**CUÁNDO USAR Detachable Mode**:
+- ~~ELIMINADO~~: Detachable Mode fue deprecado en ADR-032. Ver §12 para el patrón actual.
 
 #### 2. Transiciones
 
@@ -1631,12 +2150,6 @@ if (!IsDocumentSurfaceVisible) ToggleDetach(); // guard obligatorio
 - Transición instantánea o muy sutil
 - Cambio directo de visibilidad mediante binding
 
-**Razón**:
-- ERP operacional debe sentirse rápido
-- WinUI animations excesivas degradan UX
-- Evitar complejidad innecesaria
-- Objetivo: **fluidez > efectos visuales**
-
 #### 3. Comportamiento Guardar
 
 **Después de Guardar**:
@@ -1644,222 +2157,37 @@ if (!IsDocumentSurfaceVisible) ToggleDetach(); // guard obligatorio
 2. Cerrar el Document Surface
 3. Volver al listado
 
-**Flujo típico PYME**:
-```
-crear → guardar → seguir trabajando en lista
-```
-
-**NO** dejar el surface abierto automáticamente para CRUDs ligeros.
-
-**EXCEPCIÓN futura**: workflows largos/OT complejas (aún no migrados).
+**Flujo típico PYME**: `crear → guardar → seguir trabajando en lista`
 
 #### 4. Navegación "← Volver a Lista"
 
-**Agregar botón claro**:
-- Ubicación: primer botón en CommandBar del Document Surface
-- Texto: `"Volver a Lista"` o `"← Volver"`
+- Ubicación: primer botón en CommandBar del Document Surface (solo en modo INLINE)
 - Icon: `&#xE72B;` (Back)
 - Acción: cerrar surface sin guardar, volver al grid
 
-**Razón**:
-- Permitir cancelar sin guardar
-- Navegación explícita y clara
-- Contexto visual de "dónde estoy"
+#### 5. Workflows Complejos
 
-#### 5. Migración Inicial (Piloto)
-
-**Aplicar PRIMERO solamente a**:
-- Cotizaciones ✅
-- Clientes (pendiente)
-- Productos (pendiente)
-
-**NO migrar todavía**:
-- Pedidos (workflow complejo)
-- Ventas (puede generar otros documentos)
-- OT (multi-paso, diseño/producción)
-
-**Razón**:
-- Piloto controlado
-- Validar UX antes de expansión
-- Observar aceptación operacional y estabilidad runtime
-
-#### 6. Workflows Complejos
-
-**Workflows complejos permanecen usando Workspace Tabs persistentes**.
-
-**Ejemplos de workflows que NO deben usar Document Surfaces**:
+**Workflows complejos permanecen usando Workspace Tabs persistentes**:
 - OT complejas (diseño → producción → QA)
 - Multi-documento (Venta ↔ Pedido ↔ OT)
-- Comparación/análisis (necesita múltiples documentos visibles)
-- Workflows operacionales largos
-
-**Document Surface es para**:
-- CRUD rápido
-- Edición ligera
-- Mantenimiento contextual
-- Operaciones que normalmente se completan en una sola sesión
+- Comparación/análisis
 
 ---
 
-### Arquitectura del Pattern
+### Validación UX Obligatoria (ADR-032)
 
-#### ViewModel del Módulo
-
-```csharp
-// CotizacionesViewModel (listado)
-[ObservableProperty] private bool isDocumentSurfaceVisible;
-[ObservableProperty] private object? documentSurfaceContent;
-
-public void AbrirNuevaCotizacion()
-{
-    DocumentSurfaceContent = null;
-    IsDocumentSurfaceVisible = true;
-}
-
-public void AbrirEditarCotizacion(CotizacionDto cotizacion)
-{
-    DocumentSurfaceContent = cotizacion;
-    IsDocumentSurfaceVisible = true;
-}
-
-public async Task CerrarDocumentSurfaceAsync()
-{
-    IsDocumentSurfaceVisible = false;
-    DocumentSurfaceContent = null;
-    await RefrescarAsync(); // Refrescar grid
-}
-```
-
-#### Page del Módulo (XAML)
-
-```xaml
-<Grid Grid.Row="2">
-    <!-- Listado (visible cuando IsDocumentSurfaceVisible = false) -->
-    <Border Visibility="{x:Bind ViewModel.IsDocumentSurfaceVisible, Mode=OneWay, 
-                                  Converter={StaticResource InverseBoolToVisibilityConverter}}">
-        <ListView ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}" ... />
-    </Border>
-
-    <!-- Document Surface (visible cuando IsDocumentSurfaceVisible = true) -->
-    <ContentPresenter Content="{x:Bind ViewModel.DocumentSurfaceContent, Mode=OneWay}"
-                      Visibility="{x:Bind ViewModel.IsDocumentSurfaceVisible, Mode=OneWay}"/>
-</Grid>
-```
-
-#### Page del Módulo (Code-Behind)
-
-```csharp
-private void BtnNueva_Click(object sender, RoutedEventArgs e)
-{
-    var page = new CotizacionDocumentoPage(null);
-    page.ViewModel.DocumentSaved = OnDocumentSaved;
-    page.VolverALista = OnVolverALista;
-    ViewModel.DocumentSurfaceContent = page;
-    ViewModel.IsDocumentSurfaceVisible = true;
-}
-
-private async void OnDocumentSaved()
-{
-    await ViewModel.CerrarDocumentSurfaceAsync();
-    ViewModel.SuccessMessage = "Guardado correctamente.";
-}
-
-private async void OnVolverALista()
-{
-    await ViewModel.CerrarDocumentSurfaceAsync();
-}
-```
-
-#### ViewModel del Documento
-
-```csharp
-// CotizacionDocumentoViewModel
-public Action? DocumentSaved;
-
-[RelayCommand]
-public async Task GuardarAsync(CancellationToken ct = default)
-{
-    // ... lógica de guardado ...
-    if (IsNuevo)
-    {
-        var r = await _service.CrearAsync(dto, _session.Usuario.Id, ct);
-        if (!r.Success) { ErrorMessage = r.Error; return; }
-        Initialize(r.Value);
-        DocumentSaved?.Invoke(); // ← Notificar al módulo
-    }
-    else
-    {
-        var r = await _service.ActualizarAsync(_documento!.Id, dto, _session.Usuario.Id, ct);
-        if (!r.Success) { ErrorMessage = r.Error; return; }
-        DocumentSaved?.Invoke(); // ← Notificar al módulo
-    }
-}
-```
-
-#### Page del Documento (XAML)
-
-```xaml
-<CommandBar>
-    <!-- Botón "← Volver a Lista" visible solo en Document Surface -->
-    <AppBarButton x:Name="BtnVolverALista" Label="Volver a Lista" Click="BtnVolverALista_Click">
-        <AppBarButton.Icon><FontIcon Glyph="&#xE72B;"/></AppBarButton.Icon>
-    </AppBarButton>
-    <AppBarSeparator/>
-    <AppBarButton Label="Guardar" Command="{x:Bind ViewModel.GuardarCommand}">
-        <AppBarButton.Icon><FontIcon Glyph="&#xE74E;"/></AppBarButton.Icon>
-    </AppBarButton>
-    ...
-</CommandBar>
-```
-
-#### Page del Documento (Code-Behind)
-
-```csharp
-public Action? VolverALista { get; set; }
-
-private void BtnVolverALista_Click(object sender, RoutedEventArgs e)
-{
-    VolverALista?.Invoke();
-}
-```
-
----
-
-### Anti-Patterns
-
-**❌ NO hacer**:
-- Usar Document Surface para workflows complejos/multi-documento
-- Dejar el surface abierto después de guardar (para CRUDs ligeros)
-- Implementar animaciones complejas de transición
-- Usar split view o layouts master-detail permanentes
-- Abrir Workspace Tabs para operaciones CRUD simples (Nueva Cotización, Editar Cliente)
-- Migrar todos los módulos de golpe sin validar el piloto
-
-**✅ HACER**:
-- Workspace Tabs para workflows persistentes/importantes
-- Document Surfaces para CRUD rápido contextual
-- Cerrar y refrescar después de guardar (flujo PYME)
-- Transición instantánea/sutil
-- Botón "← Volver a Lista" claro
-- Validar piloto (Cotizaciones/Clientes/Productos) antes de expandir
-- Preservar WorkspaceService intacto (no rehacer)
-
----
-
-### Validación UX Obligatoria
-
-Confirmar:
-- ✅ Menos caos de tabs
-- ✅ Navegación más natural
-- ✅ Contexto de módulo preservado
-- ✅ Operación más rápida
-- ✅ Flujo PYME (crear → guardar → seguir trabajando)
+- ✅ Grid → doble clic → INLINE correcto
+- ✅ INLINE → Volver a lista correcto
+- ✅ INLINE → Abrir nueva ventana correcto (cierra inline automáticamente)
+- ✅ Ventana standalone: SIN volver a lista, SIN menú contextual inline
+- ✅ Multi-window estable (límite 2 — ADR-028/029)
+- ✅ Sin split layouts, sin overlaps visuales
 - ✅ Runtime Observability funcional
 - ✅ WorkspaceService intacto
 
 ---
 
-## 12. Document Surface Visual Separation Standard (ADR-031) — OBLIGATORIO
+## 12b. Document Surface Visual Separation Standard (ADR-031) — OBLIGATORIO
 
 ### Jerarquía UX oficial
 
@@ -1932,3 +2260,57 @@ Debe incluir obligatoriamente:
 
 ---
 
+## 18. Regla Crítica — Shared Document Session Pattern (ADR-039)
+
+**Regla institucional OBLIGATORIA**. Aplica a TODOS los documentos con detach/open-in-new-window.
+
+### Principio
+
+> Detach = rehost visual.  
+> Detach ≠ nuevo documento.  
+> La ventana desacoplada es un contenedor visual alternativo para la misma sesión documental.
+
+### Lo que DEBE preservarse al desacoplar
+
+- Instancia del ViewModel (NO recrear)
+- Entidad de Directorio seleccionada
+- Chip visual del selector
+- Líneas / detalles en memoria
+- Totales calculados
+- Estado dirty / HasChanges
+- Fechas, campos editados, observaciones
+- Estatus del documento
+
+### Flujo correcto de rehost (OBLIGATORIO)
+
+```csharp
+private void BtnAbrirEnVentana_Click(object sender, RoutedEventArgs e)
+{
+    var paginaActual = this;
+
+    // Paso 1: Salir del árbol visual inline (OBLIGATORIO antes de entrar al nuevo host)
+    EsInlineMode = false;
+    VolverALista?.Invoke(); // → DocumentSurfaceContent = null (sincrónico)
+
+    // Paso 2: Rehostear la misma instancia
+    _windowManager.OpenWindow<DetachedDocumentWindow, string>(
+        key: windowKey,
+        factory: () => new DetachedDocumentWindow(paginaActual, titulo));
+}
+```
+
+### PROHIBIDO en detach
+
+- `new DocumentoPage(dto)` dentro del factory de detach (recrea ViewModel)
+- `ViewModel.Initialize(dto)` al rehostear (equivale a recargar desde BD)
+- Auto-save antes o durante el detach
+- Recargar datos desde BD durante el rehost
+- Instanciar un nuevo ViewModel durante detach/attach
+- Perder dirty state al cambiar de host visual
+
+### Implementación actual
+
+- ✅ `CotizacionDocumentoPage.BtnAbrirEnVentana_Click` — corregido (ADR-039)
+- El resto de documentos (Pedido, Venta, OT) no tienen botón detach actualmente (inline-only per ADR-031). Si se agrega detach a futuro, debe seguir este patrón sin excepción.
+
+---

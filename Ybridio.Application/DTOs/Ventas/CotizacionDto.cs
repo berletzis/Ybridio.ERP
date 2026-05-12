@@ -22,7 +22,7 @@ public sealed record CotizacionDto(
     long                          Id,
     int                           EmpresaId,
     int?                          SucursalId,
-    int?                          ClienteId,
+    int?                          RelacionComercialId,
     string                        NombreCliente,
     EstatusCotizacion             Estatus,
     string                        EstatusTexto,
@@ -37,7 +37,7 @@ public sealed record CotizacionDto(
 public sealed record CrearCotizacionDto(
     int                                EmpresaId,
     int?                               SucursalId,
-    int?                               ClienteId,
+    int?                               RelacionComercialId,
     string                             NombreCliente,
     DateTime                           Fecha,
     DateTime?                          FechaVigencia,
@@ -73,7 +73,7 @@ public sealed record CrearDetalleLineaDto(
 /// El header se actualiza en batch; los detalles se persisten inmediatamente al agregar/quitar.
 /// </remarks>
 public sealed record ActualizarCotizacionDto(
-    int?      ClienteId,
+    int?      RelacionComercialId,
     string    NombreCliente,
     DateTime  Fecha,
     DateTime? FechaVigencia,

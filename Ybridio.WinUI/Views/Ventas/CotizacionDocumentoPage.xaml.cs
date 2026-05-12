@@ -1,11 +1,14 @@
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using Ybridio.Application.DTOs.Catalogos;
+using Ybridio.Application.DTOs.Directorio;
 using Ybridio.Application.DTOs.Inventario;
+using Ybridio.Application.Services.Directorio;
 using Ybridio.Application.Services.Inventario;
 using Ybridio.Application.Services.Producto;
 using Ybridio.Application.Services.Venta;
@@ -15,7 +18,6 @@ using Ybridio.WinUI.Services.Windowing;
 using Ybridio.WinUI.Services.Workspace;
 using Ybridio.WinUI.ViewModels.Ventas;
 using Ybridio.WinUI.Views.Detached;
-using ClienteDto     = Ybridio.Application.DTOs.Ventas.ClienteDto;
 using CotizacionDto  = Ybridio.Application.DTOs.Ventas.CotizacionDto;
 using PedidoDto      = Ybridio.Application.DTOs.Ventas.PedidoDto;
 using XamlApp        = Microsoft.UI.Xaml.Application;
@@ -34,14 +36,14 @@ public sealed partial class CotizacionDocumentoPage : Page
     private readonly IInventarioService        _inventarioService;
     private readonly SessionService            _session;
     private readonly IWindowManager            _windowManager;         // ADR-029: Centralized Window Management
-    private readonly CotizacionDto?            _cotizacionOriginal;    // ADR-028: snapshot para ventanas detached
+    private readonly CotizacionDto?            _cotizacionOriginal;    // ADR-039: referencia para window key y título
     public CotizacionDocumentoViewModel ViewModel { get; }
 
     public CotizacionDocumentoPage(CotizacionDto? cotizacion)
     {
         ViewModel = new CotizacionDocumentoViewModel(
             App.Services.GetRequiredService<ICotizacionService>(),
-            App.Services.GetRequiredService<IClienteService>(),
+            App.Services.GetRequiredService<IRelacionComercialService>(),
             App.Services.GetRequiredService<Ybridio.Application.Services.Autorizacion.IErpAuthorizationService>(),
             App.Services.GetRequiredService<SessionService>(),
             App.Services.GetRequiredService<Ybridio.WinUI.Services.Diagnostic.IOperationalObservabilityService>(),
@@ -61,71 +63,149 @@ public sealed partial class CotizacionDocumentoPage : Page
     }
 
     /// <summary>
+    /// Constructor de rehost (ADR-039 — Shared ViewModel Pattern).
+    /// Crea una nueva Page en la ventana desacoplada reutilizando el ViewModel existente.
+    /// NO llama a Initialize() para preservar todo el estado runtime sin pérdida.
+    /// El chip del selector se restaura desde ViewModel.EntidadDirectorioSeleccionada.
+    /// </summary>
+    internal CotizacionDocumentoPage(CotizacionDocumentoViewModel viewModelExistente, CotizacionDto? cotizacionOriginal)
+    {
+        ViewModel = viewModelExistente;
+
+        _workspace          = App.Services.GetRequiredService<IWorkspaceService>();
+        _productoService    = App.Services.GetRequiredService<IProductoService>();
+        _inventarioService  = App.Services.GetRequiredService<IInventarioService>();
+        _session            = App.Services.GetRequiredService<SessionService>();
+        _windowManager      = App.Services.GetRequiredService<IWindowManager>();
+        _cotizacionOriginal = cotizacionOriginal;
+
+        InitializeComponent();
+
+        // Restaurar chip del selector desde el ViewModel (ADR-039)
+        // x:Bind en el XAML enlaza la lógica de negocio del ViewModel correctamente.
+        // El selector control necesita que se le pase la entidad seleccionada explícitamente
+        // porque es un UserControl con DependencyProperty propio, no enlazado vía x:Bind TwoWay.
+        if (ViewModel.EntidadDirectorioSeleccionada is not null)
+            SelectorCliente.EntidadSeleccionada = ViewModel.EntidadDirectorioSeleccionada;
+
+        ViewModel.NotificarPedidoGenerado = AbrirPedidoEnWorkspace;
+    }
+
+    /// <summary>
     /// Callback invocado cuando el usuario hace clic en "← Volver a Lista".
-    /// Usado por el Document Surface UX Pattern para cerrar el surface y volver al grid.
+    /// Usado por el Document Surface UX Pattern (ADR-032) para cerrar el surface y volver al grid.
     /// </summary>
     public Action? VolverALista { get; set; }
 
     /// <summary>
-    /// Callback invocado cuando el usuario hace clic en "Desacoplar Surface" (ADR-027).
-    /// Alterna entre modo acoplado (content replacement) y modo desacoplado (split view).
-    /// Permite multitarea ligera controlada sin volver a Workspace Tabs infinitos.
+    /// Indica si el documento está embebido inline dentro del módulo (true) o en ventana standalone (false).
+    /// Controla la visibilidad de "Volver a Lista" y "Abrir en nueva ventana" en el CommandBar.
     /// </summary>
-    public Action? ToggleDetach { get; set; }
-
-    private void BtnVolverALista_Click(object sender, RoutedEventArgs e)
+    public bool EsInlineMode
     {
+        get => _esInlineMode;
+        set
+        {
+            _esInlineMode = value;
+            var vis = value ? Visibility.Visible : Visibility.Collapsed;
+            BtnVolverALista.Visibility   = vis;
+            BtnAbrirEnVentana.Visibility = vis;
+        }
+    }
+    private bool _esInlineMode;
+
+    private async void BtnVolverALista_Click(object sender, RoutedEventArgs e)
+    {
+        if (!await MostrarConfirmacionCierreAsync()) return;
         VolverALista?.Invoke();
     }
 
-    // ── Document Surface Detachable Mode (ADR-027) ───────────────────────────
-
-    private void BtnToggleDetach_Click(object sender, RoutedEventArgs e)
-    {
-        ToggleDetach?.Invoke();
-    }
-
-    // ── Document Surface Window Detach Mode (ADR-028 + ADR-029) ──────────────
+    // ── Window Mode (ADR-032 / ADR-039) ──────────────────────────────────────
 
     /// <summary>
-    /// Abre el documento de cotización actual en una ventana OS real independiente.
-    /// LIMITACIÓN ARQUITECTÓNICA: Máximo 2 ventanas desacopladas simultáneas (ADR-028).
-    /// Usa WindowManager centralizado (ADR-029) con key prefix "detached:" para policy enforcement.
-    /// Crea nueva instancia del documento page con snapshot original del DTO para evitar conflictos de state.
+    /// Mueve el documento actual a una ventana OS real independiente (ADR-039: Shared Document Session Pattern).
+    /// Rehostea ESTA página (misma instancia, mismo ViewModel, estado runtime completo) en la ventana desacoplada.
+    /// NO recrea el documento. NO pierde estado. NO hace auto-save.
     /// </summary>
     private void BtnAbrirEnVentana_Click(object sender, RoutedEventArgs e)
     {
-        var titulo = _cotizacionOriginal is not null
-            ? $"Cotización - {_cotizacionOriginal.NombreCliente}"
-            : "Nueva Cotización";
+        // Título construido desde el runtime state actual del ViewModel (no desde snapshot estático)
+        var titulo = !string.IsNullOrWhiteSpace(ViewModel.NombreCliente)
+            ? $"Cotización - {ViewModel.NombreCliente}"
+            : (ViewModel.IsNuevo ? "Nueva Cotización" : $"Cotización #{_cotizacionOriginal?.Id}");
 
-        // Key con prefix "detached:" activa policy de límite máximo 2 ventanas en WindowManager
-        var cotizacionId = _cotizacionOriginal?.Id.ToString() ?? Guid.NewGuid().ToString();
-        var detachedKey  = $"detached:cotizacion:{cotizacionId}";
+        var cotizacionId = _cotizacionOriginal?.Id.ToString() ?? _sessionKey;
+        var windowKey    = $"detached:cotizacion:{cotizacionId}";
+
+        // ADR-039 — Shared ViewModel Pattern para WinUI 3:
+        // WinUI 3 no permite mover un UIElement entre ventanas (límite de compositor).
+        // La solución correcta es crear una nueva Page en la nueva ventana pasando el ViewModel
+        // existente. El estado runtime (líneas, cliente, dirty, totales) vive en el ViewModel
+        // y se preserva completamente. Solo el selector chip requiere restauración explícita.
+        var viewModelActual    = ViewModel;
+        var cotizacionOriginal = _cotizacionOriginal;
 
         try
         {
+            // Cerrar inline surface: el módulo vuelve al grid
+            VolverALista?.Invoke();
+
             _windowManager.OpenWindow<DetachedDocumentWindow, string>(
-                key: detachedKey,
+                key: windowKey,
                 factory: () =>
                 {
-                    // Crear nueva instancia de la página con snapshot del documento original
-                    // IMPORTANTE: Cada ventana tiene su propia instancia de página y ViewModel para evitar conflictos de state
-                    var nuevaPagina = new CotizacionDocumentoPage(_cotizacionOriginal);
-                    return new DetachedDocumentWindow(nuevaPagina, titulo);
+                    // Nueva Page + mismo ViewModel existente = misma sesión documental
+                    var paginaRehost = new CotizacionDocumentoPage(viewModelActual, cotizacionOriginal);
+                    return new DetachedDocumentWindow(paginaRehost, titulo);
                 },
                 options: new WindowOptions
                 {
-                    Width  = 1200,
-                    Height = 800,
+                    Width            = 1200,
+                    Height           = 800,
                     PositionStrategy = WindowPositionStrategy.CenterScreen
                 });
         }
         catch (DetachedWindowLimitException ex)
         {
-            // Mostrar mensaje operacional al usuario cuando límite es alcanzado
             _ = MostrarMensajeLimiteVentanasAsync(ex);
         }
+    }
+
+    // Clave de sesión única para cotizaciones nuevas (sin Id asignado aún)
+    private readonly string _sessionKey = Guid.NewGuid().ToString();
+
+    // ── Protección de cierre (ADR-040) ────────────────────────────────────────
+
+    /// <summary>
+    /// Muestra el diálogo institucional de confirmación al cerrar un documento con cambios no guardados.
+    /// Devuelve <c>true</c> si el usuario decidió guardar o descartar; <c>false</c> si canceló (no cerrar).
+    /// </summary>
+    public async Task<bool> MostrarConfirmacionCierreAsync()
+    {
+        if (!ViewModel.IsDirty) return true;
+
+        var dialog = new ContentDialog
+        {
+            Title               = "Cambios sin guardar",
+            Content             = "Existen cambios sin guardar. ¿Desea cerrar y perder los cambios?",
+            PrimaryButtonText   = "Guardar",
+            SecondaryButtonText = "No guardar",
+            CloseButtonText     = "Cancelar",
+            DefaultButton       = ContentDialogButton.Primary,
+            XamlRoot            = XamlRoot
+        };
+
+        var result = await dialog.ShowAsync();
+        if (result == ContentDialogResult.Primary)
+        {
+            // Guardar antes de cerrar
+            await ViewModel.GuardarCommand.ExecuteAsync(null);
+            return true;
+        }
+        if (result == ContentDialogResult.Secondary)
+            return true;  // No guardar — cerrar de todas formas
+
+        return false;  // Cancelar — no cerrar
     }
 
     /// <summary>
@@ -154,46 +234,43 @@ public sealed partial class CotizacionDocumentoPage : Page
             isClosable:  true);
     }
 
-    // ── Handlers AutoSuggestBox de Cliente ───────────────────────────────────
+    // ── Handler RelacionComercialSelectorControl (ADR-038) ─────────────────
 
-    private async void ClienteAutoSuggest_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
+    private void SelectorCliente_SelectionChanged(object? sender, DirectorioSelectorDto? entidad)
     {
-        // Solo buscar cuando el usuario escribe (no cuando el sistema cambia el texto)
-        if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput) return;
-
-        var texto = sender.Text;
-        if (string.IsNullOrWhiteSpace(texto) || texto.Length < 2)
-        {
+        if (entidad is not null)
+            ViewModel.SeleccionarCliente(entidad);
+        else
             ViewModel.LimpiarCliente();
-            sender.ItemsSource = null;
-            return;
-        }
-        await ViewModel.BuscarClientesAsync(texto);
-        sender.ItemsSource = ViewModel.SugerenciasCliente;
-    }
-
-    private void ClienteAutoSuggest_SuggestionChosen(AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs args)
-    {
-        if (args.SelectedItem is ClienteDto cliente)
-        {
-            ViewModel.SeleccionarCliente(cliente);
-            sender.Text = cliente.Nombre;
-        }
-    }
-
-    private void ClienteAutoSuggest_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
-    {
-        if (args.ChosenSuggestion is ClienteDto cliente)
-            ViewModel.SeleccionarCliente(cliente);
     }
 
     // ── Handlers de CommandBar ────────────────────────────────────────────────
+
+    /// <summary>
+    /// Edición inline de cantidad (ADR-041 — Operational Editable Document Lines Pattern).
+    /// Para documentos NUEVOS: el binding TwoWay en CantidadDouble ya aplica el cambio y recalcula vía INPC.
+    /// Para documentos EXISTENTES: además persiste el detalle en BD a través de ActualizarCantidadAsync.
+    /// </summary>
+    private async void NumberBox_Cantidad_ValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
+    {
+        if (double.IsNaN(args.NewValue)) return;
+        if (args.NewValue == args.OldValue) return;
+        if (sender.Tag is not ViewModels.Ventas.DetalleLineaEditable linea) return;
+
+        var nuevaCantidad = (decimal)args.NewValue;
+
+        // Para documentos existentes: persistir en BD (el INPC del TwoWay ya actualizó la UI)
+        if (!ViewModel.IsNuevo)
+            await ViewModel.ActualizarCantidadAsync(linea, nuevaCantidad);
+        // Para nuevos: el setter CantidadDouble → SetCantidad ya disparó INPC + callback
+    }
 
     private async void BtnAgregarLinea_Click(object sender, RoutedEventArgs e)
     {
         var detalle = await MostrarDialogoNuevaLinea();
         if (detalle is null) return;
-        await ViewModel.AgregarDetalleLocalAsync(detalle);
+        // ADR-040: merge-or-add — nunca crear líneas duplicadas del mismo producto
+        await ViewModel.AgregarOIncrementarDetalleAsync(detalle);
     }
 
     private async void BtnEnviar_Click(object sender, RoutedEventArgs e)
@@ -338,6 +415,7 @@ public sealed partial class CotizacionDocumentoPage : Page
             cantidad:             qty,
             precioUnitario:       precio,
             sku:                  productoSeleccionado.Codigo,
-            existenciaDisponible: existenciaTotal > 0 ? existenciaTotal : null);
+            existenciaDisponible: existenciaTotal > 0 ? existenciaTotal : null,
+            ivaAplicable:         productoSeleccionado.IvaAplicable);
     }
 }

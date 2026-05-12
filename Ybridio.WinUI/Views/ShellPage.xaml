@@ -215,13 +215,13 @@
                     </Button>
 
                     <Button Grid.Row="4"
-                            Tag="Contactos"
+                            Tag="Directorio"
                             Click="ModuleButton_Click"
                             Style="{StaticResource ShellNavButtonStyle}"
-                            ToolTipService.ToolTip="Contactos">
+                            ToolTipService.ToolTip="Directorio">
                         <StackPanel HorizontalAlignment="Center" Spacing="4">
-                            <FontIcon Glyph="&#xE77B;" FontSize="20"/>
-                            <TextBlock Text="Contactos" FontSize="10"/>
+                            <FontIcon Glyph="&#xE716;" FontSize="20"/>
+                            <TextBlock Text="Directorio" FontSize="10"/>
                         </StackPanel>
                     </Button>
 

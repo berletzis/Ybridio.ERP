@@ -2,7 +2,9 @@ using System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Ybridio.Application.DTOs.Directorio;
 using Ybridio.Application.DTOs.Ventas;
+using Ybridio.Application.Services.Directorio;
 using Ybridio.Application.Services.Venta;
 using Ybridio.Domain.Ventas;
 using Ybridio.WinUI.Services;
@@ -22,6 +24,7 @@ public sealed partial class OrdenTrabajoDocumentoPage : Page
     {
         ViewModel = new OrdenTrabajoDocumentoViewModel(
             App.Services.GetRequiredService<IOrdenTrabajoService>(),
+            App.Services.GetRequiredService<IRelacionComercialService>(),
             App.Services.GetRequiredService<Ybridio.Application.Services.Autorizacion.IErpAuthorizationService>(),
             App.Services.GetRequiredService<SessionService>(),
             App.Services.GetRequiredService<Ybridio.WinUI.Services.Diagnostic.IOperationalObservabilityService>(),
@@ -34,6 +37,16 @@ public sealed partial class OrdenTrabajoDocumentoPage : Page
     private async void BtnVolver_Click(object sender, RoutedEventArgs e)
     {
         if (OnCerrar is not null) await OnCerrar();
+    }
+
+    // ── Handler RelacionComercialSelectorControl (ADR-038) ─────────────────
+
+    private void SelectorCliente_SelectionChanged(object? sender, DirectorioSelectorDto? entidad)
+    {
+        if (entidad is not null)
+            ViewModel.SeleccionarCliente(entidad);
+        else
+            ViewModel.LimpiarCliente();
     }
 
     private async void BtnAgregarMaterial_Click(object sender, RoutedEventArgs e)

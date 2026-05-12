@@ -1,0 +1,159 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+    ═══════════════════════════════════════════════════════════════════════════
+    ERP — Pixel Perfect Operational Layout System (ADR-034)
+    Source of truth: Styles/Layout/LayoutBase.xaml
+    ═══════════════════════════════════════════════════════════════════════════
+
+    REGLAS INSTITUCIONALES (ADR-034):
+      · PROHIBIDO márgenes arbitrarios (Margin="7", Margin="13", etc.).
+      · TODO spacing debe provenir de los tokens definidos aquí.
+      · Content boundary lateral OFICIAL = ErpContentBoundary (20px).
+      · TODO elemento operacional (CommandBar, grids, forms, status, totales)
+        debe compartir la misma boundary horizontal.
+
+    Spacing scale oficial:
+      ErpSpace4   =  4px
+      ErpSpace8   =  8px
+      ErpSpace12  = 12px
+      ErpSpace16  = 16px
+      ErpSpace24  = 24px
+      ErpSpace32  = 32px
+
+    Content boundary system:
+      ErpContentBoundary          = 20px lateral (left + right)
+      ErpContentBoundaryThickness = Thickness(20,0,20,0)  — para Margin horizontal
+      ErpContentPaddingDefault    = Thickness(20,8,20,8)  — padding interno estándar
+    ═══════════════════════════════════════════════════════════════════════════
+    -->
+
+    <!-- ── Spacing scale tokens ─────────────────────────────────────────── -->
+    <x:Double x:Key="ErpSpace4">4</x:Double>
+    <x:Double x:Key="ErpSpace8">8</x:Double>
+    <x:Double x:Key="ErpSpace12">12</x:Double>
+    <x:Double x:Key="ErpSpace16">16</x:Double>
+    <x:Double x:Key="ErpSpace24">24</x:Double>
+    <x:Double x:Key="ErpSpace32">32</x:Double>
+
+    <!-- ── Content boundary system ──────────────────────────────────────── -->
+    <!--
+        ErpContentBoundary: valor numérico de la boundary lateral oficial.
+        Usar para ColumnDefinition Width, MinWidth, etc.
+    -->
+    <x:Double  x:Key="ErpContentBoundary">20</x:Double>
+
+    <!--
+        ErpContentBoundaryThickness: Margin lateral estándar.
+        Uso: Margin="{StaticResource ErpContentBoundaryThickness}"
+        Equivale a: Margin="20,0,20,0"
+    -->
+    <Thickness x:Key="ErpContentBoundaryThickness">20,0,20,0</Thickness>
+
+    <!--
+        ErpContentBoundaryWithTopGap: boundary lateral + gap superior de 8px.
+        Uso: grids/forms que necesitan espacio superior respecto al anterior.
+        Equivale a: Margin="20,8,20,0"
+    -->
+    <Thickness x:Key="ErpContentBoundaryWithTopGap">20,8,20,0</Thickness>
+
+    <!--
+        ErpContentBoundaryBottom: boundary lateral + gap inferior de 16px.
+        Uso: último elemento antes del borde inferior de la página.
+        Equivale a: Margin="20,0,20,16"
+    -->
+    <Thickness x:Key="ErpContentBoundaryBottom">20,0,20,16</Thickness>
+
+    <!--
+        ErpStatusRegionMargin: margin de la status bar.
+        Sin top gap (0) porque la status bar va pegada al elemento anterior.
+        Equivale a: Margin="20,0,20,8"
+    -->
+    <Thickness x:Key="ErpStatusRegionMargin">20,0,20,8</Thickness>
+
+    <!--
+        ErpCommandBarPadding: padding que alinea el primer botón de CommandBar
+        con la content boundary de 20px.
+        CommandBar tiene ~14px de padding interno al primer botón.
+        6px padding left + 14px interno ≈ 20px visual boundary.
+        Equivale a: Padding="6,0,0,0"
+    -->
+    <Thickness x:Key="ErpCommandBarPadding">6,0,0,0</Thickness>
+
+    <!-- ── Filter / search region ────────────────────────────────────────── -->
+    <!--
+        ErpFilterRegionPadding: padding de la fila de búsqueda/filtros.
+        Left/Right = 20px (content boundary), Top/Bottom = 8px/4px.
+        Equivale a: Padding="20,8,20,4"
+    -->
+    <Thickness x:Key="ErpFilterRegionPadding">20,8,20,4</Thickness>
+
+    <!-- ── Document Surface layout tokens ───────────────────────────────── -->
+    <!--
+        ErpDocumentSurfaceMargin: margin del ContentPresenter del Document Surface.
+        Mismo boundary que el listado que reemplaza.
+        Equivale a: Margin="20,4,20,0"
+    -->
+    <Thickness x:Key="ErpDocumentSurfaceMargin">20,4,20,0</Thickness>
+
+    <!--
+        ErpDocumentHeaderPadding: padding del header strip del Document Surface.
+        Equivale a: Padding="20,8,20,8"
+    -->
+    <Thickness x:Key="ErpDocumentHeaderPadding">20,8,20,8</Thickness>
+
+    <!--
+        ErpDocumentFormPadding: padding de secciones de formulario (form cards).
+        Equivale a: Padding="16,12"
+    -->
+    <Thickness x:Key="ErpDocumentFormPadding">16,12,16,12</Thickness>
+
+    <!-- ── Container styles ─────────────────────────────────────────────── -->
+
+    <!--
+        ErpOperationalCardStyle
+        ─────────────────────────
+        Contexto: contenedor de contenido operacional (listas, grids, forms).
+        Apariencia: fondo blanco, borde gris suave (#E5E5E5, 1px).
+        Margin: usa ErpContentBoundaryWithTopGap (20,8,20,0) por defecto.
+
+        Uso:
+          <Border Style="{StaticResource ErpOperationalCardStyle}">
+              ...contenido...
+          </Border>
+
+        Regla: NO sobreescribir Margin arbitrariamente. Si se necesita variante,
+        crear un nuevo estilo semántico con nombre que refleje el contexto.
+    -->
+    <Style x:Key="ErpOperationalCardStyle" TargetType="Border">
+        <Setter Property="Background"       Value="White"/>
+        <Setter Property="BorderBrush"      Value="#E5E5E5"/>
+        <Setter Property="BorderThickness"  Value="1"/>
+        <Setter Property="Margin"           Value="{StaticResource ErpContentBoundaryWithTopGap}"/>
+    </Style>
+
+    <!--
+        ErpOperationalCardTopStyle
+        ───────────────────────────
+        Variante sin top gap — para el primer card que sigue directo al CommandBar.
+        Equivale a: Margin="20,4,20,0"
+    -->
+    <Style x:Key="ErpOperationalCardTopStyle" TargetType="Border"
+           BasedOn="{StaticResource ErpOperationalCardStyle}">
+        <Setter Property="Margin" Value="20,4,20,0"/>
+    </Style>
+
+    <!--
+        ErpTotalesCardStyle
+        ────────────────────
+        Contenedor de totales/resumen al pie del Document Surface.
+        Padding interno estándar para área de totales.
+    -->
+    <Style x:Key="ErpTotalesCardStyle" TargetType="Border"
+           BasedOn="{StaticResource ErpOperationalCardStyle}">
+        <Setter Property="Padding" Value="{StaticResource ErpDocumentFormPadding}"/>
+    </Style>
+
+</ResourceDictionary>

@@ -14,7 +14,7 @@ using Ybridio.WinUI.Services.Diagnostic;
 using Ybridio.WinUI.Services.Workspace;
 using Ybridio.WinUI.ViewModels;
 using Ybridio.WinUI.Views.Configuracion;
-using Ybridio.WinUI.Views.Contactos;
+using Ybridio.WinUI.Views.Contactos; // legacy; Directorio module reuses ContactosPage placeholder
 using Ybridio.WinUI.Views.Dashboard;
 using Ybridio.WinUI.Views.Finanzas;
 using Ybridio.WinUI.Views.Inventario;
@@ -90,7 +90,7 @@ public sealed partial class ShellPage : Page
             "POS"                                    => (typeof(PosPage),                  null),
             "Inventario"                             => (typeof(InventarioPage),            null),
             "Ventas"                                 => (typeof(VentasPage),               null),
-            "Contactos"                              => (typeof(ContactosPage),             null),
+            "Directorio"                             => (typeof(ContactosPage),             null),
             "Finanzas"                               => (typeof(FinanzasPage),              null),
             "Configuracion" or "ConfiguracionGlobal" => (typeof(ConfiguracionPage),        "Global"),
             "ConfiguracionTienda"                    => (typeof(ConfiguracionPage),        "Tienda"),
@@ -109,7 +109,7 @@ public sealed partial class ShellPage : Page
             "POS"                                    => "POS",
             "Inventario"                             => "Inventario",
             "Ventas"                                 => "Ventas",
-            "Contactos"                              => "Contactos",
+            "Directorio"                             => "Directorio",
             "Finanzas"                               => "Finanzas",
             "Configuracion" or "ConfiguracionGlobal" => "Configuración",
             "ConfiguracionTienda"                    => "Config. Tienda",

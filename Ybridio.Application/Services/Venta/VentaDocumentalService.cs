@@ -43,29 +43,19 @@ public sealed class VentaDocumentalService : IVentaDocumentalService
             return ServiceResult<IReadOnlyList<VentaDocumentalResumenDto>>.Ok(
                 Array.Empty<VentaDocumentalResumenDto>());
 
-        if (!await _auth.PuedeAsync(PermisosClave.Venta.Ver, ct))
+        // ADR-026 — Strategy A: authorization check uses CancellationToken.None.
+        // Authorization parcialmente cancelada dejaría la UI en estado ambiguo.
+        if (!await _auth.PuedeAsync(PermisosClave.Venta.Ver, CancellationToken.None))
             return ServiceResult<IReadOnlyList<VentaDocumentalResumenDto>>.Fail(
                 "Sin permiso (venta.ver).", ErrorCode.Unauthorized);
+
+        // ADR-026: Re-check after async auth call; ct may have been cancelled during it.
+        if (ct.IsCancellationRequested)
+            return ServiceResult<IReadOnlyList<VentaDocumentalResumenDto>>.Ok(
+                Array.Empty<VentaDocumentalResumenDto>());
 
         var query = _context.Ventas.AsNoTracking()
             .Where(v => v.EmpresaId == empresaId && v.NombreCliente != null); // solo documentales
-
-        if (desde.HasValue) query = query.Where(v => v.Fecha >= desde.Value);
-        if (hasta.HasValue) query = query.Where(v => v.Fecha <= hasta.Value);
-
-        var lista = await query.OrderByDescending(v => v.Fecha).ThenByDescending(v => v.Id).ToListAsync(ct);
-        return ServiceResult<IReadOnlyList<VentaDocumentalResumenDto>>.Ok(lista.Select(MapToResumen).ToList());
-    }
-    {
-        if (!await _auth.PuedeAsync(PermisosClave.Venta.Ver, ct))
-            return ServiceResult<IReadOnlyList<VentaDocumentalResumenDto>>.Fail(
-                "Sin permiso (venta.ver).", ErrorCode.Unauthorized);
-
-        if (ct.IsCancellationRequested)
-            return ServiceResult<IReadOnlyList<VentaDocumentalResumenDto>>.Fail(
-                "Operación cancelada.", ErrorCode.Canceled);
-
-        if (!await _auth.PuedeAsync(PermisosClave.Venta.Ver, ct))
 
         if (desde.HasValue) query = query.Where(v => v.Fecha >= desde.Value);
         if (hasta.HasValue) query = query.Where(v => v.Fecha <= hasta.Value);
@@ -124,7 +114,7 @@ public sealed class VentaDocumentalService : IVentaDocumentalService
         {
             EmpresaId     = dto.EmpresaId,
             SucursalId    = dto.SucursalId,
-            ClienteId     = dto.ClienteId,
+            RelacionComercialId     = dto.RelacionComercialId,
             NombreCliente = dto.NombreCliente.Trim(),
             TipoPago      = dto.TipoPago,
             Fecha         = dto.Fecha,
@@ -166,7 +156,7 @@ public sealed class VentaDocumentalService : IVentaDocumentalService
         var dto = new CrearVentaDocumentalDto(
             EmpresaId:    pedido.EmpresaId,
             SucursalId:   pedido.SucursalId ?? 1,
-            ClienteId:    pedido.ClienteId,
+            RelacionComercialId:    pedido.RelacionComercialId,
             NombreCliente: pedido.NombreCliente,
             TipoPago:     TipoPago.Contado,
             Fecha:        DateTime.Today,
@@ -196,7 +186,7 @@ public sealed class VentaDocumentalService : IVentaDocumentalService
             return ServiceResult<VentaDocumentalDto>.Fail(
                 "Solo se puede editar una venta en estado Borrador.", ErrorCode.ValidationFailed);
 
-        venta.ClienteId     = dto.ClienteId;
+        venta.RelacionComercialId     = dto.RelacionComercialId;
         venta.NombreCliente = dto.NombreCliente.Trim();
         venta.TipoPago      = dto.TipoPago;
         venta.Fecha         = dto.Fecha;
@@ -462,7 +452,7 @@ public sealed class VentaDocumentalService : IVentaDocumentalService
             Id:             v.Id,
             EmpresaId:      v.EmpresaId,
             SucursalId:     v.SucursalId,
-            ClienteId:      v.ClienteId,
+            RelacionComercialId:      v.RelacionComercialId,
             NombreCliente:  v.NombreCliente ?? "",
             Estatus:        v.Estatus,
             EstatusTexto:   v.Estatus switch

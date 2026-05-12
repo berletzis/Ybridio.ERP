@@ -2,7 +2,472 @@
 
 > Este documento registra las decisiones técnicas importantes tomadas durante el desarrollo de Ybridio ERP,
 > incluyendo la alternativa descartada y la razón de la elección.  
-> Última actualización: 2026-05-10 (Document Surface Visual Separation Standard — ADR-031: eliminación tabs documentales ensimados, jerarquía UX oficial, anti-patterns browser/IDE)
+> Última actualización: 2026-05-12 (ADR-041: Operational Editable Document Lines Pattern)
+
+---
+
+## ADR-041 — Operational Editable Document Lines Pattern
+
+**Decisión**: Las líneas de un documento comercial (Cotización) deben ser editables inline sin abrir ningún diálogo pesado. La columna `Cantidad` usa un `NumberBox` inline. Toda modificación recalcula importe de línea y totales del documento de forma inmediata. `DetalleLineaEditable` implementa `INotifyPropertyChanged` para que el grid refleje cambios en tiempo real.
+
+**Problema identificado**:
+- `DetalleLineaEditable` era un POCO sin notificaciones: la columna `Importe` no se actualizaba visualmente al cambiar la cantidad.
+- La cantidad solo podía editarse reabriendo el diálogo completo del producto — experiencia lenta y no ERP-nativa.
+- Los totales del documento se actualizaban correctamente, pero la línea visual quedaba desfasada (subtotal mostraba valor correcto, pero el importe de la fila mostraba el valor anterior).
+- Existían múltiples rutas de cálculo de importe: en el POCO, en el ViewModel, en el servicio — sin Single Source of Truth.
+
+**Reglas institucionales ADR-041 (OBLIGATORIAS)**:
+> `DetalleLineaEditable` DEBE implementar `INotifyPropertyChanged`.  
+> `Importe` es propiedad calculada (`Cantidad × PrecioUnitario`) — NUNCA almacenada separada en el modelo editable.  
+> `Cantidad` y `PrecioUnitario` DEBEN notificar cambios de `Importe` vía `PropertyChanged`.  
+> Toda edición de cantidad DEBE llamar a `RecalcularTotales()` vía `CantidadCambiadaCallback`.  
+> NUNCA abrir modal pesado solo para editar cantidad.  
+> `ActualizarCantidadAsync(linea, nuevaCantidad)` es el único entry point para modificar cantidad.  
+> Cantidad negativa → ignorar silenciosamente.  
+> Cantidad = 0 → eliminar línea automáticamente.  
+> Para documentos existentes → persistir inmediatamente vía eliminar + reagregar detalle en BD.
+
+**Solución adoptada**:
+- `DetalleLineaEditable` convertido a `INotifyPropertyChanged` con backing fields `_cantidad` y `_precioUnitario`.
+- `Cantidad` y `CantidadDouble` (wrapper `double` para `NumberBox`) notifican `Cantidad`, `CantidadDouble` e `Importe`.
+- `CantidadCambiadaCallback` (internal `Action?`) conectado por `WirarLinea()` para disparar `IsDirty = true` + `RecalcularTotales()`.
+- `WirarLinea(DetalleLineaEditable linea)` — helper del ViewModel que asigna el callback y retorna la línea. Llamado en `Initialize()` y `AgregarDetalleLocalAsync()`.
+- `ActualizarCantidadAsync(linea, nuevaCantidad)` — lógica centralizada de actualización: valida negativo/cero, aplica en memoria (nuevo doc) o persiste en BD (doc existente).
+- `IncrementarCantidadAsync` delegado a `ActualizarCantidadAsync`.
+- XAML `DataTemplate`: `Cantidad` es `NumberBox` con `Value="{x:Bind CantidadDouble, Mode=TwoWay}"`, `Minimum=0`, sin spin-buttons. `Importe` y `PrecioUnitario` usan `Mode=OneWay`.
+- `NumberBox_Cantidad_ValueChanged` en code-behind: solo persiste en BD cuando `!ViewModel.IsNuevo`. Para nuevos docs, el binding TwoWay + INPC ya aplica el cambio.
+
+**Alternativas descartadas**:
+- Modal de edición de cantidad: descartado — excesiva fricción operacional para POS/ERP.
+- `ObservableCollection<DetalleLineaEditable>` solo para trigger de UI: descartado — la colección notifica inserciones/eliminaciones pero no mutaciones de propiedades internas; se requiere INPC en el item.
+- Recalcular totales solo en CollectionChanged: descartado — no detecta cambios de cantidad en líneas existentes.
+
+**Archivos clave**:
+- `Ybridio.WinUI/ViewModels/Ventas/CotizacionDocumentoViewModel.cs` — `DetalleLineaEditable`, `WirarLinea`, `ActualizarCantidadAsync`.
+- `Ybridio.WinUI/Views/Ventas/CotizacionDocumentoPage.xaml` — inline `NumberBox` quantity editor.
+- `Ybridio.WinUI/Views/Ventas/CotizacionDocumentoPage.xaml.cs` — `NumberBox_Cantidad_ValueChanged` handler.
+
+---
+
+## ADR-040 — Operational Commercial Document Standard
+
+**Decisión**: La Cotización debe comportarse como documento comercial ERP estándar con comportamiento mínimo operacional: sin líneas duplicadas del mismo producto, recálculo automático de totales, dirty-state explícito, confirmación de cierre protegida, visualización de IVA por línea, y desglose Subtotal / Impuestos / Total. No hay auto-save.
+
+**Problema identificado**:
+- El sistema creaba líneas duplicadas si se agregaba el mismo producto dos veces.
+- El total solo mostraba Subtotal sin IVA ni Impuestos desglosados.
+- No existía dirty-state ni confirmación de cierre para cambios no guardados.
+- Los valores monetarios se mostraban sin formato de moneda ($#,##0.00).
+- La tasa de IVA estaba hardcodeada o ausente en lugar de ser una constante centralizada.
+
+**Reglas institucionales ADR-040 (OBLIGATORIAS)**:
+> NUNCA crear líneas duplicadas del mismo producto — sumar cantidad sobre línea existente.  
+> NUNCA auto-guardar al cerrar. La decisión es del usuario.  
+> SIEMPRE mostrar confirmación institucional al cerrar un documento dirty.  
+> SIEMPRE usar `FiscalConstants.TasaIvaEstandar` — NUNCA hardcodear 0.16.  
+> Total = Subtotal + Impuestos. Impuestos = Σ(líneas con IVA) × TasaIvaEstandar.  
+> IsDirty = true en toda mutación (agregar/eliminar/cambiar cantidad/cambiar cliente/observaciones).  
+> IsDirty = false solo después de guardar exitosamente.
+
+**Solución adoptada**:
+- `FiscalConstants.TasaIvaEstandar = 0.16m` en `Ybridio.Domain/Common/FiscalConstants.cs`.
+- `DetalleLineaEditable` extendido con `IvaAplicable` (del producto) e `IvaTexto` ("Sí"/"No").
+- `CotizacionDocumentoViewModel` refactorizado con métodos pequeños y claros:
+  - `ObtenerLineaExistente(productoId)` — busca línea existente del mismo producto.
+  - `AgregarOIncrementarDetalleAsync(detalle)` — entry point principal: merge-or-add.
+  - `IncrementarCantidadAsync(linea, incremento)` — suma cantidad, persiste si es doc existente.
+  - `AgregarDetalleLocalAsync(detalle)` — agrega nueva línea (nuevo o existente).
+  - `RecalcularTotales()` — único lugar de cálculo; llama a `CalcularSubtotal()` + `CalcularImpuestos()`.
+  - `CalcularSubtotal()` — `SUM(Detalles.Importe)`.
+  - `CalcularImpuestos()` — `SUM(líneas IVA) × FiscalConstants.TasaIvaEstandar`.
+- `IsDirty` marcado en `SeleccionarCliente`, `LimpiarCliente`, `OnObservacionesChanged`, todas las operaciones de líneas. Reseteado en `Initialize()` y tras `GuardarAsync` exitoso.
+- `CotizacionDocumentoPage` enruta `BtnAgregarLinea` a `AgregarOIncrementarDetalleAsync`.
+- `MostrarConfirmacionCierreAsync()` — diálogo institucional: Guardar / No Guardar / Cancelar.
+- `BtnVolverALista_Click` aguarda confirmación antes de ejecutar `VolverALista?.Invoke()`.
+- XAML: columna IVA en grid, fila Impuestos en totales, `DecimalToCurrencyConverter` en todos los valores monetarios.
+
+**Alternativas descartadas**:
+- Motor fiscal complejo con múltiples tasas: descartado — solo se necesita simple IVA estándar en V1.
+- Auto-save al cerrar: descartado — viola el principio de decisión explícita del usuario.
+- Cálculo en UI (code-behind): descartado — lógica en ViewModel siguiendo Clean Architecture.
+
+**Archivos clave**:
+- `Ybridio.Domain/Common/FiscalConstants.cs` — constante TasaIvaEstandar
+- `Ybridio.WinUI/ViewModels/Ventas/CotizacionDocumentoViewModel.cs` — lógica operacional
+- `Ybridio.WinUI/Views/Ventas/CotizacionDocumentoPage.xaml` — IVA + totales + moneda
+- `Ybridio.WinUI/Views/Ventas/CotizacionDocumentoPage.xaml.cs` — merge routing + close confirmation
+
+---
+
+## ADR-039 — Shared Document Session Pattern / Detach Host Swap
+
+**Decisión**: El modo Detach ("Abrir en nueva ventana") NO recrea el documento ni el ViewModel. Rehostea la **misma instancia de página** en una ventana OS independiente. El estado runtime completo (cliente seleccionado, chip visual, líneas, totales, dirty state, validaciones, selecciones) se preserva íntegramente. No existe auto-save al desacoplar.
+
+**Problema identificado**:
+- La implementación anterior de `BtnAbrirEnVentana_Click` creaba `new CotizacionDocumentoPage(_cotizacionOriginal)` dentro del factory de `WindowManager`.
+- Esto reinstanciaba `CotizacionDocumentoViewModel` desde cero, perdiendo todo el estado runtime: cliente seleccionado, chip visual del selector, líneas temporales, cantidades, precios, estado dirty, totales calculados, y cualquier cambio no guardado.
+- Equivalía arquitectónicamente a abrir el documento de nuevo desde la base de datos, no a moverlo a otro host visual.
+
+**Regla institucional ADR-039 (OBLIGATORIA)**:
+> Detach = rehost visual. NO = nuevo documento.  
+> El ViewModel y el estado runtime deben sobrevivir el cambio de host visual (inline tab → ventana desacoplada).  
+> La ventana desacoplada es un contenedor alternativo para la misma sesión documental, no una sesión nueva.  
+> NUNCA guardar automáticamente al desacoplar. NUNCA recargar desde BD. NUNCA recrear el ViewModel.
+
+**Solución adoptada**:
+- `BtnAbrirEnVentana_Click` en `CotizacionDocumentoPage` fue refactorizado para rehostear `this` (la misma instancia de página) en el `DetachedDocumentWindow`.
+- Flujo correcto de rehost:
+  1. `EsInlineMode = false` — oculta controles inline (← Volver, Abrir en ventana) en la página rehosteada.
+  2. `VolverALista?.Invoke()` — limpia `DocumentSurfaceContent = null` en el ViewModel del módulo padre, desvinculando sincrónicamente la página del árbol visual inline (requisito WinUI 3: un elemento no puede tener dos padres visuales).
+  3. `WindowManager.OpenWindow(factory: () => new DetachedDocumentWindow(paginaActual, titulo))` — rehostea la misma instancia en la nueva ventana.
+- El `_sessionKey` (GUID) se genera una sola vez en el constructor de la página para garantizar window key estable en documentos nuevos (sin Id asignado aún).
+- El título se construye desde `ViewModel.NombreCliente` (runtime state actual), no desde el snapshot estático `_cotizacionOriginal`.
+
+**Estado runtime preservado**:
+- Entidad de Directorio seleccionada (`_entidadDirectorioSeleccionada` en ViewModel)
+- Chip visual del `RelacionComercialSelectorControl` (misma instancia de control, no se reconstruye)
+- Líneas / detalles en `ViewModel.Detalles` (ObservableCollection en memoria)
+- Totales calculados (`Subtotal`, `Total`)
+- Estado dirty / `HasChanges`
+- Fecha, Observaciones y todos los campos editados
+- Estatus del documento
+
+**Anti-patterns PROHIBIDOS (ADR-039)**:
+- Crear `new CotizacionDocumentoPage(dto)` dentro de un factory de detach.
+- Llamar `ViewModel.Initialize(dto)` al rehostear (equivale a recargar desde BD).
+- Guardar automáticamente antes o durante el detach.
+- Recargar datos desde la base de datos durante el rehost.
+- Perder el estado dirty al cambiar de host visual.
+- Instanciar un nuevo ViewModel durante el detach/attach.
+
+**Archivos clave**:
+- `Ybridio.WinUI/Views/Ventas/CotizacionDocumentoPage.xaml.cs` → `BtnAbrirEnVentana_Click` refactorizado
+- `Ybridio.WinUI/Views/Detached/DetachedDocumentWindow.xaml.cs` → sin cambios (ya acepta cualquier Page)
+- `Ybridio.WinUI/Services/Windowing/WindowManager.cs` → sin cambios (ya gestiona lifecycle)
+
+**Validación esperada**:
+1. Abrir Cotización inline.
+2. Seleccionar cliente (chip aparece).
+3. Agregar líneas/productos con cantidades y precios.
+4. Pulsar "Abrir en nueva ventana".
+5. Resultado: ventana desacoplada muestra exactamente el mismo cliente, chip, líneas, totales y dirty state. Sin auto-save. Sin pérdida de datos.
+
+**Relación con ADRs anteriores**:
+- ADR-028: Window Detach Mode — política de límite máximo 2 ventanas desacopladas simultáneas. ADR-039 complementa ADR-028 corrigiendo el lifecycle del contenido.
+- ADR-032: Document Surface UX Pattern — inline mode controles. ADR-039 ajusta `EsInlineMode = false` durante el rehost.
+- ADR-029: WindowManager como single source of truth para lifecycle de ventanas. ADR-039 usa `WindowManager` correctamente.
+
+---
+
+## ADR-038 — Relación Comercial Bajo Demanda / Directorio como Source of Truth
+
+**Decisión**: `RelacionComercial` es una entidad transaccional operativa, NO un catálogo maestro de UI. El selector institucional consume directamente `Persona` y `EmpresaComercial` (el Directorio). `RelacionComercial` se crea o reutiliza de forma transparente al guardar un documento comercial mediante el patrón `GetOrCreateRelacionComercialAsync`.
+
+**Problema identificado (corrección de ADR-037)**:
+- ADR-037 dirigía el selector hacia `RelacionComercial` como fuente de búsqueda.
+- Eso requería existencia previa de `RelacionComercial` para que apareciera en el selector.
+- Scripts de normalización masiva se proponían para generar `RelacionComercial` preventivamente.
+- Esto generaba: relaciones comerciales fantasma, contaminación del dominio, acoplamiento incorrecto, sincronización artificial Directorio↔RelacionComercial, y deuda arquitectónica futura.
+
+**Regla institucional ADR-038 (OBLIGATORIA)**:
+> `RelacionComercial` representa un vínculo comercial operativo/transaccional.  
+> SOLO debe existir cuando existe interacción comercial real: cotización, pedido, venta, factura.  
+> El catálogo maestro del ERP son `core.Persona` y `core.EmpresaComercial`.  
+> El selector debe funcionar aunque NO exista `RelacionComercial` previa.
+
+**Solución adoptada**:
+- `IDirectorioService.BuscarParaSelectorAsync` — nueva búsqueda directa en `Persona` + `EmpresaComercial`. Usa `IgnoreQueryFilters()` para resolver datos legacy multiempresa correctamente.
+- `DirectorioSelectorDto` — nuevo DTO institucional con `EntityType` (Persona/Empresa), `PersonaId`, `EmpresaComercialId`, `DisplayName`, `RFC`, `Email`, `Telefono`, `TipoVisual`, `Glyph`, `InfoSecundaria`.
+- `IRelacionComercialService.GetOrCreateAsync` — patrón institucional de materialización bajo demanda: reutiliza relación existente si ya existe; crea automáticamente si no.
+- `RelacionComercialSelectorControl` — refactorizado para usar `IDirectorioService` / `DirectorioSelectorDto`. El evento `SelectionChanged` emite `DirectorioSelectorDto?`.
+- Los 4 ViewModels comerciales (`CotizacionDocumentoViewModel`, `PedidoDocumentoViewModel`, `VentaDocumentoViewModel`, `OrdenTrabajoDocumentoViewModel`) almacenan `DirectorioSelectorDto?` y resuelven `RelacionComercialId` en `GuardarAsync` vía `GetOrCreateAsync`.
+
+**Flujo correcto (ADR-038)**:
+1. Usuario busca en el selector → `IDirectorioService.BuscarParaSelectorAsync` → retorna `Persona` y `EmpresaComercial` directamente.
+2. Usuario selecciona entidad → ViewModel guarda `DirectorioSelectorDto?`, `NombreCliente`.
+3. Al guardar → `GetOrCreateAsync` → reutiliza o crea `RelacionComercial` → obtiene `RelacionComercialId`.
+4. Documento se persiste con `RelacionComercialId` ya resuelto.
+
+**Anti-patterns PROHIBIDOS (ADR-038)**:
+- Usar `RelacionComercial` como catálogo UI o fuente de búsqueda para selectores.
+- Scripts de normalización masiva que generen `RelacionComercial` preventivamente para aparecer en UI.
+- Sincronización artificial Directorio ↔ `RelacionComercial`.
+- Exigir existencia previa de `RelacionComercial` para que una entidad aparezca en el selector.
+- Crear `RelacionComercial` vacías/fantasma solo para alimentar UI.
+
+**Archivos clave**:
+- `Ybridio.Application/DTOs/Directorio/DirectorioDto.cs` → `DirectorioSelectorDto`, `DirectorioEntityType`
+- `Ybridio.Application/Services/Directorio/IDirectorioService.cs`
+- `Ybridio.Application/Services/Directorio/DirectorioService.cs`
+- `Ybridio.Application/Services/Directorio/IRelacionComercialService.cs` → `GetOrCreateAsync`
+- `Ybridio.Application/Services/Directorio/RelacionComercialService.cs` → `GetOrCreateAsync`
+- `Ybridio.WinUI/Controls/Selector/RelacionComercialSelectorControl.xaml[.cs]` → migrado a `DirectorioSelectorDto`
+
+**Relación con ADR-037**: ADR-037 sigue vigente para el patrón de control reusable y UX (debounce, keyboard, preview, badges). ADR-038 corrige el source of truth y elimina la dependencia del selector hacia `RelacionComercial`.
+
+---
+
+## ADR-037 — RelacionComercial Entity Selector Pattern (Selector Institucional)
+
+**Decisión**: Estandarizar la selección de socios comerciales (cliente, empresa, persona, prospecto) en todo el ERP mediante el control reusable `RelacionComercialSelectorControl` (WinUI UserControl), respaldado por `IRelacionComercialService.ListarParaSelectorAsync`.
+
+**Problema identificado**:
+- Cotizaciones usaban `AutoSuggestBox` ad hoc con lógica de búsqueda duplicada en el ViewModel.
+- Pedidos y Ventas usaban `TextBox` libre sin búsqueda ni validación.
+- Órdenes de Trabajo idem con texto libre.
+- Sin query institucional unificado: cada superficie implementaba su propio patrón de búsqueda parcial o sin búsqueda.
+- El método `ListarParaSelectorAsync` usaba `Include()` con QueryFilters globales activos, lo que causaba que `EmpresaComercial` y `Persona` se resolvieran como `null` cuando su `EmpresaId` no coincidía exactamente con `_session.EmpresaId` (datos legacy / multiempresa). Resultado: el selector no retornaba resultados aunque existieran registros en BD.
+- Datos huérfanos: `EmpresaComercial` y `Persona` creadas antes de ADR-036 sin `RelacionComercial` correspondiente.
+
+**Solución adoptada**:
+- `RelacionComercialSelectorControl` — control WinUI reusable en `Ybridio.WinUI/Controls/Selector/`. Implementa búsqueda incremental con debounce (250ms), cancellation safety (ADR-026), keyboard UX (↑↓/Enter/Esc), preview de entidad seleccionada, badges semánticos por tipo.
+- `ListarParaSelectorAsync` reescrito con **proyección LINQ directa + join explícito** usando `IgnoreQueryFilters()` en `Personas` y `EmpresasComerciales`. Esto evita que el QueryFilter de empresa filtre las navegaciones y resuelva `null`. El filtro de empresa sigue aplicándose en `RelacionComercial` (tabla raíz).
+- Búsqueda incremental en: `Nombre`, `Apellidos`, `RazonSocial`, `NombreComercial`, `RFC`, `Email` de ambas entidades.
+- Scripts de diagnóstico y normalización en `Documentation/Scripts/`.
+- `EntitySelectorStyles.xaml` + merge en `Styles.xaml` como source of truth visual.
+
+**Regla institucional** (obligatoria desde ADR-037):
+> Todo flujo ERP que requiera seleccionar Cliente, Empresa, Persona, Prospecto o RelacionComercial **DEBE** usar `RelacionComercialSelectorControl`. Prohibido: TextBox libre, ComboBox gigante, AutoSuggestBox ad hoc.
+
+**Anti-patterns prohibidos**:
+- `IRelacionComercialService` inyectado directamente en ViewModels para búsqueda de socios → usar el control.
+- `Include(r => r.EmpresaComercial).Include(r => r.Persona)` sin `IgnoreQueryFilters()` en el selector → resuelve null con datos legacy.
+- Búsqueda por exact-match o solo nombre → usar contains en nombre + RFC + email.
+- `EmpresaId = 0` pasado al control → siempre vincular a `_session.EmpresaId`.
+
+**Superficies migradas**:
+- `CotizacionDocumentoPage` ✅
+- `PedidoDocumentoPage` ✅
+- `VentaDocumentoPage` ✅
+- `OrdenTrabajoDocumentoPage` ✅
+
+**Scripts de datos**:
+- `Documentation/Scripts/diagnostico_relacion_comercial.sql` — detecta huérfanos e invariantes violadas.
+- `Documentation/Scripts/normalizacion_relacion_comercial.sql` — genera `RelacionComercial` faltantes (EmpresaComercial→Cliente, Persona→Prospecto).
+
+**Archivos clave**:
+- `Ybridio.WinUI/Controls/Selector/RelacionComercialSelectorControl.xaml[.cs]`
+- `Ybridio.WinUI/Styles/Selector/EntitySelectorStyles.xaml`
+- `Ybridio.Application/Services/Directorio/RelacionComercialService.cs` → `ListarParaSelectorAsync`
+- `Ybridio.Application/DTOs/Directorio/RelacionComercialDto.cs` → `RelacionComercialSelectorDto`
+
+---
+
+## ADR-036 — Business Partner Model: Cliente → RelacionComercial + Directorio
+
+**Decisión**: Reemplazar la entidad `Cliente` de semántica mixta por un modelo de socio comercial basado en tres entidades del dominio: `Persona` (directorio de personas físicas), `EmpresaComercial` (directorio de empresas externas), y `RelacionComercial` (rol comercial del socio frente a la empresa tenant).
+
+**Problema identificado**:
+- `Cliente` mezclaba identidad directorial (RFC, contacto, nombre) con rol comercial (tipo, crédito, estado).
+- Un mismo tercero podía ser cliente y proveedor, requiriendo duplicidad de registros.
+- No existía distinción entre persona física y empresa en el modelo de dominio.
+- El módulo "Contactos" era un placeholder sin arquitectura definida.
+
+**Solución adoptada**:
+- `Persona` → entidad en `core.Persona` para personas físicas/contactos, con FK opcional a `EmpresaComercial`.
+- `EmpresaComercial` → entidad en `core.EmpresaComercial` para empresas externas (no tenant), con RFC y datos fiscales.
+- `RelacionComercial` → entidad de vínculo en `core.RelacionComercial` con `TipoRelacionComercial` (`Prospecto`, `Cliente`, `Proveedor`, `Mixto`), `LimiteCredito`, `Activo` y FK exclusiva a Persona XOR EmpresaComercial.
+- `TipoRelacionComercial` enum en `Ybridio.Domain.Catalogos`.
+- Todos los documentos de venta (`Cotizacion`, `Pedido`, `OrdenTrabajo`, `Venta`, `Factura`) usan `RelacionComercialId` como FK con `OnDelete(SetNull)`.
+- `NombreCliente` se mantiene como campo denormalizado en documentos para integridad histórica.
+- Módulo Shell `"Contactos"` renombrado a `"Directorio"`.
+
+**Alternativas descartadas**:
+- Mantener `Cliente` y agregar tabla `Proveedor` separada → duplicidad de campos de identidad.
+- Usar tabla de roles polimórfica → complejidad EF innecesaria para este scope.
+- Usar `Cliente` con flag `EsProveedor` → antipatrón de campo booleano de rol.
+
+**Impacto en capas**:
+- **Domain**: `Ybridio.Domain.Catalogos` — nuevas entidades + enum. Documentos de venta actualizados.
+- **Infrastructure**: Configuraciones EF en `Configurations/Catalogos/`. `ErpDbContext` extendido. Migración `AddBusinessPartnerModel` generada.
+- **Application**: `DTOs/Directorio/` + `Services/Directorio/`. `PermisosClave.Directorio` añadido. DTOs de venta actualizados.
+- **WinUI**: `CotizacionDocumentoViewModel` usa `IRelacionComercialService` y `RelacionComercialSelectorDto`. Shell routa `"Directorio"`.
+
+**Compatibilidad**: `DbSet<Cliente> Clientes` permanece en `ErpDbContext` para compatibilidad de migración. `PermisosClave.Cliente.*` preservados. `ClienteService` y páginas `Clientes*` permanecen operativas en paralelo hasta migración completa de UX.
+
+---
+
+## ADR-035 — Column Density System + Financial Formatting Semantics
+
+**Decisión**: Extender el Operational Grid Standard (ADR-032) con un sistema institucional de distribución de columnas por prioridad operacional y con un estándar semántico de formateo financiero.
+
+**Problema identificado**:
+- Columnas dimensionadas arbitrariamente (`Width="150"`, `Width="200"`) generaban desiertos visuales o distribuciones sin lógica operacional.
+- Columnas principales (Cliente, Nombre) no expandían para ocupar el espacio horizontal útil.
+- Valores financieros mostrados como `3337.00` sin símbolo monetario — pérdida de claridad semántica.
+- Sin regla explícita: cada pantalla re-inventaba la distribución de columnas.
+
+**Operational Column Density System — tipos oficiales**:
+
+| Tipo | Usar | Ancho | Ejemplos |
+|---|---|---|---|
+| PRIMARY EXPANDABLE | `Width="*"` o `Width="2*"` | Proporcional, consume espacio sobrante | Cliente, Nombre, Producto, Descripción |
+| COMPACT SEMANTIC | `OgColCompact` (90), `OgColDate` (100), `OgColStatus` (110) | Fijo mínimo semántico | Folio, Fecha, Estado, Tipo |
+| FINANCIAL COMPACT | `OgColFinancial` (130) | Fijo financiero institucional | Total, Precio, Costo, LímiteCredito |
+| GUTTER | `OgColGutter` (8) | Fijo — respiro izquierdo | Primera columna siempre |
+
+**Financial Formatting Standard**:
+- Todo valor financiero visible incluye símbolo monetario: `$3,337.00`, `$347,746.00`.
+- Alineación obligatoria: derecha.
+- Usar `DecimalToCurrencyConverter` en el binding — no formatear en ViewModel ni en code-behind.
+- Estilo obligatorio: `OgCurrencyTextStyle` (alias de `OgCellFinancialStyle` — SemiBold, Right, 13px).
+- Cultura de formateo: `es-MX` (símbolo `$`, separador de miles `,`, decimal `.`).
+
+**Tokens definidos en `Styles/Grid/OperationalGridBase.xaml`**:
+```xml
+<GridLength x:Key="OgColGutter">8</GridLength>
+<GridLength x:Key="OgColCompact">90</GridLength>
+<GridLength x:Key="OgColDate">100</GridLength>
+<GridLength x:Key="OgColStatus">110</GridLength>
+<GridLength x:Key="OgColFinancial">130</GridLength>
+```
+
+**Converters**:
+- `DecimalToCurrencyConverter` — en `Ybridio.WinUI/Converters/DecimalToCurrencyConverter.cs`.
+
+**Páginas piloto aplicadas**:
+- `CotizacionesPage.xaml` — Cliente expandible (`Width="*"`), Total con `CurrencyConverter`.
+- `ClientesPage.xaml` — Nombre expandible (`Width="2*"`), Email expandible (`Width="*"`), LimiteCredito con `CurrencyConverter`.
+
+**Alternativa descartada**: Anchos fijos arbitrarios por pantalla — descartado por desiertos visuales y falta de coherencia operacional entre módulos.
+
+**Regla institucional**:
+- PROHIBIDO `Width="150"`, `Width="200"` u otros anchos mágicos arbitrarios.
+- La distribución surge del sistema operacional: tokens `OgCol*` o columnas star (`*`, `2*`).
+- TODO valor financiero usa `DecimalToCurrencyConverter` + `OgCurrencyTextStyle`.
+- PROHIBIDO formatear moneda en el ViewModel o en code-behind.
+
+---
+
+## ADR-034 — Pixel Perfect Operational Layout System
+
+**Decisión**: Institucionalizar un sistema de layout, spacing y alineación visual operacional para todo el ERP. Spacing scale oficial, content boundary system (20px lateral), CommandBars full-width alineadas, y Document Surface que reemplaza la región operacional completa.
+
+**Problema identificado**:
+- CommandBars con `HorizontalAlignment="Left" Margin="8"` creaban desalineación visual con contenido (boundary 20px).
+- Filter rows con `Padding="8,8,20,4"` — inconsistente con el contenido lateral.
+- Status bars visibles cuando Document Surface estaba abierto, generando ruido visual.
+- Márgenes arbitrarios (`Margin="13"`, `Padding="7"`) en distintos módulos rompían el ritmo visual.
+- Sin tokens reutilizables: cada pantalla re-inventaba su propio spacing.
+
+**Estructura oficial adoptada**:
+```
+Styles/
+  Layout/LayoutBase.xaml          ← Spacing tokens + content boundary + container styles
+  CommandBars/CommandBarsBase.xaml ← ErpModuleCommandBarStyle + ErpDocumentCommandBarStyle
+```
+
+**Spacing scale oficial**:
+- `ErpSpace4` = 4px, `ErpSpace8` = 8px, `ErpSpace12` = 12px
+- `ErpSpace16` = 16px, `ErpSpace24` = 24px, `ErpSpace32` = 32px
+
+**Content boundary system**:
+- `ErpContentBoundary` = 20px (valor numérico)
+- `ErpContentBoundaryThickness` = `Thickness(20,0,20,0)` — margin horizontal estándar
+- `ErpContentBoundaryWithTopGap` = `Thickness(20,8,20,0)` — cards/grids con gap superior
+- `ErpCommandBarPadding` = `Thickness(6,0,0,0)` — alinea primer botón con 20px visual boundary
+- `ErpFilterRegionPadding` = `Thickness(20,8,20,4)` — row de búsqueda/filtros
+- `ErpStatusRegionMargin` = `Thickness(20,0,20,8)` — status bar
+
+**Container styles**:
+- `ErpOperationalCardStyle` — card blanco con border #E5E5E5, margin con top gap
+- `ErpOperationalCardTopStyle` — variante sin top gap (primeros cards tras CommandBar)
+- `ErpTotalesCardStyle` — card de totales con padding interno estándar
+
+**CommandBar styles**:
+- `ErpModuleCommandBarStyle` — módulos CRUD/listado: Stretch + alineación 20px
+- `ErpDocumentCommandBarStyle` — Document Surfaces y ventanas standalone
+
+**Páginas de referencia actualizadas** (ADR-034 aplicado):
+- `CotizacionesPage.xaml` — CommandBar, filter row, status bar visibility
+- `CotizacionDocumentoPage.xaml` — CommandBar, todos los containers, header, totales, status
+
+**Regla Document Surface**:
+- Cuando `IsDocumentSurfaceVisible=true`, la status bar del listado se oculta automáticamente.
+- El Document Surface reemplaza visualmente la región operacional completa.
+
+**Alternativa descartada**: Mantener márgenes hardcoded por pantalla — descartado por imposibilidad de mantenimiento y UX inconsistente entre módulos.
+
+**Regla institucional**:
+- PROHIBIDO márgenes arbitrarios (`Margin="7"`, `Margin="13"`).
+- TODO spacing proviene de tokens `Erp*` definidos en `Styles/Layout/LayoutBase.xaml`.
+- TODO alignment de CommandBar usa `ErpModuleCommandBarStyle` o `ErpDocumentCommandBarStyle`.
+
+---
+
+## ADR-033 — Styles/ como Source of Truth Visual (Visual Design System)
+
+**Decisión**: Establecer `Styles/` como la fuente de verdad visual oficial del ERP. `App.xaml` queda limitado a bootstrap/merge. Ningún estilo nuevo se agrega directamente en `App.xaml`.
+
+**Problema identificado**:
+- Estilos rápidos comenzaron a acumularse en `App.xaml` durante la evolución UX de ADR-031/032.
+- Aparecieron nombres ambiguos (`TransparentButtonStyle`), duplicaciones y referencias rotas (`XamlParseException`).
+- `App.xaml` crecía orgánicamente sin estructura ni semántica clara, dificultando mantenimiento a largo plazo y colaboración IA/dev.
+
+**Estructura oficial adoptada**:
+```
+Styles/
+  Styles.xaml              ← Dictionary maestro (único punto de entrada)
+  Buttons/ButtonsBase.xaml ← Botones e interacciones
+  DataGrid/DataGridBase.xaml ← Listas, grids, tablas
+  Forms/FormBase.xaml      ← Formularios CRUD
+  Tabs/TabsBase.xaml       ← Navegación por tabs (Module + Workspace layers)
+```
+
+**Estilos migrados de App.xaml**:
+- `DocumentSurfaceBackActionButtonStyle` → `Styles/Buttons/ButtonsBase.xaml`
+- `OutlookTabItemStyle` → `Styles/Tabs/TabsBase.xaml`
+- `WorkspaceTabItemStyle` → `Styles/Tabs/TabsBase.xaml`
+
+**Reglas institucionales**:
+1. `Styles/Styles.xaml` es el único dictionary que `App.xaml` mergea (además de `XamlControlsResources`).
+2. Todo nuevo estilo reutilizable va en el subdirectorio semántico correspondiente de `Styles/`.
+3. Naming obligatoriamente semántico (expresa intención UX, no apariencia visual).
+4. PROHIBIDO: estilos inline (`<Button.Style>...</Button.Style>`), nombres ambiguos, duplicación visual.
+5. Para añadir un nuevo dominio: crear `Styles/<Dominio>/<Dominio>Base.xaml` y registrar en `Styles/Styles.xaml`.
+
+**Build**: ✅ 0 errores de compilación.
+
+---
+
+## ADR-032 — Document Surface + Window Mode: Patrón Institucional Oficial
+
+**Decisión**: Simplificar y formalizar el patrón de apertura de documentos como el estándar institucional para todos los módulos CRUD/documentales del ERP. El patrón define exactamente dos modos posibles:
+
+1. **INLINE contextual** — el documento reemplaza el grid dentro del módulo (content replacement). El usuario permanece en el contexto del módulo. Se muestran "Volver a Lista" y "Abrir en nueva ventana".
+2. **WINDOW standalone** — el documento se abre en una ventana OS real independiente usando `WindowManager`. El usuario sale del contexto del módulo para multitarea real. No se muestran controles inline.
+
+**Problema identificado**:
+- ADR-027 (Detachable Mode) introducía un tercer estado: split view grid + surface simultáneo. Esto incrementaba la complejidad visual y del lifecycle sin beneficio real para el usuario PYME.
+- Los callbacks `ToggleDetach`, `IsDocumentSurfaceDetached`, y la lógica de mutación de columnas en `AjustarLayoutDetached` resultaban en código frágil y difícil de entender.
+- El menú contextual secundario con "Desacoplar Surface" era confuso y raramente utilizable.
+- El split view reducía el espacio útil de ambos paneles simultáneamente.
+
+**Alternativas descartadas**:
+- **Mantener Detach Mode (ADR-027)**: compleja lógica de columnas, tres estados ambiguos, anti-pattern para ERP desktop-native.
+- **Split View persistente**: rompe la claridad operacional; el usuario no sabe si está "en el módulo" o "en el documento".
+- **ContentDialog/Flyout para documentos**: bloquea UI, espacio insuficiente para formularios con líneas de detalle.
+
+**Razón**: El patrón "abrir aquí" vs "abrir en ventana" es intuitivo, desktop-native, y cubre el 100% de los casos de uso reales:
+- **Apertura rápida contextual**: doble clic en grid → documento inline → trabajar → volver.
+- **Multitarea real**: inline → "Abrir en nueva ventana" → ventana OS independiente → módulo regresa al grid.
+- **Sin estados ambiguos**: solo dos modos, nunca simultáneos en el mismo módulo.
+- **WindowManager preservado**: la ventana standalone sigue usando `IWindowManager` con key `detached:`, respetando el límite máximo de 2 ventanas concurrentes (ADR-028/ADR-029).
+
+**Implementación en Cotizaciones (módulo piloto)**:
+- `CotizacionesViewModel`: eliminado `IsDocumentSurfaceDetached`, `ToggleDetach`, `ToggleDetachCommand`. Solo `IsDocumentSurfaceVisible` y `DocumentSurfaceContent`.
+- `CotizacionesPage.xaml`: eliminado layout de 3 columnas; grid simple de content replacement.
+- `CotizacionesPage.xaml.cs`: eliminados `ViewModel_PropertyChanged`, `AjustarLayoutDetached`, `OnToggleDetach`. Añadido `EsInlineMode = true` al wiring del DocumentPage.
+- `CotizacionDocumentoPage.xaml`: eliminado `BtnToggleDetach`. `BtnVolverALista` y `BtnAbrirEnVentana` con `Visibility="Collapsed"` por defecto; activados via `EsInlineMode`.
+- `CotizacionDocumentoPage.xaml.cs`: propiedad `EsInlineMode` controla visibilidad de controles inline; `BtnAbrirEnVentana_Click` abre ventana OS y llama `VolverALista?.Invoke()` para cerrar el inline automáticamente.
+
+**Estándar para futuros módulos**:
+- `[Módulo]ViewModel`: solo `IsDocumentSurfaceVisible` + `DocumentSurfaceContent` + `CerrarDocumentSurfaceAsync()`.
+- `[Módulo]Page.xaml.cs`: wiring `page.EsInlineMode = true` al abrir inline.
+- `[Documento]Page.xaml.cs`: propiedad `EsInlineMode`, `VolverALista`, `BtnAbrirEnVentana_Click` usando `IWindowManager`.
+- NO usar: `IsDocumentSurfaceDetached`, split layouts, `ToggleDetach`, callbacks detach, 3+ estados visuales.
+
+**Build**: ✅ 0 errores de compilación.
 
 ---
 

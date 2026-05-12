@@ -17,7 +17,7 @@ public class Venta : AuditableEntity
 
     // ── Campos del flujo documental (nullable para compatibilidad con registros POS existentes) ──
     /// <summary>FK al cliente del catálogo. Null para ventas POS sin registro de cliente.</summary>
-    public int? ClienteId { get; set; }
+    public int? RelacionComercialId { get; set; }
     /// <summary>Nombre congelado del cliente al momento de crear la venta.</summary>
     public string? NombreCliente { get; set; }
     /// <summary>Referencia al pedido origen. Null si la venta se crea directamente.</summary>
@@ -43,7 +43,7 @@ public class Venta : AuditableEntity
     public Sucursal Sucursal { get; set; } = null!;
     public Caja? Caja { get; set; }
     public AperturaCaja? AperturaCaja { get; set; }
-    public Cliente? Cliente { get; set; }
+    public RelacionComercial? RelacionComercial { get; set; }
     public ICollection<VentaDetalle> Detalles { get; set; } = [];
     public ICollection<Factura> Facturas { get; set; } = [];
     public ICollection<PagoVenta> Pagos { get; set; } = [];

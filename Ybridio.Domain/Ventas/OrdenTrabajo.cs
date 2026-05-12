@@ -27,7 +27,7 @@ public class OrdenTrabajo : AuditableEntity
     public int   EmpresaId   { get; set; }
     public int?  SucursalId  { get; set; }
 
-    public int?   ClienteId     { get; set; }
+    public int?   RelacionComercialId     { get; set; }
     /// <summary>Nombre del cliente (denormalizado para mostrar sin join).</summary>
     public string NombreCliente { get; set; } = string.Empty;
 
@@ -55,7 +55,7 @@ public class OrdenTrabajo : AuditableEntity
     // Navegación
     public Empresa   Empresa   { get; set; } = null!;
     public Sucursal? Sucursal  { get; set; }
-    public Cliente?  Cliente   { get; set; }
+    public RelacionComercial?  RelacionComercial   { get; set; }
     public Pedido?   Pedido    { get; set; }
     public ICollection<OrdenTrabajoMaterial> Materiales { get; set; } = [];
 }

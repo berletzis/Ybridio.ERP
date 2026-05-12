@@ -53,20 +53,38 @@ public sealed partial class VentasDocumentalesPage
     {
         // ADR-031: nueva venta se abre inline como Document Surface, NO como workspace tab
         var page = new VentaDocumentoPage(null);
-        page.OnCerrar = async () => await ViewModel.CerrarDocumentSurfaceAsync();
+        page.OnCerrar = async () =>
+        {
+            try { await ViewModel.CerrarDocumentSurfaceAsync(); }
+            catch (OperationCanceledException) { /* ADR-026: expected lifecycle cancellation. */ }
+        };
         ViewModel.AbrirDocumentoVenta(page);
     }
 
     private async void BtnAbrir_Click(object sender, RoutedEventArgs e)
     {
         if (ViewModel.VentaSeleccionada is null) return;
-        await AbrirVentaInlineAsync(ViewModel.VentaSeleccionada.Id);
+        try
+        {
+            await AbrirVentaInlineAsync(ViewModel.VentaSeleccionada.Id);
+        }
+        catch (OperationCanceledException)
+        {
+            // ADR-026: expected lifecycle cancellation during navigation.
+        }
     }
 
-    private void Lista_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
+    private async void Lista_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
     {
         if (ViewModel.VentaSeleccionada is null) return;
-        _ = AbrirVentaInlineAsync(ViewModel.VentaSeleccionada.Id);
+        try
+        {
+            await AbrirVentaInlineAsync(ViewModel.VentaSeleccionada.Id);
+        }
+        catch (OperationCanceledException)
+        {
+            // ADR-026: expected lifecycle cancellation during navigation.
+        }
     }
 
     private async void Busqueda_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
@@ -104,7 +122,11 @@ public sealed partial class VentasDocumentalesPage
 
             // ADR-031: documento se carga como surface inline, SIN workspace tab
             var page = new VentaDocumentoPage(result.Value);
-            page.OnCerrar = async () => await ViewModel.CerrarDocumentSurfaceAsync();
+            page.OnCerrar = async () =>
+            {
+                try { await ViewModel.CerrarDocumentSurfaceAsync(); }
+                catch (OperationCanceledException) { /* ADR-026: expected lifecycle cancellation. */ }
+            };
             ViewModel.AbrirDocumentoVenta(page);
         }
         finally

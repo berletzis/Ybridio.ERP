@@ -13,8 +13,8 @@ namespace Ybridio.Domain.Ventas;
 /// </summary>
 /// <remarks>
 /// NombreCliente se almacena denormalizado para conservar el nombre exacto al momento
-/// de cotizar, incluso si el registro de cliente cambia posteriormente.
-/// ClienteId es nullable para soportar clientes de mostrador sin registro.
+/// de cotizar, incluso si el registro de RelacionComercial cambia posteriormente.
+/// RelacionComercialId es nullable para soportar clientes de mostrador sin registro.
 /// </remarks>
 public class Cotizacion : AuditableEntity
 {
@@ -22,8 +22,11 @@ public class Cotizacion : AuditableEntity
     public int   EmpresaId   { get; set; }
     public int?  SucursalId  { get; set; }
 
-    public int?   ClienteId     { get; set; }
-    /// <summary>Nombre del cliente al momento de cotizar (denormalizado).</summary>
+    /// <summary>
+    /// Relación comercial vinculada (puede ser Persona o EmpresaComercial). Nullable para clientes de mostrador.
+    /// </summary>
+    public int?   RelacionComercialId { get; set; }
+    /// <summary>Nombre del cliente al momento de cotizar (denormalizado para historial).</summary>
     public string NombreCliente { get; set; } = string.Empty;
 
     public EstatusCotizacion Estatus     { get; set; } = EstatusCotizacion.Borrador;
@@ -50,8 +53,8 @@ public class Cotizacion : AuditableEntity
     public string? Observaciones { get; set; }
 
     // Navegación
-    public Empresa   Empresa   { get; set; } = null!;
-    public Sucursal? Sucursal  { get; set; }
-    public Cliente?  Cliente   { get; set; }
-    public ICollection<CotizacionDetalle> Detalles { get; set; } = [];
+    public Empresa              Empresa              { get; set; } = null!;
+    public Sucursal?            Sucursal             { get; set; }
+    public RelacionComercial?   RelacionComercial    { get; set; }
+    public ICollection<CotizacionDetalle> Detalles  { get; set; } = [];
 }

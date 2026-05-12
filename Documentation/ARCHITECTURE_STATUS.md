@@ -1,8 +1,8 @@
 # Architecture Status — Ybridio ERP
 
-> Última actualización: 2026-05-10 → **Document Surface Visual Separation Standard** (ADR-031: eliminación tabs documentales ensimados, jerarquía UX oficial, Pedidos/OT/Ventas Documentales migrados a inline Document Surface)  
+> Última actualización: 2026-05-12 → **ADR-041: Operational Editable Document Lines Pattern** (líneas con INPC, edición inline cantidad, recálculo importe en tiempo real, Single Source of Truth cálculo)  
 > Build: ✅ 0 errores | BD: YBRIDIO-26 | Docs relacionados: `DECISIONS.md` · `ROADMAP.md` · `KNOWN_ISSUES.md` · `CLAUDE_RULES.md`  
-> Fix crítico reciente: `IdentityRole<Guid>` → `_context.Roles` (KI-012, ADR-014); DbContext concurrency → single-flight guard (ADR-026); Document Surface detachable mode piloto Cotizaciones (ADR-027); **Window Detach Mode piloto Cotizaciones (ADR-028)**; **Window Management centralizado bajo WindowManager (ADR-029)**; **Document Surface Visual Separation Standard — Pedidos/OT/Ventas inline (ADR-031)**
+> Fix crítico reciente: ADR-041 Editable Document Lines; ADR-040 Operational Commercial Document Standard; ADR-039 Shared Document Session; ADR-038 Directorio SoT + GetOrCreate; ADR-037 Selector Institucional
 
 ## Estado general
 
@@ -38,6 +38,11 @@
 | **Inventory Operational Completion Layer** (Kardex operacional, stock bajo, trazabilidad, existencias seguras) | — | — | ✅ | ✅ |
 | **Operational Inventory Experience** (Navegación VentaOrigen, columnas Usuario/Proveedor/VentaId, estado visual stock, dashboard light) | — | — | ✅ | ✅ |
 | **Document Surface Visual Separation** (Pedidos/OT/Ventas Documentales → inline Document Surface, anti-pattern tabs eliminado) | — | — | — | ✅ |
+| **Document Surface + Window Mode Institucional** (Cotizaciones piloto: inline contextual + ventana standalone; eliminado Detach/Split/Hybrid — ADR-032) | — | — | — | ✅ |
+| **Visual Design System** (Styles/ source of truth; App.xaml bootstrap puro; Buttons/DataGrid/Forms/Tabs subdominios — ADR-033) | — | — | — | ✅ |
+| **Operational Grid Standard v2** (Column Density System: Primary Expandable/Compact Semantic/Financial Compact; Financial Formatting Semantics: DecimalToCurrencyConverter, OgCurrencyTextStyle — ADR-035; piloto: Cotizaciones ✓ Clientes ✓) | — | — | — | ✅ |
+| **RelacionComercial Entity Selector** (Control institucional reusable ADR-037/ADR-038; búsqueda incremental + debounce + cancellation; selector migrado a Directorio directo — Persona+EmpresaComercial; GetOrCreate pattern al guardar; migrado: Cotizaciones ✓ Pedidos ✓ Ventas ✓ OT ✓) | — | — | ✅ | ✅ |
+| **Shared Document Session Pattern** (ADR-039: Detach rehostea la misma instancia de página/ViewModel; preserva runtime state completo; no auto-save; no recreación; implementado en Cotizaciones) | — | — | — | ✅ |
 
 ---
 
@@ -1114,6 +1119,63 @@ El usuario diferencia inmediatamente:
 ✅ Navegación de módulo (Module tabs: compactos, transparentes, secundarios)  
 ✅ Sin ensimamiento visual ni caos de tabs  
 ✅ Experiencia limpia, estable, profesional, ERP-like, operacional  
+
+---
+
+## Relación Comercial Bajo Demanda — ADR-038 (implementado 2026-05-11)
+
+### Regla de dominio institucional
+
+`RelacionComercial` es un **vínculo comercial operativo/transaccional**. NO es un catálogo maestro de UI ni un directorio de búsqueda.
+
+| Entidad | Rol institucional |
+|---|---|
+| `core.Persona` | Source of truth — personas físicas y contactos |
+| `core.EmpresaComercial` | Source of truth — empresas externas / personas morales |
+| `core.RelacionComercial` | Vínculo operativo — solo existe cuando hay transacción real |
+
+### Arquitectura implementada
+
+**Capa Application**:
+- `DirectorioSelectorDto` + `DirectorioEntityType` → DTO institucional del Directorio
+- `IDirectorioService.BuscarParaSelectorAsync` → búsqueda directa Persona + EmpresaComercial
+- `DirectorioService` → implementación con `IgnoreQueryFilters()`, filtros explícitos de empresa/activo
+- `IRelacionComercialService.GetOrCreateAsync` → patrón bajo demanda: reutiliza o crea en el momento de guardar
+
+**Capa WinUI**:
+- `RelacionComercialSelectorControl` → migrado a `IDirectorioService` / `DirectorioSelectorDto`
+- `CotizacionDocumentoViewModel`, `PedidoDocumentoViewModel`, `VentaDocumentoViewModel`, `OrdenTrabajoDocumentoViewModel` → guardan `DirectorioSelectorDto?` y resuelven `RelacionComercialId` en `GuardarAsync`
+
+### Flujo de datos
+
+```
+Usuario busca "constructora"
+    → IDirectorioService.BuscarParaSelectorAsync
+        → Persona WHERE NombreCompleto LIKE + EmpresaComercial WHERE RazonSocial LIKE
+        → retorna List<DirectorioSelectorDto>  [sin RelacionComercial preexistente]
+    ↓
+Usuario selecciona EmpresaComercial "Constructora XYZ"
+    → ViewModel._entidadSeleccionada = DirectorioSelectorDto
+    ↓
+Usuario presiona Guardar
+    → GetOrCreateAsync(empresaId, dto, usuarioId)
+        → ¿Existe RelacionComercial con ese EmpresaComercialId?
+            SI → reutilizar Id
+            NO → INSERT RelacionComercial automático
+    → Documento se persiste con RelacionComercialId resuelto
+```
+
+### Anti-patterns prohibidos (ADR-038)
+
+❌ Selector que busca en `RelacionComercial` (catálogo masivo)  
+❌ Scripts de normalización masiva preventiva  
+❌ `RelacionComercial` requerida para que una entidad aparezca en la UI  
+❌ Sincronización artificial Directorio ↔ `RelacionComercial`  
+❌ `normalizacion_relacion_comercial.sql` — **DESHABILITADO**, ver script  
+
+### Estado
+
+✅ **IMPLEMENTADO Y BUILD EXITOSO** — Selector funcional sin `RelacionComercial` preexistente. GetOrCreate transparente al guardar. Scripts de normalización obsoletos.
 
 ---
 

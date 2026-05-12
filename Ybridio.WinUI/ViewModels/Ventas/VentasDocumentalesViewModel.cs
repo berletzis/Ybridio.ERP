@@ -69,7 +69,14 @@ public sealed partial class VentasDocumentalesViewModel : BaseContextViewModel
         IsDocumentSurfaceVisible  = false;
         IsDocumentSurfaceDetached = false;
         DocumentSurfaceContent    = null;
-        await RefrescarCommand.ExecuteAsync(null);
+        try
+        {
+            await RefrescarCommand.ExecuteAsync(null);
+        }
+        catch (TaskCanceledException)
+        {
+            // ADR-026: expected during rapid close/navigation lifecycle transitions.
+        }
     }
 
     /// <summary>Alterna el modo split/detached del Document Surface.</summary>

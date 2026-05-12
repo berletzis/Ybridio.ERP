@@ -99,6 +99,16 @@ public static class PermisosClave
         public const string Editar = "cliente.editar";
     }
 
+    /// <summary>
+    /// Permisos para el módulo Directorio (Personas, EmpresasComerciales, RelacionesComerciales).
+    /// ADR-036: Business Partner Architecture.
+    /// </summary>
+    public static class Directorio
+    {
+        public const string Ver    = "directorio.ver";
+        public const string Editar = "directorio.editar";
+    }
+
     public static class Proveedor
     {
         public const string Ver    = "proveedor.ver";
@@ -193,6 +203,7 @@ public static class PermisosClave
         Caja.Ver, Caja.Abrir, Caja.Cerrar, Caja.MovimientoEgreso, Caja.MovimientoIngreso,
         Compra.Ver, Compra.Crear, Compra.Aprobar, Compra.Cancelar, Compra.Recibir,
         Cliente.Ver, Cliente.Crear, Cliente.Editar,
+        Directorio.Ver, Directorio.Editar,
         Proveedor.Ver, Proveedor.Crear, Proveedor.Editar,
         Configuracion.GlobalVer, Configuracion.GlobalEditar,
         Configuracion.SucursalVer, Configuracion.SucursalEditar,

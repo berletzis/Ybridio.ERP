@@ -1,0 +1,62 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+    ═══════════════════════════════════════════════════════════════════════════
+    ERP — Visual Design System Master Dictionary (ADR-033)
+    ═══════════════════════════════════════════════════════════════════════════
+
+    Este archivo es el ÚNICO punto de entrada para todos los estilos visuales
+    del ERP. App.xaml mergea SOLO este archivo (más XamlControlsResources).
+
+    REGLA INSTITUCIONAL (ADR-033):
+      · NUNCA agregar estilos directamente en App.xaml.
+      · TODO nuevo dominio visual se agrega AQUÍ como MergedDictionary.
+      · Los estilos individuales viven en su subdirectorio semántico.
+
+    Estructura de subdominios:
+      Styles/Buttons/   — acciones e interacciones (botones)
+      Styles/DataGrid/  — listas, grids, tablas
+      Styles/Forms/     — formularios CRUD (campos, layouts)
+      Styles/Tabs/      — navegación por tabs (Module Layer + Workspace Layer)
+
+    Para agregar un nuevo dominio:
+      1. Crear Styles/<Dominio>/<Dominio>Base.xaml
+      2. Agregar el MergedDictionary aquí
+      3. Registrar en Documentation/CLAUDE_RULES.md §Design System
+
+    Ver: Documentation/DECISIONS.md (ADR-033)
+         Documentation/CLAUDE_RULES.md §Design System
+    ═══════════════════════════════════════════════════════════════════════════
+    -->
+
+    <ResourceDictionary.MergedDictionaries>
+
+        <!-- ── Layout System: spacing tokens + content boundary (ADR-034) ── -->
+        <ResourceDictionary Source="ms-appx:///Styles/Layout/LayoutBase.xaml"/>
+
+        <!-- ── CommandBars operacionales (ADR-034) ───────────────────────── -->
+        <ResourceDictionary Source="ms-appx:///Styles/CommandBars/CommandBarsBase.xaml"/>
+
+        <!-- ── Botones e interacciones ────────────────────────────────────── -->
+        <ResourceDictionary Source="ms-appx:///Styles/Buttons/ButtonsBase.xaml"/>
+
+        <!-- ── DataGrid / listas / tablas ────────────────────────────────── -->
+        <ResourceDictionary Source="ms-appx:///Styles/DataGrid/DataGridBase.xaml"/>
+
+        <!-- ── Formularios CRUD ───────────────────────────────────────────── -->
+        <ResourceDictionary Source="ms-appx:///Styles/Forms/FormBase.xaml"/>
+
+        <!-- ── Operational Grid Standard (ADR-032 Og* styles) ──────────────── -->
+        <ResourceDictionary Source="ms-appx:///Styles/Grid/OperationalGridBase.xaml"/>
+
+        <!-- ── Tabs de navegación (Module + Workspace layers) ────────────── -->
+        <ResourceDictionary Source="ms-appx:///Styles/Tabs/TabsBase.xaml"/>
+
+        <!-- ── Entity Selector — RelacionComercialSelectorControl (ADR-037) ── -->
+        <ResourceDictionary Source="ms-appx:///Styles/Selector/EntitySelectorStyles.xaml"/>
+
+    </ResourceDictionary.MergedDictionaries>
+
+</ResourceDictionary>

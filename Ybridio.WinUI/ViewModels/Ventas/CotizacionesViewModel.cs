@@ -52,15 +52,6 @@ public sealed partial class CotizacionesViewModel : BaseContextViewModel
     /// </summary>
     [ObservableProperty] private object? documentSurfaceContent;
 
-    // ── Document Surface Detachable Mode (ADR-027) ──────────────────────────
-    /// <summary>
-    /// Indica si el Document Surface está en modo desacoplado (detached).
-    /// false (default) = Content Replacement (grid XOR surface)
-    /// true = Detached Mode (grid + surface simultáneos side-by-side)
-    /// Permite multitarea ligera controlada sin volver a Workspace Tabs infinitos.
-    /// </summary>
-    [ObservableProperty] private bool isDocumentSurfaceDetached;
-
     private bool _isRefreshing;
 
     private IReadOnlyList<CotizacionResumenDto> _todas = [];
@@ -146,51 +137,34 @@ public sealed partial class CotizacionesViewModel : BaseContextViewModel
     // ── Document Surface UX Pattern Commands ────────────────────────────────
 
     /// <summary>
-    /// Abre el Document Surface para crear una nueva cotización.
-    /// Reemplaza temporalmente el grid de listado.
+    /// Abre el Document Surface inline para crear una nueva cotización.
+    /// El contenido reemplaza el grid de listado (ADR-032: INLINE mode).
     /// </summary>
     public void AbrirNuevaCotizacion()
     {
-        DocumentSurfaceContent = null; // Preparar para nueva instancia
+        DocumentSurfaceContent = null;
         IsDocumentSurfaceVisible = true;
-        IsDocumentSurfaceDetached = false; // Default: content replacement mode
     }
 
     /// <summary>
-    /// Abre el Document Surface para editar una cotización existente.
-    /// Reemplaza temporalmente el grid de listado.
+    /// Abre el Document Surface inline para editar una cotización existente.
+    /// El contenido reemplaza el grid de listado (ADR-032: INLINE mode).
     /// </summary>
     public void AbrirEditarCotizacion(CotizacionDto cotizacion)
     {
         DocumentSurfaceContent = cotizacion;
         IsDocumentSurfaceVisible = true;
-        IsDocumentSurfaceDetached = false; // Default: content replacement mode
     }
 
     /// <summary>
     /// Cierra el Document Surface y vuelve al grid de listado.
-    /// Debe ser llamado después de guardar o cuando el usuario hace clic en "← Volver a Lista".
+    /// Invocado al guardar o al pulsar "Volver a Lista" (ADR-032).
     /// </summary>
     public async Task CerrarDocumentSurfaceAsync()
     {
         IsDocumentSurfaceVisible = false;
-        IsDocumentSurfaceDetached = false; // Reset detached state
         DocumentSurfaceContent = null;
-        await RefrescarAsync(); // Refrescar grid después de cerrar
-    }
-
-    // ── Document Surface Detachable Mode Commands (ADR-027) ─────────────────
-
-    /// <summary>
-    /// Alterna entre modo acoplado (content replacement) y modo desacoplado (split view).
-    /// Modo acoplado: grid XOR surface
-    /// Modo desacoplado: grid + surface simultáneos side-by-side (multitarea ligera)
-    /// </summary>
-    [RelayCommand]
-    public void ToggleDetach()
-    {
-        if (!IsDocumentSurfaceVisible) return; // Solo permitir detach cuando surface está activo
-        IsDocumentSurfaceDetached = !IsDocumentSurfaceDetached;
+        await RefrescarAsync();
     }
 
     protected override Task OnContextChangedAsync() => RefrescarAsync();

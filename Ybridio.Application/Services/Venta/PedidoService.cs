@@ -71,7 +71,7 @@ public sealed class PedidoService : IPedidoService
         {
             EmpresaId              = dto.EmpresaId,
             SucursalId             = dto.SucursalId,
-            ClienteId              = dto.ClienteId,
+            RelacionComercialId              = dto.RelacionComercialId,
             NombreCliente          = dto.NombreCliente.Trim(),
             CotizacionId           = dto.CotizacionId,
             Estatus                = EstatusPedido.Nuevo,
@@ -138,7 +138,7 @@ public sealed class PedidoService : IPedidoService
         if (p.Estatus == EstatusPedido.Cancelado)
             return ServiceResult<PedidoDto>.Fail("No se puede editar un pedido cancelado.", ErrorCode.ValidationFailed);
 
-        p.ClienteId              = dto.ClienteId;
+        p.RelacionComercialId              = dto.RelacionComercialId;
         p.NombreCliente          = dto.NombreCliente.Trim();
         p.Fecha                  = dto.Fecha;
         p.FechaEntregaCompromiso = dto.FechaEntregaCompromiso;
@@ -213,7 +213,7 @@ public sealed class PedidoService : IPedidoService
         {
             EmpresaId         = p.EmpresaId,
             SucursalId        = p.SucursalId,
-            ClienteId         = p.ClienteId,
+            RelacionComercialId         = p.RelacionComercialId,
             NombreCliente     = p.NombreCliente,
             PedidoId          = p.Id,
             Estatus           = EstatusOrdenTrabajo.Nueva,
@@ -230,7 +230,7 @@ public sealed class PedidoService : IPedidoService
         await _context.SaveChangesAsync(ct);
 
         return ServiceResult<OrdenTrabajoDto>.Ok(
-            new(ot.Id, ot.EmpresaId, ot.SucursalId, ot.ClienteId, ot.NombreCliente, ot.PedidoId,
+            new(ot.Id, ot.EmpresaId, ot.SucursalId, ot.RelacionComercialId, ot.NombreCliente, ot.PedidoId,
                 ot.Estatus, "Nueva", ot.Fecha, ot.FechaCompromiso, ot.Descripcion, ot.Observaciones,
                 ot.ResponsableId, ot.Total, []));
     }
@@ -250,7 +250,7 @@ public sealed class PedidoService : IPedidoService
             p.Estatus, EstatusTexto(p.Estatus), p.Fecha, p.FechaEntregaCompromiso, p.Total, p.Observaciones);
 
     private static PedidoDto MapToDto(Pedido p) =>
-        new(p.Id, p.EmpresaId, p.SucursalId, p.ClienteId, p.NombreCliente, p.CotizacionId,
+        new(p.Id, p.EmpresaId, p.SucursalId, p.RelacionComercialId, p.NombreCliente, p.CotizacionId,
             p.Estatus, EstatusTexto(p.Estatus), p.Fecha, p.FechaEntregaCompromiso, p.Total, p.Observaciones,
             p.Detalles.Select(d => new DetalleLineaDto(d.Id, d.ProductoId, d.Descripcion, d.Cantidad, d.PrecioUnitario, d.Importe)).ToList());
 }

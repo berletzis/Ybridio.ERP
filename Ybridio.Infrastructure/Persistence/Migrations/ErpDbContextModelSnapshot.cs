@@ -73,10 +73,12 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
                 {
                     b.Property<string>("LoginProvider")
-                        .HasColumnType("nvarchar(450)");
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
 
                     b.Property<string>("ProviderKey")
-                        .HasColumnType("nvarchar(450)");
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
 
                     b.Property<string>("ProviderDisplayName")
                         .HasColumnType("nvarchar(max)");
@@ -114,10 +116,12 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("LoginProvider")
-                        .HasColumnType("nvarchar(450)");
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
 
                     b.Property<string>("Name")
-                        .HasColumnType("nvarchar(450)");
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
 
                     b.Property<string>("Value")
                         .HasColumnType("nvarchar(max)");
@@ -203,6 +207,10 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
+                    b.Property<string>("Direccion")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
                     b.Property<string>("Email")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
@@ -218,10 +226,19 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("FechaModificacion")
                         .HasColumnType("datetime2");
 
+                    b.Property<decimal>("LimiteCredito")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("Notas")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("RFC")
                         .HasMaxLength(20)
@@ -232,6 +249,10 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
+
+                    b.Property<string>("Telefono")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<Guid>("UsuarioCreacionId")
                         .HasColumnType("uniqueidentifier");
@@ -244,7 +265,174 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                     b.HasIndex("EmpresaId", "RFC")
                         .HasDatabaseName("IX_Cliente_EmpresaId_RFC");
 
-                    b.ToTable("Cliente", "catalogos");
+                    b.ToTable("Cliente", "core");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Catalogos.EmpresaComercial", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("Borrado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Direccion")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("EmpresaId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("getdate()");
+
+                    b.Property<DateTime?>("FechaModificacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NombreComercial")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("Notas")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("RFC")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("RazonSocial")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Telefono")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid>("UsuarioCreacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UsuarioModificacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmpresaId")
+                        .HasDatabaseName("IX_EmpresaComercial_EmpresaId");
+
+                    b.HasIndex("EmpresaId", "RFC")
+                        .HasDatabaseName("IX_EmpresaComercial_EmpresaId_RFC");
+
+                    b.ToTable("EmpresaComercial", "core");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Catalogos.Persona", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("Apellidos")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("Borrado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Direccion")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int?>("EmpresaComercialId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EmpresaId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("getdate()");
+
+                    b.Property<DateTime?>("FechaModificacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Notas")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("RFC")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Telefono")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid>("UsuarioCreacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UsuarioModificacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmpresaComercialId");
+
+                    b.HasIndex("EmpresaId")
+                        .HasDatabaseName("IX_Persona_EmpresaId");
+
+                    b.HasIndex("EmpresaId", "RFC")
+                        .HasDatabaseName("IX_Persona_EmpresaId_RFC");
+
+                    b.ToTable("Persona", "core");
                 });
 
             modelBuilder.Entity("Ybridio.Domain.Catalogos.Producto", b =>
@@ -356,7 +544,7 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("IX_Producto_CodigoBarras")
                         .HasFilter("[CodigoBarras] IS NOT NULL");
 
-                    b.ToTable("Producto", "catalogos");
+                    b.ToTable("Producto", "core");
                 });
 
             modelBuilder.Entity("Ybridio.Domain.Catalogos.ProductoCategoria", b =>
@@ -389,10 +577,10 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ProductoId");
 
-                    b.ToTable("ProductoCategoria", "catalogos");
+                    b.ToTable("ProductoCategoria", "core");
                 });
 
-            modelBuilder.Entity("Ybridio.Domain.Catalogos.ProductoTienda", b =>
+            modelBuilder.Entity("Ybridio.Domain.Catalogos.ProductoSucursal", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -416,17 +604,17 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                     b.Property<int>("ProductoId")
                         .HasColumnType("int");
 
-                    b.Property<int>("TiendaId")
+                    b.Property<int>("SucursalId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TiendaId");
+                    b.HasIndex("SucursalId");
 
-                    b.HasIndex("ProductoId", "TiendaId")
+                    b.HasIndex("ProductoId", "SucursalId")
                         .IsUnique();
 
-                    b.ToTable("ProductoTienda", "catalogos");
+                    b.ToTable("ProductoSucursal", "core");
                 });
 
             modelBuilder.Entity("Ybridio.Domain.Catalogos.Proveedor", b =>
@@ -483,7 +671,80 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                     b.HasIndex("EmpresaId", "RFC")
                         .HasDatabaseName("IX_Proveedor_EmpresaId_RFC");
 
-                    b.ToTable("Proveedor", "catalogos");
+                    b.ToTable("Proveedor", "core");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Catalogos.RelacionComercial", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("Borrado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<int?>("EmpresaComercialId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EmpresaId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("getdate()");
+
+                    b.Property<DateTime?>("FechaModificacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("LimiteCredito")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("PersonaId")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("TipoRelacion")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("UsuarioCreacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UsuarioModificacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmpresaComercialId")
+                        .HasDatabaseName("IX_RelacionComercial_EmpresaComercialId");
+
+                    b.HasIndex("PersonaId")
+                        .HasDatabaseName("IX_RelacionComercial_PersonaId");
+
+                    b.HasIndex("EmpresaId", "TipoRelacion")
+                        .HasDatabaseName("IX_RelacionComercial_EmpresaId_Tipo");
+
+                    b.ToTable("RelacionComercial", "core");
                 });
 
             modelBuilder.Entity("Ybridio.Domain.Catalogos.TipoImpuesto", b =>
@@ -893,7 +1154,7 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                     b.ToTable("Empresa", "core");
                 });
 
-            modelBuilder.Entity("Ybridio.Domain.Core.Tienda", b =>
+            modelBuilder.Entity("Ybridio.Domain.Core.Sucursal", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -938,7 +1199,7 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("EmpresaId");
 
-                    b.ToTable("Tienda", "core");
+                    b.ToTable("Sucursal", "core");
                 });
 
             modelBuilder.Entity("Ybridio.Domain.Finanzas.AperturaCaja", b =>
@@ -1033,7 +1294,7 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                     b.Property<decimal>("Saldo")
                         .HasColumnType("decimal(18,6)");
 
-                    b.Property<int>("TiendaId")
+                    b.Property<int>("SucursalId")
                         .HasColumnType("int");
 
                     b.Property<Guid>("UsuarioCreacionId")
@@ -1043,9 +1304,232 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("EmpresaId");
 
-                    b.HasIndex("TiendaId");
+                    b.HasIndex("SucursalId");
 
                     b.ToTable("Caja", "finanzas");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Finanzas.CategoriaFinanciera", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("Borrado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Color")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Descripcion")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<int>("EmpresaId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("getdate()");
+
+                    b.Property<DateTime?>("FechaModificacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("TipoAplicable")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Ambos");
+
+                    b.Property<Guid>("UsuarioCreacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UsuarioModificacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmpresaId", "Nombre")
+                        .HasDatabaseName("IX_CategoriaFinanciera_Empresa_Nombre");
+
+                    b.ToTable("CategoriaFinanciera", "finanzas");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Finanzas.CuentaPorCobrar", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<bool>("Borrado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Concepto")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("EmpresaId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("getdate()");
+
+                    b.Property<DateTime>("FechaEmision")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("FechaModificacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FechaVencimiento")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("MontoOriginal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("MontoPagado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<string>("NombreDeudor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("UsuarioCreacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UsuarioModificacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SucursalId");
+
+                    b.HasIndex("EmpresaId", "FechaVencimiento")
+                        .HasDatabaseName("IX_CuentaPorCobrar_Empresa_Vencimiento");
+
+                    b.ToTable("CuentaPorCobrar", "finanzas");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Finanzas.CuentaPorPagar", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<bool>("Borrado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Concepto")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("EmpresaId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("getdate()");
+
+                    b.Property<DateTime>("FechaEmision")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("FechaModificacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FechaVencimiento")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("MontoOriginal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("MontoPagado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<string>("NombreAcreedor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("UsuarioCreacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UsuarioModificacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SucursalId");
+
+                    b.HasIndex("EmpresaId", "FechaVencimiento")
+                        .HasDatabaseName("IX_CuentaPorPagar_Empresa_Vencimiento");
+
+                    b.ToTable("CuentaPorPagar", "finanzas");
                 });
 
             modelBuilder.Entity("Ybridio.Domain.Finanzas.MovimientoCaja", b =>
@@ -1104,6 +1588,89 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                     b.ToTable("MovimientoCaja", "finanzas");
                 });
 
+            modelBuilder.Entity("Ybridio.Domain.Finanzas.MovimientoFinanciero", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<bool>("Borrado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<int?>("CategoriaId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Concepto")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("Contexto")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("EmpresaId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("getdate()");
+
+                    b.Property<DateTime?>("FechaModificacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("Monto")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Tipo")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("UsuarioContextoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("UsuarioCreacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UsuarioModificacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoriaId");
+
+                    b.HasIndex("SucursalId");
+
+                    b.HasIndex("EmpresaId", "SucursalId", "Fecha")
+                        .HasDatabaseName("IX_MovimientoFinanciero_Empresa_Sucursal_Fecha");
+
+                    b.HasIndex("EmpresaId", "Tipo", "Fecha")
+                        .HasDatabaseName("IX_MovimientoFinanciero_Empresa_Tipo_Fecha");
+
+                    b.ToTable("MovimientoFinanciero", "finanzas");
+                });
+
             modelBuilder.Entity("Ybridio.Domain.Finanzas.TipoMovimientoCaja", b =>
                 {
                     b.Property<int>("Id")
@@ -1122,13 +1689,21 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                     b.ToTable("TipoMovimientoCaja", "finanzas");
                 });
 
-            modelBuilder.Entity("Ybridio.Domain.Inventario.Almacen", b =>
+            modelBuilder.Entity("Ybridio.Domain.Inventario.AjusteInventario", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("AlmacenId")
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    b.Property<bool>("Aplicado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
 
                     b.Property<bool>("Borrado")
                         .ValueGeneratedOnAdd()
@@ -1137,6 +1712,165 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
 
                     b.Property<int>("EmpresaId")
                         .HasColumnType("int");
+
+                    b.Property<DateTime>("Fecha")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("getdate()");
+
+                    b.Property<DateTime?>("FechaAplicacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("getdate()");
+
+                    b.Property<DateTime?>("FechaModificacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Folio")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<short>("TipoAjuste")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint")
+                        .HasDefaultValue((short)1);
+
+                    b.Property<Guid?>("UsuarioAutorizacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("UsuarioCreacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UsuarioModificacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AlmacenId");
+
+                    b.HasIndex("EmpresaId");
+
+                    b.HasIndex("SucursalId");
+
+                    b.ToTable("AjusteInventario", "inventario");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Inventario.AjusteInventarioDetalle", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("AjusteInventarioId")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("Borrado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<decimal>("CantidadFisica")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,6)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<decimal>("CantidadSistema")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,6)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<decimal>("CostoUnitario")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,6)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<decimal?>("Diferencia")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("decimal(18,2)")
+                        .HasComputedColumnSql("[CantidadFisica] - [CantidadSistema]", true);
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("getdate()");
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("ProductoId")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<Guid>("UsuarioCreacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AjusteInventarioId");
+
+                    b.HasIndex("ProductoId");
+
+                    b.ToTable("AjusteInventarioDetalle", "inventario");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Inventario.Almacen", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("Borrado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Codigo")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Descripcion")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("EmpresaId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("EsPrincipal")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
 
                     b.Property<DateTime>("FechaCreacion")
                         .ValueGeneratedOnAdd()
@@ -1157,8 +1891,87 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
 
-                    b.Property<int>("TiendaId")
+                    b.Property<int>("SucursalId")
                         .HasColumnType("int");
+
+                    b.Property<Guid>("UsuarioCreacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UsuarioModificacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmpresaId", "SucursalId")
+                        .HasDatabaseName("IX_Almacen_EmpresaActivo")
+                        .HasFilter("[Borrado] = 0 AND [Activo] = 1");
+
+                    b.HasIndex("SucursalId", "Codigo")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_Almacen_Sucursal_Codigo")
+                        .HasFilter("[Codigo] IS NOT NULL AND [Borrado] = 0");
+
+                    b.ToTable("Almacen", "inventario");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Inventario.ConceptoEntrada", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("AfectaExistencia")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("Borrado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Descripcion")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("EmpresaId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("EsTraspaso")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("getdate()");
+
+                    b.Property<DateTime?>("FechaModificacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<bool>("RequiereOrdenCompra")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
 
                     b.Property<Guid>("UsuarioCreacionId")
                         .HasColumnType("uniqueidentifier");
@@ -1170,9 +1983,347 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("EmpresaId");
 
-                    b.HasIndex("TiendaId");
+                    b.ToTable("ConceptoEntrada", "inventario");
+                });
 
-                    b.ToTable("Almacen", "inventario");
+            modelBuilder.Entity("Ybridio.Domain.Inventario.ConceptoSalida", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("AfectaExistencia")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("Borrado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Descripcion")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("EmpresaId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("EsTraspaso")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("EsVenta")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("getdate()");
+
+                    b.Property<DateTime?>("FechaModificacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<Guid>("UsuarioCreacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UsuarioModificacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmpresaId");
+
+                    b.ToTable("ConceptoSalida", "inventario");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Inventario.Entrada", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("AlmacenId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("AlmacenOrigenId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Aplicada")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("Borrado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<int>("ConceptoEntradaId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EmpresaId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EstatusEntradaId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("Fecha")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("getdate()");
+
+                    b.Property<DateTime?>("FechaAplicacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("getdate()");
+
+                    b.Property<DateTime?>("FechaModificacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("FechaRecepcion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Folio")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("NumeroFactura")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<long?>("OrdenCompraId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int?>("ProveedorId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReferenciaExterna")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<long?>("SalidaOrigenId")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal>("Subtotal")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,6)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<int>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Total")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,6)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<decimal>("TotalImpuestos")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,6)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<Guid?>("UsuarioAplicacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("UsuarioCreacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UsuarioModificacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AlmacenId")
+                        .HasDatabaseName("IX_Entrada_Almacen");
+
+                    b.HasIndex("AlmacenOrigenId");
+
+                    b.HasIndex("ConceptoEntradaId");
+
+                    b.HasIndex("EstatusEntradaId");
+
+                    b.HasIndex("Folio")
+                        .HasDatabaseName("IX_Entrada_Folio")
+                        .HasFilter("[Folio] IS NOT NULL");
+
+                    b.HasIndex("OrdenCompraId");
+
+                    b.HasIndex("ProveedorId");
+
+                    b.HasIndex("SalidaOrigenId");
+
+                    b.HasIndex("SucursalId");
+
+                    b.HasIndex("EmpresaId", "SucursalId")
+                        .HasDatabaseName("IX_Entrada_EmpresaSucursal");
+
+                    b.ToTable("Entrada", "inventario");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Inventario.EntradaDetalle", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<bool>("Borrado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<int?>("CantidadCajas")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("CantidadEsperada")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,6)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<decimal>("CantidadRecibida")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,6)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<string>("CodigoBarras")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal>("CostoUnitario")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,6)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<long>("EntradaId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("getdate()");
+
+                    b.Property<DateTime?>("FechaModificacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("Importe")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,6)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<short>("NumeroLinea")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint")
+                        .HasDefaultValue((short)1);
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("PiezasPorCaja")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ProductoId")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Sku")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("UsuarioCreacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UsuarioModificacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EntradaId")
+                        .HasDatabaseName("IX_EntradaDetalle_Entrada");
+
+                    b.HasIndex("ProductoId")
+                        .HasDatabaseName("IX_EntradaDetalle_Producto");
+
+                    b.ToTable("EntradaDetalle", "inventario");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Inventario.EstatusEntrada", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("EstatusEntrada", "inventario");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Inventario.EstatusSalida", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("EstatusSalida", "inventario");
                 });
 
             modelBuilder.Entity("Ybridio.Domain.Inventario.Existencia", b =>
@@ -1214,6 +2365,9 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
 
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
                     b.Property<Guid>("UsuarioCreacionId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1225,6 +2379,8 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                     b.HasIndex("AlmacenId");
 
                     b.HasIndex("ProductoId");
+
+                    b.HasIndex("SucursalId");
 
                     b.HasIndex("EmpresaId", "AlmacenId", "ProductoId")
                         .IsUnique()
@@ -1269,6 +2425,14 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("FechaModificacion")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("Folio")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<int>("ProductoId")
                         .HasColumnType("int");
 
@@ -1284,6 +2448,14 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
+
+                    b.Property<decimal>("SaldoAcumulado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,6)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
 
                     b.Property<int>("TipoMovimientoId")
                         .HasColumnType("int");
@@ -1305,9 +2477,219 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ProductoId");
 
+                    b.HasIndex("SucursalId");
+
                     b.HasIndex("TipoMovimientoId");
 
                     b.ToTable("MovimientoInventario", "inventario");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Inventario.Salida", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int?>("AlmacenDestinoId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("AlmacenId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Aplicada")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("Borrado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<int>("ConceptoSalidaId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EmpresaId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EstatusSalidaId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("Fecha")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("getdate()");
+
+                    b.Property<DateTime?>("FechaAplicacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("getdate()");
+
+                    b.Property<DateTime?>("FechaModificacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Folio")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Total")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,6)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<Guid?>("UsuarioAplicacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UsuarioAutorizacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("UsuarioCreacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UsuarioModificacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long?>("VentaId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AlmacenDestinoId");
+
+                    b.HasIndex("AlmacenId")
+                        .HasDatabaseName("IX_Salida_Almacen");
+
+                    b.HasIndex("ConceptoSalidaId");
+
+                    b.HasIndex("EstatusSalidaId");
+
+                    b.HasIndex("Folio")
+                        .HasDatabaseName("IX_Salida_Folio")
+                        .HasFilter("[Folio] IS NOT NULL");
+
+                    b.HasIndex("SucursalId");
+
+                    b.HasIndex("VentaId");
+
+                    b.HasIndex("EmpresaId", "SucursalId")
+                        .HasDatabaseName("IX_Salida_EmpresaSucursal");
+
+                    b.ToTable("Salida", "inventario");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Inventario.SalidaDetalle", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<bool>("Borrado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<decimal>("Cantidad")
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<int?>("CantidadCajas")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CodigoBarras")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal>("CostoUnitario")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,6)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<decimal?>("Descuento")
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<long?>("EntradaDetalleOrigenId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("getdate()");
+
+                    b.Property<DateTime?>("FechaModificacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("Importe")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,6)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<short>("NumeroLinea")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint")
+                        .HasDefaultValue((short)1);
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("PiezasPorCaja")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("PrecioUnitario")
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<int>("ProductoId")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<long>("SalidaId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Sku")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("UsuarioCreacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UsuarioModificacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EntradaDetalleOrigenId");
+
+                    b.HasIndex("ProductoId")
+                        .HasDatabaseName("IX_SalidaDetalle_Producto");
+
+                    b.HasIndex("SalidaId")
+                        .HasDatabaseName("IX_SalidaDetalle_Salida");
+
+                    b.ToTable("SalidaDetalle", "inventario");
                 });
 
             modelBuilder.Entity("Ybridio.Domain.Inventario.TipoMovimientoInventario", b =>
@@ -1321,14 +2703,105 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                     b.Property<bool>("AfectaExistencia")
                         .HasColumnType("bit");
 
+                    b.Property<string>("Descripcion")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<short>("Signo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint")
+                        .HasDefaultValue((short)1);
+
                     b.HasKey("Id");
 
                     b.ToTable("TipoMovimientoInventario", "inventario");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Inventario.Traspaso", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("AlmacenDestinoId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("AlmacenOrigenId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Borrado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<int>("EmpresaId")
+                        .HasColumnType("int");
+
+                    b.Property<long?>("EntradaId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Estatus")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
+                    b.Property<DateTime>("Fecha")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("getdate()");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("getdate()");
+
+                    b.Property<DateTime?>("FechaModificacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Folio")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<long?>("SalidaId")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("UsuarioCreacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UsuarioModificacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AlmacenDestinoId");
+
+                    b.HasIndex("AlmacenOrigenId");
+
+                    b.HasIndex("EmpresaId")
+                        .HasDatabaseName("IX_Traspaso_Empresa");
+
+                    b.HasIndex("EntradaId");
+
+                    b.HasIndex("SalidaId");
+
+                    b.ToTable("Traspaso", "inventario");
                 });
 
             modelBuilder.Entity("Ybridio.Domain.Seguridad.Modulo", b =>
@@ -1371,6 +2844,81 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Modulo", "seguridad");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Seguridad.Perfil", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("Borrado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Descripcion")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("getdate()");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<Guid>("UsuarioCreacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Nombre")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Perfil_Nombre");
+
+                    b.ToTable("Perfil", "seguridad");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Seguridad.PerfilPermiso", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("PerfilId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PermisoId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PermisoId");
+
+                    b.HasIndex("PerfilId", "PermisoId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_PerfilPermiso_PerfilPermiso");
+
+                    b.ToTable("PerfilPermiso", "seguridad");
                 });
 
             modelBuilder.Entity("Ybridio.Domain.Seguridad.Permiso", b =>
@@ -1445,6 +2993,59 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                     b.ToTable("RolPermiso", "seguridad");
                 });
 
+            modelBuilder.Entity("Ybridio.Domain.Seguridad.UsuarioAlmacen", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AlmacenId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AlmacenId");
+
+                    b.HasIndex("UsuarioId")
+                        .HasDatabaseName("IX_UsuarioAlmacen_UsuarioId");
+
+                    b.HasIndex("UsuarioId", "AlmacenId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_UsuarioAlmacen_UsuarioAlmacen");
+
+                    b.ToTable("UsuarioAlmacen", "seguridad");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Seguridad.UsuarioPerfil", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("PerfilId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PerfilId");
+
+                    b.HasIndex("UsuarioId", "PerfilId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_UsuarioPerfil_UsuarioPerfil");
+
+                    b.ToTable("UsuarioPerfil", "seguridad");
+                });
+
             modelBuilder.Entity("Ybridio.Domain.Seguridad.UsuarioPermiso", b =>
                 {
                     b.Property<int>("Id")
@@ -1471,7 +3072,7 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                     b.ToTable("UsuarioPermiso", "seguridad");
                 });
 
-            modelBuilder.Entity("Ybridio.Domain.Seguridad.UsuarioTienda", b =>
+            modelBuilder.Entity("Ybridio.Domain.Seguridad.UsuarioSucursal", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -1479,7 +3080,7 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int?>("TiendaId")
+                    b.Property<int?>("SucursalId")
                         .HasColumnType("int");
 
                     b.Property<Guid>("UsuarioId")
@@ -1487,11 +3088,136 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TiendaId");
+                    b.HasIndex("SucursalId");
 
                     b.HasIndex("UsuarioId");
 
-                    b.ToTable("UsuarioTienda", "seguridad");
+                    b.ToTable("UsuarioSucursal", "seguridad");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Ventas.Cotizacion", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<bool>("Borrado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<int>("EmpresaId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Estatus")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("getdate()");
+
+                    b.Property<DateTime?>("FechaModificacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("FechaVigencia")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NombreCliente")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("RelacionComercialId")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<decimal>("Subtotal")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Total")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<Guid>("UsuarioCreacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UsuarioModificacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("VendedorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RelacionComercialId");
+
+                    b.HasIndex("SucursalId");
+
+                    b.HasIndex("EmpresaId", "Estatus")
+                        .HasDatabaseName("IX_Cotizacion_Empresa_Estatus");
+
+                    b.HasIndex("EmpresaId", "Fecha")
+                        .HasDatabaseName("IX_Cotizacion_Empresa_Fecha");
+
+                    b.ToTable("Cotizacion", "ventas");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Ventas.CotizacionDetalle", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal>("Cantidad")
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<long>("CotizacionId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<decimal>("Importe")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("PrecioUnitario")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("ProductoId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CotizacionId");
+
+                    b.HasIndex("ProductoId");
+
+                    b.ToTable("CotizacionDetalle", "ventas");
                 });
 
             modelBuilder.Entity("Ybridio.Domain.Ventas.Factura", b =>
@@ -1507,9 +3233,6 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
-                    b.Property<int>("ClienteId")
-                        .HasColumnType("int");
-
                     b.Property<int>("EmpresaId")
                         .HasColumnType("int");
 
@@ -1520,6 +3243,9 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("getdate()");
+
+                    b.Property<int>("RelacionComercialId")
+                        .HasColumnType("int");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
@@ -1542,13 +3268,324 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ClienteId");
-
                     b.HasIndex("EmpresaId");
+
+                    b.HasIndex("RelacionComercialId");
 
                     b.HasIndex("VentaId");
 
                     b.ToTable("Factura", "ventas");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Ventas.OrdenTrabajo", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<bool>("Borrado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("EmpresaId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Estatus")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("FechaCompromiso")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("getdate()");
+
+                    b.Property<DateTime?>("FechaModificacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NombreCliente")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<long?>("PedidoId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int?>("RelacionComercialId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("ResponsableId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Total")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<Guid>("UsuarioCreacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UsuarioModificacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PedidoId");
+
+                    b.HasIndex("RelacionComercialId");
+
+                    b.HasIndex("SucursalId");
+
+                    b.HasIndex("EmpresaId", "Estatus")
+                        .HasDatabaseName("IX_OrdenTrabajo_Empresa_Estatus");
+
+                    b.HasIndex("EmpresaId", "Fecha")
+                        .HasDatabaseName("IX_OrdenTrabajo_Empresa_Fecha");
+
+                    b.ToTable("OrdenTrabajo", "ventas");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Ventas.OrdenTrabajoMaterial", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal>("Cantidad")
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<decimal>("Importe")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<long>("OrdenTrabajoId")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal>("PrecioUnitario")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("ProductoId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrdenTrabajoId");
+
+                    b.HasIndex("ProductoId");
+
+                    b.ToTable("OrdenTrabajoMaterial", "ventas");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Ventas.PagoVenta", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<bool>("Borrado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("getdate()");
+
+                    b.Property<DateTime?>("FechaModificacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FormaPago")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal>("Monto")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Referencia")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<Guid>("UsuarioCreacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UsuarioModificacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("VentaId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VentaId")
+                        .HasDatabaseName("IX_PagoVenta_VentaId");
+
+                    b.ToTable("PagoVenta", "ventas");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Ventas.Pedido", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<bool>("Borrado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<long?>("CotizacionId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("EmpresaId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Estatus")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("getdate()");
+
+                    b.Property<DateTime?>("FechaEntregaCompromiso")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("FechaModificacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NombreCliente")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("RelacionComercialId")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Total")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<Guid>("UsuarioCreacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UsuarioModificacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CotizacionId");
+
+                    b.HasIndex("RelacionComercialId");
+
+                    b.HasIndex("SucursalId");
+
+                    b.HasIndex("EmpresaId", "Estatus")
+                        .HasDatabaseName("IX_Pedido_Empresa_Estatus");
+
+                    b.HasIndex("EmpresaId", "Fecha")
+                        .HasDatabaseName("IX_Pedido_Empresa_Fecha");
+
+                    b.ToTable("Pedido", "ventas");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Ventas.PedidoDetalle", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal>("Cantidad")
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<decimal>("Importe")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<long>("PedidoId")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal>("PrecioUnitario")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("ProductoId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PedidoId");
+
+                    b.HasIndex("ProductoId");
+
+                    b.ToTable("PedidoDetalle", "ventas");
                 });
 
             modelBuilder.Entity("Ybridio.Domain.Ventas.Venta", b =>
@@ -1573,6 +3610,11 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                     b.Property<int>("EmpresaId")
                         .HasColumnType("int");
 
+                    b.Property<int>("Estatus")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
                     b.Property<DateTime>("Fecha")
                         .HasColumnType("datetime2");
 
@@ -1584,17 +3626,44 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("FechaModificacion")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("NombreCliente")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<long?>("PedidoId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int?>("RelacionComercialId")
+                        .HasColumnType("int");
+
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
 
-                    b.Property<int>("TiendaId")
+                    b.Property<decimal?>("Subtotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("SucursalId")
                         .HasColumnType("int");
+
+                    b.Property<int>("TipoPago")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
                     b.Property<decimal?>("Total")
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TotalPagado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
 
                     b.Property<Guid>("UsuarioCreacionId")
                         .HasColumnType("uniqueidentifier");
@@ -1608,10 +3677,12 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CajaId");
 
-                    b.HasIndex("TiendaId");
+                    b.HasIndex("RelacionComercialId");
 
-                    b.HasIndex("EmpresaId", "TiendaId", "Fecha")
-                        .HasDatabaseName("IX_Venta_EmpresaId_TiendaId_Fecha");
+                    b.HasIndex("SucursalId");
+
+                    b.HasIndex("EmpresaId", "SucursalId", "Fecha")
+                        .HasDatabaseName("IX_Venta_EmpresaId_SucursalId_Fecha");
 
                     b.ToTable("Venta", "ventas");
                 });
@@ -1922,6 +3993,35 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                     b.Navigation("Empresa");
                 });
 
+            modelBuilder.Entity("Ybridio.Domain.Catalogos.EmpresaComercial", b =>
+                {
+                    b.HasOne("Ybridio.Domain.Core.Empresa", "Empresa")
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Empresa");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Catalogos.Persona", b =>
+                {
+                    b.HasOne("Ybridio.Domain.Catalogos.EmpresaComercial", "EmpresaComercial")
+                        .WithMany("Contactos")
+                        .HasForeignKey("EmpresaComercialId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Ybridio.Domain.Core.Empresa", "Empresa")
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Empresa");
+
+                    b.Navigation("EmpresaComercial");
+                });
+
             modelBuilder.Entity("Ybridio.Domain.Catalogos.Producto", b =>
                 {
                     b.HasOne("Ybridio.Domain.Core.Empresa", "Empresa")
@@ -1983,7 +4083,7 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                     b.Navigation("Producto");
                 });
 
-            modelBuilder.Entity("Ybridio.Domain.Catalogos.ProductoTienda", b =>
+            modelBuilder.Entity("Ybridio.Domain.Catalogos.ProductoSucursal", b =>
                 {
                     b.HasOne("Ybridio.Domain.Catalogos.Producto", "Producto")
                         .WithMany()
@@ -1991,15 +4091,15 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Ybridio.Domain.Core.Tienda", "Tienda")
+                    b.HasOne("Ybridio.Domain.Core.Sucursal", "Sucursal")
                         .WithMany()
-                        .HasForeignKey("TiendaId")
+                        .HasForeignKey("SucursalId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Producto");
 
-                    b.Navigation("Tienda");
+                    b.Navigation("Sucursal");
                 });
 
             modelBuilder.Entity("Ybridio.Domain.Catalogos.Proveedor", b =>
@@ -2011,6 +4111,31 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Empresa");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Catalogos.RelacionComercial", b =>
+                {
+                    b.HasOne("Ybridio.Domain.Catalogos.EmpresaComercial", "EmpresaComercial")
+                        .WithMany()
+                        .HasForeignKey("EmpresaComercialId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Ybridio.Domain.Core.Empresa", "Empresa")
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Ybridio.Domain.Catalogos.Persona", "Persona")
+                        .WithMany()
+                        .HasForeignKey("PersonaId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Empresa");
+
+                    b.Navigation("EmpresaComercial");
+
+                    b.Navigation("Persona");
                 });
 
             modelBuilder.Entity("Ybridio.Domain.Catalogos.TipoImpuesto", b =>
@@ -2125,14 +4250,14 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                     b.Navigation("RecepcionCompra");
                 });
 
-            modelBuilder.Entity("Ybridio.Domain.Core.Tienda", b =>
+            modelBuilder.Entity("Ybridio.Domain.Core.Sucursal", b =>
                 {
                     b.HasOne("Ybridio.Domain.Core.Empresa", "Empresa")
-                        .WithMany("Tiendas")
+                        .WithMany("Sucursales")
                         .HasForeignKey("EmpresaId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("FK_Tienda_Empresa");
+                        .HasConstraintName("FK_Sucursal_Empresa");
 
                     b.Navigation("Empresa");
                 });
@@ -2156,15 +4281,62 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Ybridio.Domain.Core.Tienda", "Tienda")
+                    b.HasOne("Ybridio.Domain.Core.Sucursal", "Sucursal")
                         .WithMany()
-                        .HasForeignKey("TiendaId")
+                        .HasForeignKey("SucursalId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Empresa");
 
-                    b.Navigation("Tienda");
+                    b.Navigation("Sucursal");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Finanzas.CategoriaFinanciera", b =>
+                {
+                    b.HasOne("Ybridio.Domain.Core.Empresa", "Empresa")
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Empresa");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Finanzas.CuentaPorCobrar", b =>
+                {
+                    b.HasOne("Ybridio.Domain.Core.Empresa", "Empresa")
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Ybridio.Domain.Core.Sucursal", "Sucursal")
+                        .WithMany()
+                        .HasForeignKey("SucursalId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Empresa");
+
+                    b.Navigation("Sucursal");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Finanzas.CuentaPorPagar", b =>
+                {
+                    b.HasOne("Ybridio.Domain.Core.Empresa", "Empresa")
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Ybridio.Domain.Core.Sucursal", "Sucursal")
+                        .WithMany()
+                        .HasForeignKey("SucursalId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Empresa");
+
+                    b.Navigation("Sucursal");
                 });
 
             modelBuilder.Entity("Ybridio.Domain.Finanzas.MovimientoCaja", b =>
@@ -2185,6 +4357,82 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                     b.Navigation("TipoMovimiento");
                 });
 
+            modelBuilder.Entity("Ybridio.Domain.Finanzas.MovimientoFinanciero", b =>
+                {
+                    b.HasOne("Ybridio.Domain.Finanzas.CategoriaFinanciera", "Categoria")
+                        .WithMany("Movimientos")
+                        .HasForeignKey("CategoriaId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Ybridio.Domain.Core.Empresa", "Empresa")
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Ybridio.Domain.Core.Sucursal", "Sucursal")
+                        .WithMany()
+                        .HasForeignKey("SucursalId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Categoria");
+
+                    b.Navigation("Empresa");
+
+                    b.Navigation("Sucursal");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Inventario.AjusteInventario", b =>
+                {
+                    b.HasOne("Ybridio.Domain.Inventario.Almacen", "Almacen")
+                        .WithMany()
+                        .HasForeignKey("AlmacenId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_AjusteInventario_Almacen");
+
+                    b.HasOne("Ybridio.Domain.Core.Empresa", "Empresa")
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_AjusteInventario_Empresa");
+
+                    b.HasOne("Ybridio.Domain.Core.Sucursal", "Sucursal")
+                        .WithMany()
+                        .HasForeignKey("SucursalId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_AjusteInventario_Sucursal");
+
+                    b.Navigation("Almacen");
+
+                    b.Navigation("Empresa");
+
+                    b.Navigation("Sucursal");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Inventario.AjusteInventarioDetalle", b =>
+                {
+                    b.HasOne("Ybridio.Domain.Inventario.AjusteInventario", "AjusteInventario")
+                        .WithMany("Detalles")
+                        .HasForeignKey("AjusteInventarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_AjusteDetalle_Ajuste");
+
+                    b.HasOne("Ybridio.Domain.Catalogos.Producto", "Producto")
+                        .WithMany()
+                        .HasForeignKey("ProductoId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_AjusteDetalle_Producto");
+
+                    b.Navigation("AjusteInventario");
+
+                    b.Navigation("Producto");
+                });
+
             modelBuilder.Entity("Ybridio.Domain.Inventario.Almacen", b =>
                 {
                     b.HasOne("Ybridio.Domain.Core.Empresa", "Empresa")
@@ -2194,16 +4442,141 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasConstraintName("FK_Almacen_Empresa");
 
-                    b.HasOne("Ybridio.Domain.Core.Tienda", "Tienda")
+                    b.HasOne("Ybridio.Domain.Core.Sucursal", "Sucursal")
                         .WithMany()
-                        .HasForeignKey("TiendaId")
+                        .HasForeignKey("SucursalId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("FK_Almacen_Tienda");
+                        .HasConstraintName("FK_Almacen_Sucursal");
 
                     b.Navigation("Empresa");
 
-                    b.Navigation("Tienda");
+                    b.Navigation("Sucursal");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Inventario.ConceptoEntrada", b =>
+                {
+                    b.HasOne("Ybridio.Domain.Core.Empresa", "Empresa")
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_ConceptoEntrada_Empresa");
+
+                    b.Navigation("Empresa");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Inventario.ConceptoSalida", b =>
+                {
+                    b.HasOne("Ybridio.Domain.Core.Empresa", "Empresa")
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_ConceptoSalida_Empresa");
+
+                    b.Navigation("Empresa");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Inventario.Entrada", b =>
+                {
+                    b.HasOne("Ybridio.Domain.Inventario.Almacen", "Almacen")
+                        .WithMany()
+                        .HasForeignKey("AlmacenId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_Entrada_Almacen");
+
+                    b.HasOne("Ybridio.Domain.Inventario.Almacen", "AlmacenOrigen")
+                        .WithMany()
+                        .HasForeignKey("AlmacenOrigenId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("FK_Entrada_AlmacenOrigen");
+
+                    b.HasOne("Ybridio.Domain.Inventario.ConceptoEntrada", "ConceptoEntrada")
+                        .WithMany("Entradas")
+                        .HasForeignKey("ConceptoEntradaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_Entrada_ConceptoEntrada");
+
+                    b.HasOne("Ybridio.Domain.Core.Empresa", "Empresa")
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_Entrada_Empresa");
+
+                    b.HasOne("Ybridio.Domain.Inventario.EstatusEntrada", "EstatusEntrada")
+                        .WithMany("Entradas")
+                        .HasForeignKey("EstatusEntradaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_Entrada_EstatusEntrada");
+
+                    b.HasOne("Ybridio.Domain.Compras.OrdenCompra", "OrdenCompra")
+                        .WithMany()
+                        .HasForeignKey("OrdenCompraId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("FK_Entrada_OrdenCompra");
+
+                    b.HasOne("Ybridio.Domain.Catalogos.Proveedor", "Proveedor")
+                        .WithMany()
+                        .HasForeignKey("ProveedorId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("FK_Entrada_Proveedor");
+
+                    b.HasOne("Ybridio.Domain.Inventario.Salida", "SalidaOrigen")
+                        .WithMany()
+                        .HasForeignKey("SalidaOrigenId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("FK_Entrada_SalidaOrigen");
+
+                    b.HasOne("Ybridio.Domain.Core.Sucursal", "Sucursal")
+                        .WithMany()
+                        .HasForeignKey("SucursalId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_Entrada_Sucursal");
+
+                    b.Navigation("Almacen");
+
+                    b.Navigation("AlmacenOrigen");
+
+                    b.Navigation("ConceptoEntrada");
+
+                    b.Navigation("Empresa");
+
+                    b.Navigation("EstatusEntrada");
+
+                    b.Navigation("OrdenCompra");
+
+                    b.Navigation("Proveedor");
+
+                    b.Navigation("SalidaOrigen");
+
+                    b.Navigation("Sucursal");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Inventario.EntradaDetalle", b =>
+                {
+                    b.HasOne("Ybridio.Domain.Inventario.Entrada", "Entrada")
+                        .WithMany("Detalles")
+                        .HasForeignKey("EntradaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_EntradaDetalle_Entrada");
+
+                    b.HasOne("Ybridio.Domain.Catalogos.Producto", "Producto")
+                        .WithMany()
+                        .HasForeignKey("ProductoId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_EntradaDetalle_Producto");
+
+                    b.Navigation("Entrada");
+
+                    b.Navigation("Producto");
                 });
 
             modelBuilder.Entity("Ybridio.Domain.Inventario.Existencia", b =>
@@ -2229,11 +4602,18 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasConstraintName("FK_Existencia_Producto");
 
+                    b.HasOne("Ybridio.Domain.Core.Sucursal", "Sucursal")
+                        .WithMany()
+                        .HasForeignKey("SucursalId")
+                        .HasConstraintName("FK_Existencia_Sucursal");
+
                     b.Navigation("Almacen");
 
                     b.Navigation("Empresa");
 
                     b.Navigation("Producto");
+
+                    b.Navigation("Sucursal");
                 });
 
             modelBuilder.Entity("Ybridio.Domain.Inventario.MovimientoInventario", b =>
@@ -2256,6 +4636,11 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Ybridio.Domain.Core.Sucursal", "Sucursal")
+                        .WithMany()
+                        .HasForeignKey("SucursalId")
+                        .HasConstraintName("FK_MovimientoInventario_Sucursal");
+
                     b.HasOne("Ybridio.Domain.Inventario.TipoMovimientoInventario", "TipoMovimiento")
                         .WithMany("Movimientos")
                         .HasForeignKey("TipoMovimientoId")
@@ -2268,7 +4653,169 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
 
                     b.Navigation("Producto");
 
+                    b.Navigation("Sucursal");
+
                     b.Navigation("TipoMovimiento");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Inventario.Salida", b =>
+                {
+                    b.HasOne("Ybridio.Domain.Inventario.Almacen", "AlmacenDestino")
+                        .WithMany()
+                        .HasForeignKey("AlmacenDestinoId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("FK_Salida_AlmacenDestino");
+
+                    b.HasOne("Ybridio.Domain.Inventario.Almacen", "Almacen")
+                        .WithMany()
+                        .HasForeignKey("AlmacenId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_Salida_Almacen");
+
+                    b.HasOne("Ybridio.Domain.Inventario.ConceptoSalida", "ConceptoSalida")
+                        .WithMany("Salidas")
+                        .HasForeignKey("ConceptoSalidaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_Salida_ConceptoSalida");
+
+                    b.HasOne("Ybridio.Domain.Core.Empresa", "Empresa")
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_Salida_Empresa");
+
+                    b.HasOne("Ybridio.Domain.Inventario.EstatusSalida", "EstatusSalida")
+                        .WithMany("Salidas")
+                        .HasForeignKey("EstatusSalidaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_Salida_EstatusSalida");
+
+                    b.HasOne("Ybridio.Domain.Core.Sucursal", "Sucursal")
+                        .WithMany()
+                        .HasForeignKey("SucursalId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_Salida_Sucursal");
+
+                    b.HasOne("Ybridio.Domain.Ventas.Venta", "Venta")
+                        .WithMany()
+                        .HasForeignKey("VentaId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("FK_Salida_Venta");
+
+                    b.Navigation("Almacen");
+
+                    b.Navigation("AlmacenDestino");
+
+                    b.Navigation("ConceptoSalida");
+
+                    b.Navigation("Empresa");
+
+                    b.Navigation("EstatusSalida");
+
+                    b.Navigation("Sucursal");
+
+                    b.Navigation("Venta");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Inventario.SalidaDetalle", b =>
+                {
+                    b.HasOne("Ybridio.Domain.Inventario.EntradaDetalle", "EntradaDetalleOrigen")
+                        .WithMany()
+                        .HasForeignKey("EntradaDetalleOrigenId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("FK_SalidaDetalle_EntradaDetalleOrigen");
+
+                    b.HasOne("Ybridio.Domain.Catalogos.Producto", "Producto")
+                        .WithMany()
+                        .HasForeignKey("ProductoId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_SalidaDetalle_Producto");
+
+                    b.HasOne("Ybridio.Domain.Inventario.Salida", "Salida")
+                        .WithMany("Detalles")
+                        .HasForeignKey("SalidaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_SalidaDetalle_Salida");
+
+                    b.Navigation("EntradaDetalleOrigen");
+
+                    b.Navigation("Producto");
+
+                    b.Navigation("Salida");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Inventario.Traspaso", b =>
+                {
+                    b.HasOne("Ybridio.Domain.Inventario.Almacen", "AlmacenDestino")
+                        .WithMany()
+                        .HasForeignKey("AlmacenDestinoId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_Traspaso_AlmacenDestino");
+
+                    b.HasOne("Ybridio.Domain.Inventario.Almacen", "AlmacenOrigen")
+                        .WithMany()
+                        .HasForeignKey("AlmacenOrigenId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_Traspaso_AlmacenOrigen");
+
+                    b.HasOne("Ybridio.Domain.Core.Empresa", "Empresa")
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_Traspaso_Empresa");
+
+                    b.HasOne("Ybridio.Domain.Inventario.Entrada", "Entrada")
+                        .WithMany()
+                        .HasForeignKey("EntradaId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("FK_Traspaso_Entrada");
+
+                    b.HasOne("Ybridio.Domain.Inventario.Salida", "Salida")
+                        .WithMany()
+                        .HasForeignKey("SalidaId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("FK_Traspaso_Salida");
+
+                    b.Navigation("AlmacenDestino");
+
+                    b.Navigation("AlmacenOrigen");
+
+                    b.Navigation("Empresa");
+
+                    b.Navigation("Entrada");
+
+                    b.Navigation("Salida");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Seguridad.PerfilPermiso", b =>
+                {
+                    b.HasOne("Ybridio.Domain.Seguridad.Perfil", "Perfil")
+                        .WithMany("PerfilPermisos")
+                        .HasForeignKey("PerfilId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_PerfilPermiso_Perfil");
+
+                    b.HasOne("Ybridio.Domain.Seguridad.Permiso", "Permiso")
+                        .WithMany()
+                        .HasForeignKey("PermisoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_PerfilPermiso_Permiso");
+
+                    b.Navigation("Perfil");
+
+                    b.Navigation("Permiso");
                 });
 
             modelBuilder.Entity("Ybridio.Domain.Seguridad.Permiso", b =>
@@ -2300,6 +4847,44 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                     b.Navigation("Permiso");
                 });
 
+            modelBuilder.Entity("Ybridio.Domain.Seguridad.UsuarioAlmacen", b =>
+                {
+                    b.HasOne("Ybridio.Domain.Inventario.Almacen", "Almacen")
+                        .WithMany()
+                        .HasForeignKey("AlmacenId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_UsuarioAlmacen_Almacen");
+
+                    b.HasOne("Ybridio.Infrastructure.Persistence.Identity.ApplicationUser", null)
+                        .WithMany("UsuarioAlmacenes")
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_UsuarioAlmacen_Usuario");
+
+                    b.Navigation("Almacen");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Seguridad.UsuarioPerfil", b =>
+                {
+                    b.HasOne("Ybridio.Domain.Seguridad.Perfil", "Perfil")
+                        .WithMany("UsuarioPerfiles")
+                        .HasForeignKey("PerfilId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_UsuarioPerfil_Perfil");
+
+                    b.HasOne("Ybridio.Infrastructure.Persistence.Identity.ApplicationUser", null)
+                        .WithMany("UsuarioPerfiles")
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_UsuarioPerfil_Usuario");
+
+                    b.Navigation("Perfil");
+                });
+
             modelBuilder.Entity("Ybridio.Domain.Seguridad.UsuarioPermiso", b =>
                 {
                     b.HasOne("Ybridio.Domain.Seguridad.Permiso", "Permiso")
@@ -2318,33 +4903,76 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                     b.Navigation("Permiso");
                 });
 
-            modelBuilder.Entity("Ybridio.Domain.Seguridad.UsuarioTienda", b =>
+            modelBuilder.Entity("Ybridio.Domain.Seguridad.UsuarioSucursal", b =>
                 {
-                    b.HasOne("Ybridio.Domain.Core.Tienda", "Tienda")
+                    b.HasOne("Ybridio.Domain.Core.Sucursal", "Sucursal")
                         .WithMany()
-                        .HasForeignKey("TiendaId");
+                        .HasForeignKey("SucursalId");
 
                     b.HasOne("Ybridio.Infrastructure.Persistence.Identity.ApplicationUser", null)
-                        .WithMany("UsuarioTiendas")
+                        .WithMany("UsuarioSucursales")
                         .HasForeignKey("UsuarioId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("FK_UsuarioTienda_Usuario");
+                        .HasConstraintName("FK_UsuarioSucursal_Usuario");
 
-                    b.Navigation("Tienda");
+                    b.Navigation("Sucursal");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Ventas.Cotizacion", b =>
+                {
+                    b.HasOne("Ybridio.Domain.Core.Empresa", "Empresa")
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Ybridio.Domain.Catalogos.RelacionComercial", "RelacionComercial")
+                        .WithMany()
+                        .HasForeignKey("RelacionComercialId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Ybridio.Domain.Core.Sucursal", "Sucursal")
+                        .WithMany()
+                        .HasForeignKey("SucursalId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Empresa");
+
+                    b.Navigation("RelacionComercial");
+
+                    b.Navigation("Sucursal");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Ventas.CotizacionDetalle", b =>
+                {
+                    b.HasOne("Ybridio.Domain.Ventas.Cotizacion", "Cotizacion")
+                        .WithMany("Detalles")
+                        .HasForeignKey("CotizacionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Ybridio.Domain.Catalogos.Producto", "Producto")
+                        .WithMany()
+                        .HasForeignKey("ProductoId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Cotizacion");
+
+                    b.Navigation("Producto");
                 });
 
             modelBuilder.Entity("Ybridio.Domain.Ventas.Factura", b =>
                 {
-                    b.HasOne("Ybridio.Domain.Catalogos.Cliente", "Cliente")
-                        .WithMany()
-                        .HasForeignKey("ClienteId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("Ybridio.Domain.Core.Empresa", "Empresa")
                         .WithMany()
                         .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Ybridio.Domain.Catalogos.RelacionComercial", "RelacionComercial")
+                        .WithMany()
+                        .HasForeignKey("RelacionComercialId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -2352,11 +4980,123 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                         .WithMany("Facturas")
                         .HasForeignKey("VentaId");
 
-                    b.Navigation("Cliente");
+                    b.Navigation("Empresa");
+
+                    b.Navigation("RelacionComercial");
+
+                    b.Navigation("Venta");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Ventas.OrdenTrabajo", b =>
+                {
+                    b.HasOne("Ybridio.Domain.Core.Empresa", "Empresa")
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Ybridio.Domain.Ventas.Pedido", "Pedido")
+                        .WithMany()
+                        .HasForeignKey("PedidoId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("Ybridio.Domain.Catalogos.RelacionComercial", "RelacionComercial")
+                        .WithMany()
+                        .HasForeignKey("RelacionComercialId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Ybridio.Domain.Core.Sucursal", "Sucursal")
+                        .WithMany()
+                        .HasForeignKey("SucursalId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Empresa");
 
+                    b.Navigation("Pedido");
+
+                    b.Navigation("RelacionComercial");
+
+                    b.Navigation("Sucursal");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Ventas.OrdenTrabajoMaterial", b =>
+                {
+                    b.HasOne("Ybridio.Domain.Ventas.OrdenTrabajo", "OrdenTrabajo")
+                        .WithMany("Materiales")
+                        .HasForeignKey("OrdenTrabajoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Ybridio.Domain.Catalogos.Producto", "Producto")
+                        .WithMany()
+                        .HasForeignKey("ProductoId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("OrdenTrabajo");
+
+                    b.Navigation("Producto");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Ventas.PagoVenta", b =>
+                {
+                    b.HasOne("Ybridio.Domain.Ventas.Venta", "Venta")
+                        .WithMany("Pagos")
+                        .HasForeignKey("VentaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_PagoVenta_Venta");
+
                     b.Navigation("Venta");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Ventas.Pedido", b =>
+                {
+                    b.HasOne("Ybridio.Domain.Ventas.Cotizacion", "Cotizacion")
+                        .WithMany()
+                        .HasForeignKey("CotizacionId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("Ybridio.Domain.Core.Empresa", "Empresa")
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Ybridio.Domain.Catalogos.RelacionComercial", "RelacionComercial")
+                        .WithMany()
+                        .HasForeignKey("RelacionComercialId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Ybridio.Domain.Core.Sucursal", "Sucursal")
+                        .WithMany()
+                        .HasForeignKey("SucursalId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Cotizacion");
+
+                    b.Navigation("Empresa");
+
+                    b.Navigation("RelacionComercial");
+
+                    b.Navigation("Sucursal");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Ventas.PedidoDetalle", b =>
+                {
+                    b.HasOne("Ybridio.Domain.Ventas.Pedido", "Pedido")
+                        .WithMany("Detalles")
+                        .HasForeignKey("PedidoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Ybridio.Domain.Catalogos.Producto", "Producto")
+                        .WithMany()
+                        .HasForeignKey("ProductoId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Pedido");
+
+                    b.Navigation("Producto");
                 });
 
             modelBuilder.Entity("Ybridio.Domain.Ventas.Venta", b =>
@@ -2378,12 +5118,17 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasConstraintName("FK_Venta_Empresa");
 
-                    b.HasOne("Ybridio.Domain.Core.Tienda", "Tienda")
+                    b.HasOne("Ybridio.Domain.Catalogos.RelacionComercial", "RelacionComercial")
                         .WithMany()
-                        .HasForeignKey("TiendaId")
+                        .HasForeignKey("RelacionComercialId")
+                        .HasConstraintName("FK_Venta_Cliente");
+
+                    b.HasOne("Ybridio.Domain.Core.Sucursal", "Sucursal")
+                        .WithMany()
+                        .HasForeignKey("SucursalId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("FK_Venta_Tienda");
+                        .HasConstraintName("FK_Venta_Sucursal");
 
                     b.Navigation("AperturaCaja");
 
@@ -2391,7 +5136,9 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
 
                     b.Navigation("Empresa");
 
-                    b.Navigation("Tienda");
+                    b.Navigation("RelacionComercial");
+
+                    b.Navigation("Sucursal");
                 });
 
             modelBuilder.Entity("Ybridio.Domain.Ventas.VentaDetalle", b =>
@@ -2441,6 +5188,11 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                     b.Navigation("SubCategorias");
                 });
 
+            modelBuilder.Entity("Ybridio.Domain.Catalogos.EmpresaComercial", b =>
+                {
+                    b.Navigation("Contactos");
+                });
+
             modelBuilder.Entity("Ybridio.Domain.Catalogos.Producto", b =>
                 {
                     b.Navigation("Categorias");
@@ -2460,7 +5212,7 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Ybridio.Domain.Core.Empresa", b =>
                 {
-                    b.Navigation("Tiendas");
+                    b.Navigation("Sucursales");
                 });
 
             modelBuilder.Entity("Ybridio.Domain.Finanzas.Caja", b =>
@@ -2470,14 +5222,54 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                     b.Navigation("Movimientos");
                 });
 
+            modelBuilder.Entity("Ybridio.Domain.Finanzas.CategoriaFinanciera", b =>
+                {
+                    b.Navigation("Movimientos");
+                });
+
             modelBuilder.Entity("Ybridio.Domain.Finanzas.TipoMovimientoCaja", b =>
                 {
                     b.Navigation("Movimientos");
                 });
 
+            modelBuilder.Entity("Ybridio.Domain.Inventario.AjusteInventario", b =>
+                {
+                    b.Navigation("Detalles");
+                });
+
             modelBuilder.Entity("Ybridio.Domain.Inventario.Almacen", b =>
                 {
                     b.Navigation("Existencias");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Inventario.ConceptoEntrada", b =>
+                {
+                    b.Navigation("Entradas");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Inventario.ConceptoSalida", b =>
+                {
+                    b.Navigation("Salidas");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Inventario.Entrada", b =>
+                {
+                    b.Navigation("Detalles");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Inventario.EstatusEntrada", b =>
+                {
+                    b.Navigation("Entradas");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Inventario.EstatusSalida", b =>
+                {
+                    b.Navigation("Salidas");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Inventario.Salida", b =>
+                {
+                    b.Navigation("Detalles");
                 });
 
             modelBuilder.Entity("Ybridio.Domain.Inventario.TipoMovimientoInventario", b =>
@@ -2490,6 +5282,13 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                     b.Navigation("Permisos");
                 });
 
+            modelBuilder.Entity("Ybridio.Domain.Seguridad.Perfil", b =>
+                {
+                    b.Navigation("PerfilPermisos");
+
+                    b.Navigation("UsuarioPerfiles");
+                });
+
             modelBuilder.Entity("Ybridio.Domain.Seguridad.Permiso", b =>
                 {
                     b.Navigation("RolPermisos");
@@ -2497,11 +5296,28 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
                     b.Navigation("UsuarioPermisos");
                 });
 
+            modelBuilder.Entity("Ybridio.Domain.Ventas.Cotizacion", b =>
+                {
+                    b.Navigation("Detalles");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Ventas.OrdenTrabajo", b =>
+                {
+                    b.Navigation("Materiales");
+                });
+
+            modelBuilder.Entity("Ybridio.Domain.Ventas.Pedido", b =>
+                {
+                    b.Navigation("Detalles");
+                });
+
             modelBuilder.Entity("Ybridio.Domain.Ventas.Venta", b =>
                 {
                     b.Navigation("Detalles");
 
                     b.Navigation("Facturas");
+
+                    b.Navigation("Pagos");
                 });
 
             modelBuilder.Entity("Ybridio.Infrastructure.Persistence.Identity.ApplicationRole", b =>
@@ -2511,9 +5327,13 @@ namespace Ybridio.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Ybridio.Infrastructure.Persistence.Identity.ApplicationUser", b =>
                 {
+                    b.Navigation("UsuarioAlmacenes");
+
+                    b.Navigation("UsuarioPerfiles");
+
                     b.Navigation("UsuarioPermisos");
 
-                    b.Navigation("UsuarioTiendas");
+                    b.Navigation("UsuarioSucursales");
                 });
 #pragma warning restore 612, 618
         }

@@ -16,6 +16,8 @@
   <ItemGroup>
     <None Remove="Views\Diagnostic\DiagnosticPanel.xaml" />
     <None Remove="Controls\Navigation\ClassificationPanel.xaml" />
+    <None Remove="Controls\Selector\RelacionComercialSelectorControl.xaml" />
+    <None Remove="Styles\Selector\EntitySelectorStyles.xaml" />
     <None Remove="Styles\DataGrid\DataGridBase.xaml" />
     <None Remove="Styles\Forms\FormBase.xaml" />
     <None Remove="Views\Dashboard\DashboardPage.xaml" />
@@ -59,6 +61,7 @@
     <None Remove="Views\ShellPage.xaml" />
   </ItemGroup>
   <ItemGroup>
+
     <Page Remove="Views\Ventas\ClienteDocumentoPage.xaml" />
     <Page Remove="Windows\DetachedDocumentWindow.xaml" />
   </ItemGroup>
@@ -98,16 +101,37 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Page Update="Styles\Buttons\ButtonsBase.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Styles\Styles.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Styles\Tabs\TabsBase.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Styles\Grid\OperationalGridBase.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Controls\Selector\RelacionComercialSelectorControl.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Styles\Selector\EntitySelectorStyles.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <None Update="Windows\DetachedDocumentWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
     </None>
   </ItemGroup>
 
   <ItemGroup>
-    <Page Include="Views\Ventas\ClienteDocumentoPage.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-  </ItemGroup>
+    </ItemGroup>
+
+    <ItemGroup>
+      <Page Include="Views\Ventas\ClienteDocumentoPage.xaml">
+        <Generator>MSBuild:Compile</Generator>
+      </Page>
+    </ItemGroup>
 
   <ItemGroup>
     <Page Update="Views\Diagnostic\DiagnosticPanel.xaml">
@@ -122,6 +146,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Page Update="Styles\Layout\LayoutBase.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Styles\CommandBars\CommandBarsBase.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Update="Styles\DataGrid\DataGridBase.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>

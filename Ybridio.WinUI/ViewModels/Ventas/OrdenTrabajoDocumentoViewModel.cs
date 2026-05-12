@@ -6,8 +6,10 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Ybridio.Application.Common;
+using Ybridio.Application.DTOs.Directorio;
 using Ybridio.Application.DTOs.Ventas;
 using Ybridio.Application.Services.Autorizacion;
+using Ybridio.Application.Services.Directorio;
 using Ybridio.Application.Services.Venta;
 using Ybridio.Domain.Ventas;
 using Ybridio.WinUI.Services;
@@ -28,12 +30,15 @@ namespace Ybridio.WinUI.ViewModels.Ventas;
 public sealed partial class OrdenTrabajoDocumentoViewModel : ObservableObject
 {
     private readonly IOrdenTrabajoService             _service;
+    private readonly IRelacionComercialService         _relacionComercialService;
     private readonly IErpAuthorizationService         _auth;
     private readonly SessionService                   _session;
     private readonly IOperationalObservabilityService _observability;
     private readonly ICurrentContextTracker           _contextTracker;
 
     private OrdenTrabajoDto? _documento;
+    // Entidad de Directorio seleccionada (ADR-038). RelacionComercialId se resuelve en GuardarAsync.
+    private DirectorioSelectorDto? _entidadDirectorioSeleccionada;
 
     [ObservableProperty] private bool                isNuevo = true;
     [ObservableProperty] private bool                isBusy;
@@ -41,7 +46,7 @@ public sealed partial class OrdenTrabajoDocumentoViewModel : ObservableObject
     [ObservableProperty] private string              successMessage = string.Empty;
 
     [ObservableProperty] private string              nombreCliente  = string.Empty;
-    [ObservableProperty] private int?                clienteId;
+    [ObservableProperty] private int?                _relacionComercialId;
     [ObservableProperty] private DateTime            fecha          = DateTime.Today;
     [ObservableProperty] private DateTime?           fechaCompromiso;
 
@@ -96,6 +101,9 @@ public sealed partial class OrdenTrabajoDocumentoViewModel : ObservableObject
     public bool PuedeCerrar   => Estatus == EstatusOrdenTrabajo.Terminada;
     public bool PuedeCancelar => Estatus is not (EstatusOrdenTrabajo.Entregada or EstatusOrdenTrabajo.Cancelada) && !IsNuevo;
 
+    /// <summary>ID de empresa del contexto de sesión, expuesto para binding en el selector control.</summary>
+    public int EmpresaId => _session.EmpresaId;
+
     public EstatusOrdenTrabajo SiguienteEstatus => Estatus switch
     {
         EstatusOrdenTrabajo.Nueva             => EstatusOrdenTrabajo.EnProceso,
@@ -109,14 +117,38 @@ public sealed partial class OrdenTrabajoDocumentoViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(EliminarMaterialCommand))]
     private DetalleLineaEditable? materialSeleccionado;
 
+    /// <summary>
+    /// Selecciona una relación comercial desde el RelacionComercialSelectorControl (ADR-037).
+    /// Actualiza RelacionComercialId y NombreCliente.
+    /// </summary>
+    /// <summary>
+    /// Selecciona una entidad del Directorio desde el selector institucional (ADR-038).
+    /// RelacionComercialId se resolverá mediante GetOrCreate al guardar.
+    /// </summary>
+    public void SeleccionarCliente(DirectorioSelectorDto? entidad)
+    {
+        _entidadDirectorioSeleccionada = entidad;
+        NombreCliente = entidad?.DisplayName ?? string.Empty;
+    }
+
+    /// <summary>Limpia la selección de cliente. Llamado cuando el usuario borra el selector.</summary>
+    public void LimpiarCliente()
+    {
+        _entidadDirectorioSeleccionada = null;
+        RelacionComercialId = null;
+        NombreCliente       = string.Empty;
+    }
+
     public OrdenTrabajoDocumentoViewModel(
         IOrdenTrabajoService             service,
+        IRelacionComercialService         relacionComercialService,
         IErpAuthorizationService         auth,
         SessionService                   session,
         IOperationalObservabilityService observability,
         ICurrentContextTracker           contextTracker)
     {
-        _service        = service;
+        _service                  = service;
+        _relacionComercialService = relacionComercialService;
         _auth           = auth;
         _session        = session;
         _observability  = observability;
@@ -132,7 +164,7 @@ public sealed partial class OrdenTrabajoDocumentoViewModel : ObservableObject
         if (ot is not null)
         {
             NombreCliente  = ot.NombreCliente;
-            ClienteId      = ot.ClienteId;
+            RelacionComercialId      = ot.RelacionComercialId;
             Fecha          = ot.Fecha;
             FechaCompromiso= ot.FechaCompromiso;
             Descripcion    = ot.Descripcion;
@@ -161,11 +193,19 @@ public sealed partial class OrdenTrabajoDocumentoViewModel : ObservableObject
         IsBusy = true; ErrorMessage = SuccessMessage = string.Empty;
         try
         {
+            // ADR-038: GetOrCreate RelacionComercial bajo demanda
+            if (_entidadDirectorioSeleccionada is not null)
+            {
+                var rc = await _relacionComercialService.GetOrCreateAsync(
+                    _session.EmpresaId, _entidadDirectorioSeleccionada, _session.Usuario.Id, ct);
+                if (!rc.Success) { ErrorMessage = rc.Error ?? "No se pudo vincular el cliente."; return; }
+                RelacionComercialId = rc.Value;
+            }
             if (IsNuevo)
             {
                 var dto = new CrearOrdenTrabajoDto(
                     _session.EmpresaId, _session.SucursalId != 0 ? _session.SucursalId : null,
-                    ClienteId, NombreCliente, null, Fecha, FechaCompromiso, Descripcion, Observaciones, ResponsableId ?? _session.Usuario.Id);
+                    RelacionComercialId, NombreCliente, null, Fecha, FechaCompromiso, Descripcion, Observaciones, ResponsableId ?? _session.Usuario.Id);
 
                 var r = await _service.CrearAsync(dto, _session.Usuario.Id, ct);
                 if (!r.Success) { ErrorMessage = r.Error ?? "No se pudo crear."; return; }
@@ -174,7 +214,7 @@ public sealed partial class OrdenTrabajoDocumentoViewModel : ObservableObject
             }
             else
             {
-                var dto = new ActualizarOrdenTrabajoDto(ClienteId, NombreCliente, Fecha, FechaCompromiso, Descripcion, Observaciones, ResponsableId);
+                var dto = new ActualizarOrdenTrabajoDto(RelacionComercialId, NombreCliente, Fecha, FechaCompromiso, Descripcion, Observaciones, ResponsableId);
                 var r   = await _service.ActualizarAsync(_documento!.Id, dto, _session.Usuario.Id, ct);
                 if (!r.Success) { ErrorMessage = r.Error ?? "No se pudo actualizar."; return; }
                 SuccessMessage = "OT actualizada.";

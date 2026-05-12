@@ -1,0 +1,47 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+    ═══════════════════════════════════════════════════════════════════════════
+    ERP — Estilos de Botones (Visual Design System — ADR-033)
+    Source of truth: Styles/Buttons/ButtonsBase.xaml
+    PROHIBIDO agregar estilos de botón directamente en App.xaml.
+    ═══════════════════════════════════════════════════════════════════════════
+    -->
+
+    <!--
+        DocumentSurfaceBackActionButtonStyle
+        ─────────────────────────────────────
+        Contexto: acción de navegación secundaria/lightweight dentro de
+        Document Surface headers (ADR-031 / ADR-032).
+
+        Uso correcto:
+          · Botón "← Volver" en el header breadcrumb de un Document Surface.
+          · Acciones de navegación discreta que NO compiten visualmente con
+            el contenido operacional del documento.
+
+        Intención UX:
+          · Fondo transparente para integrarse en LayerFillColorDefaultBrush.
+          · Sin borde (BorderThickness=0) para evitar ruido visual.
+          · CornerRadius=4 coherente con el Design System Fluent del ERP.
+          · Padding compacto (6px) para alinearse con iconografía FontIcon 14px.
+
+        Regla de no-proliferación:
+          · NO usar para botones primarios (usar AccentButtonStyle).
+          · NO usar fuera de Document Surface headers o zonas UX equivalentes.
+          · Si se necesita un botón ghost en otro contexto, crear un estilo
+            semántico nuevo con nombre que refleje su contexto real.
+
+        Ver: Documentation/CLAUDE_RULES.md §Design System
+             ADR-031 Document Surface Visual Separation Standard
+             ADR-033 Styles/ Source of Truth Visual
+    -->
+    <Style x:Key="DocumentSurfaceBackActionButtonStyle" TargetType="Button">
+        <Setter Property="Background"      Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding"         Value="6"/>
+        <Setter Property="CornerRadius"    Value="4"/>
+    </Style>
+
+</ResourceDictionary>

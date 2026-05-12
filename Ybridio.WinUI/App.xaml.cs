@@ -62,6 +62,12 @@ public partial class App : Microsoft.UI.Xaml.Application
         services.AddDbContext<ErpDbContext>(opt =>
             opt.UseSqlServer(connectionString), ServiceLifetime.Scoped);
 
+        // IDbContextFactory: crea contextos aislados por operación para servicios
+        // que requieren concurrencia (ej. PermisoService). Necesario en WinUI donde
+        // Scoped actúa como Singleton y el contexto compartido causa concurrencia.
+        services.AddDbContextFactory<ErpDbContext>(opt =>
+            opt.UseSqlServer(connectionString), ServiceLifetime.Scoped);
+
         services.AddIdentityCore<ApplicationUser>()
                 .AddRoles<ApplicationRole>()
                 .AddEntityFrameworkStores<ErpDbContext>();

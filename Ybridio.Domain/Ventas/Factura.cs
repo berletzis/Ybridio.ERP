@@ -8,7 +8,7 @@ public class Factura : CreationAuditEntity
 {
     public long Id { get; set; }
     public int EmpresaId { get; set; }
-    public int ClienteId { get; set; }
+    public int RelacionComercialId { get; set; }
     public long? VentaId { get; set; }
     public DateTime Fecha { get; set; }
     public decimal Total { get; set; }
@@ -16,6 +16,6 @@ public class Factura : CreationAuditEntity
 
     // Navegación
     public Empresa Empresa { get; set; } = null!;
-    public Cliente Cliente { get; set; } = null!;
+    public RelacionComercial RelacionComercial { get; set; } = null!;
     public Venta? Venta { get; set; }
 }

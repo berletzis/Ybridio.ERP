@@ -52,9 +52,9 @@ internal sealed class VentaConfiguration : IEntityTypeConfiguration<Venta>
         builder.Property(e => e.Estatus).HasDefaultValue(EstatusVenta.Borrador);
         builder.Property(e => e.TipoPago).HasDefaultValue(TipoPago.Contado);
 
-        builder.HasOne(e => e.Cliente)
+        builder.HasOne(e => e.RelacionComercial)
             .WithMany()
-            .HasForeignKey(e => e.ClienteId)
+            .HasForeignKey(e => e.RelacionComercialId)
             .HasConstraintName("FK_Venta_Cliente")
             .IsRequired(false);
 

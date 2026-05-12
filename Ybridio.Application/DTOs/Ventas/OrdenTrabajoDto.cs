@@ -20,7 +20,7 @@ public sealed record OrdenTrabajoDto(
     long                          Id,
     int                           EmpresaId,
     int?                          SucursalId,
-    int?                          ClienteId,
+    int?                          RelacionComercialId,
     string                        NombreCliente,
     long?                         PedidoId,
     EstatusOrdenTrabajo           Estatus,
@@ -41,7 +41,7 @@ public sealed record OrdenTrabajoDto(
 public sealed record CrearOrdenTrabajoDto(
     int      EmpresaId,
     int?     SucursalId,
-    int?     ClienteId,
+    int?     RelacionComercialId,
     string   NombreCliente,
     long?    PedidoId,
     DateTime Fecha,
@@ -52,7 +52,7 @@ public sealed record CrearOrdenTrabajoDto(
 
 /// <summary>DTO para actualizar el encabezado de una OT existente (sin materiales).</summary>
 public sealed record ActualizarOrdenTrabajoDto(
-    int?      ClienteId,
+    int?      RelacionComercialId,
     string    NombreCliente,
     DateTime  Fecha,
     DateTime? FechaCompromiso,

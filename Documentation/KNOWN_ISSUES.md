@@ -1,6 +1,6 @@
 # KNOWN_ISSUES.md — Problemas Conocidos y Limitaciones
 
-> Última actualización: 2026-05-10 (Document Surface Visual Separation Standard ADR-031 — eliminación definitiva de tabs documentales ensimados en Pedidos, OT y Ventas Documentales; jerarquía UX oficial formalizada)  
+> Última actualización: 2026-05-12 (ADR-040 Operational Commercial Document Standard — KI-023, KI-024, KI-025, KI-026 resueltos)
 > Formato: `[SEVERIDAD] Descripción — Workaround / Plan`
 
 ---
@@ -11,6 +11,98 @@
 - **HIGH** — impacto significativo en UX o seguridad; resolver en siguiente iteración
 - **MEDIUM** — limitación funcional; resolver en fase 2
 - **LOW** — cosmético o técnico menor; backlog
+
+---
+
+### [RESUELTO] KI-026 — Cotización creaba líneas duplicadas al agregar el mismo producto (ADR-040)
+
+**Módulo**: Cotizaciones — `CotizacionDocumentoPage`, `CotizacionDocumentoViewModel`
+
+**Problema**: Agregar el mismo producto dos veces creaba líneas duplicadas en lugar de sumar cantidad.
+
+**Solución**: `AgregarOIncrementarDetalleAsync()` verifica `ObtenerLineaExistente()` antes de insertar. Si el producto ya existe, llama a `IncrementarCantidadAsync()`. **Estado**: ✅ **RESUELTO con ADR-040**
+
+---
+
+### [RESUELTO] KI-025 — IVA e Impuestos no visibles en Cotización (ADR-040)
+
+**Módulo**: Cotizaciones — `CotizacionDocumentoPage.xaml`, `CotizacionDocumentoViewModel`
+
+**Problema**: Solo existía columna de Importe sin IVA; el desglose de totales no mostraba Impuestos.
+
+**Solución**: Columna IVA ("Sí"/"No") agregada al grid. Fila Impuestos agregada a totales. `FiscalConstants.TasaIvaEstandar` centraliza el 16%. `CalcularImpuestos()` y `CalcularSubtotal()` centralizan la aritmética. **Estado**: ✅ **RESUELTO con ADR-040**
+
+---
+
+### [RESUELTO] KI-024 — Sin confirmación al cerrar documento con cambios no guardados (ADR-040)
+
+**Módulo**: Cotizaciones — `CotizacionDocumentoPage`
+
+**Problema**: El usuario podía cerrar el documento sin ninguna advertencia, perdiendo cambios no guardados.
+
+**Solución**: `IsDirty` trackea todo cambio. `MostrarConfirmacionCierreAsync()` muestra diálogo institucional (Guardar / No Guardar / Cancelar). `BtnVolverALista_Click` aguarda confirmación. **Estado**: ✅ **RESUELTO con ADR-040**
+
+---
+
+### [RESUELTO] KI-023 — Valores monetarios sin formato ($0.00) en Cotización (ADR-040)
+
+**Módulo**: Cotizaciones — `CotizacionDocumentoPage.xaml`
+
+**Problema**: PrecioUnitario, Importe, Subtotal y Total se mostraban sin formato monetario (ej. `3337.000000`).
+
+**Solución**: `DecimalToCurrencyConverter` aplicado a todas las columnas financieras del grid y a las filas de totales. **Estado**: ✅ **RESUELTO con ADR-040**
+
+---
+
+### [RESUELTO] KI-022 — Detach Mode recreaba Document Session y perdía estado runtime no guardado (ADR-039)
+
+**Módulo**: Cotizaciones — `CotizacionDocumentoPage`, `BtnAbrirEnVentana_Click`
+
+**Problema identificado**:
+- Al pulsar "Abrir en nueva ventana", el sistema creaba `new CotizacionDocumentoPage(_cotizacionOriginal)` dentro del factory de `WindowManager`.
+- Esto reinstanciaba `CotizacionDocumentoViewModel` desde cero, perdiendo todo el estado runtime.
+- Estado perdido: cliente seleccionado, chip visual del selector, líneas temporales agregadas, cantidades, precios, cálculos de totales, estado dirty, fechas y observaciones editadas.
+- Equivalía a "abrir el documento de nuevo desde la base de datos" en lugar de "mover el mismo documento a otro contenedor visual".
+
+**Causa raíz**: El factory del detach creaba una nueva instancia de la página en lugar de rehostear la existente.
+
+**Solución aplicada (ADR-039)**:
+- `BtnAbrirEnVentana_Click` refactorizado para rehostear `this` (la misma instancia de página) en `DetachedDocumentWindow`.
+- Flujo correcto:
+  1. `EsInlineMode = false` — desactiva controles inline en la página rehosteada.
+  2. `VolverALista?.Invoke()` — limpia `DocumentSurfaceContent = null` en el módulo padre, removiendo la página del árbol visual inline sincrónicamente (WinUI 3 requiere zero parents antes de asignar nuevo host).
+  3. `WindowManager.OpenWindow(factory: () => new DetachedDocumentWindow(paginaActual, titulo))` — rehostea la misma instancia.
+- El `_sessionKey` (GUID generado en constructor) garantiza window key estable para documentos nuevos sin Id asignado.
+- Título construido desde `ViewModel.NombreCliente` (estado runtime actual) en lugar del snapshot estático.
+
+**Estado**: ✅ **RESUELTO con ADR-039** — `CotizacionDocumentoPage` ya no recrea el ViewModel al desacoplar.
+
+---
+
+### [RESUELTO] KI-021 — Selector comercial no retornaba resultados (QueryFilter Include + datos huérfanos)
+
+**Módulo**: Directorio / Ventas — `RelacionComercialSelectorControl`, `ListarParaSelectorAsync`
+
+**Problema identificado**:
+- El método `ListarParaSelectorAsync` usaba `Include(r => r.EmpresaComercial).Include(r => r.Persona)`.
+- El QueryFilter global de `ErpDbContext` aplica `EmpresaId == _session.EmpresaId` también a las entidades incluidas.
+- Si `EmpresaComercial.EmpresaId` no coincidía exactamente (datos legacy, discrepancias de migración), el Include resolvía `null`.
+- `MapToDto` con `EmpresaComercial == null && Persona == null` generaba nombre `"Relación #X"` y la búsqueda por `r.EmpresaComercial.RazonSocial` nunca matcheaba.
+- Adicionalmente, existían `EmpresaComercial` y `Persona` creadas antes de ADR-036 sin `RelacionComercial` correspondiente (datos huérfanos).
+
+**Solución aplicada (ADR-037)**:
+- `ListarParaSelectorAsync` reescrito como proyección LINQ directa con join explícito usando `IgnoreQueryFilters()` en `Personas` y `EmpresasComerciales`.
+- El QueryFilter de empresa sigue activo en `RelacionComercial` (tabla raíz) para preservar multitenancy.
+- Filtro de búsqueda extendido: nombre, apellidos, razón social, nombre comercial, RFC, email.
+- Scripts de diagnóstico y normalización disponibles en `Documentation/Scripts/`.
+
+**Acción requerida**:
+> ~~Ejecutar scripts de normalización masiva~~ — **PROHIBIDO por ADR-038**.  
+> El selector ahora busca directamente en `Persona` y `EmpresaComercial` sin requerir `RelacionComercial` preexistente.  
+> `RelacionComercial` se crea automáticamente al guardar el primer documento para esa entidad (GetOrCreate pattern).  
+> Los scripts `normalizacion_relacion_comercial.sql` son un **anti-pattern** bajo ADR-038 y no deben ejecutarse.
+
+**Estado**: ✅ **RESUELTO COMPLETAMENTE con ADR-038** — No se requiere acción en BD.
 
 ---
 
@@ -62,6 +154,42 @@ Contenido formulario / grid detalles
 ---
 
 ## Problemas Activos
+
+### [PENDIENTE] KI-017 — Directorio UX: páginas de Personas y EmpresasComerciales sin implementar (ADR-036)
+
+**Módulo**: Directorio — `Ybridio.WinUI/Views/Contactos/ContactosPage.xaml`
+
+**Estado**: El módulo "Directorio" muestra placeholder "Directorio — Próximamente". La arquitectura de dominio (entidades, EF, servicios, DTOs) está completamente implementada. Las páginas `DirectorioPersonasPage`, `DirectorioEmpresasPage` y `DirectorioRelacionesPage` están pendientes de creación.
+
+**Workaround**: Los documentos de venta (Cotizaciones) ya usan el nuevo modelo `RelacionComercial` vía selector. Los clientes existentes operan a través de `ClientesPage` / `ClienteService` en coexistencia controlada.
+
+**Plan**: Implementar páginas Directorio como document-surface (ADR-030) en iteración futura.
+
+---
+
+### [PENDIENTE] KI-018 — Migración de BD `AddBusinessPartnerModel` pendiente de aplicar
+
+**Módulo**: Infrastructure — `Ybridio.Infrastructure/Persistence/Migrations/`
+
+**Estado**: Migración `20260511210551_AddBusinessPartnerModel.cs` generada. Crea tablas `core.Persona`, `core.EmpresaComercial`, `core.RelacionComercial` y renombra `ClienteId → RelacionComercialId` en documentos de venta. **No ha sido aplicada** a la base de datos YBRIDIO-26.
+
+**Workaround**: Usar base de datos de desarrollo sin la migración; los documentos de venta no mostrarán socios comerciales hasta aplicar la migración.
+
+**Plan**: Ejecutar `dotnet ef database update` en el entorno de desarrollo antes de habilitar el selector de socios en producción.
+
+---
+
+### [COEXISTENCIA] KI-019 — Legacy `Cliente*` pages y `ClienteService` en coexistencia con nuevo modelo (ADR-036)
+
+**Módulo**: WinUI Ventas — `ClientesPage`, `ClienteDocumentoPage`, `ClientesViewModel`, `ClienteService`
+
+**Estado**: Las páginas de gestión de clientes legacy (`ClientesPage`, `ClienteDocumentoPage`) y el servicio `ClienteService` permanecen funcionales y coexisten con el nuevo modelo `RelacionComercial`. Esta coexistencia es intencional para no romper flujos activos.
+
+**Workaround**: Nuevas funcionalidades deben usar `IRelacionComercialService`. Las páginas legacy seguirán funcionando contra `DbSet<Cliente> Clientes` que se mantiene en `ErpDbContext`.
+
+**Plan**: Migrar páginas legacy al nuevo modelo Directorio en la misma iteración que KI-017.
+
+---
 
 ### [POLICY] KI-015 — Límite máximo 2 ventanas desacopladas simultáneas (Window Detach Mode ADR-028+029)
 

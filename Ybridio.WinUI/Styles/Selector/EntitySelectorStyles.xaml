@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+    ═══════════════════════════════════════════════════════════════════════════
+    ERP — Entity Selector Styles (ADR-037)
+    ═══════════════════════════════════════════════════════════════════════════
+
+    Estilos institucionales para RelacionComercialSelectorControl.
+    Patrón selector ERP/CRM: Outlook people picker + Dynamics entity selector.
+
+    REGLA INSTITUCIONAL (ADR-037):
+      · PROHIBIDO usar TextBox libre o ComboBox para selección comercial.
+      · USAR SIEMPRE RelacionComercialSelectorControl.
+      · TODO estilo del selector vive AQUÍ.
+
+    Tokens:
+      OgEntitySelectorStyle           — contenedor principal del control
+      OgEntitySelectorInputStyle      — TextBox de búsqueda interno
+      OgEntitySelectorPopupStyle      — flyout/popup de resultados
+      OgEntitySelectorItemStyle       — ítem individual en el popup
+      OgEntityBadgePersonaStyle       — badge "Persona Física"
+      OgEntityBadgeEmpresaStyle       — badge "Empresa"
+      OgEntityBadgeProspectoStyle     — badge "Prospecto"
+      OgEntityBadgeClienteStyle       — badge "Cliente"
+      OgEntityBadgeProveedorStyle     — badge "Proveedor"
+      OgEntityBadgeMixtoStyle         — badge "Mixto"
+      OgEntitySelectedPreviewStyle    — panel de entidad seleccionada (readonly)
+    ═══════════════════════════════════════════════════════════════════════════
+    -->
+
+    <!-- ── Selector container ──────────────────────────────────────────────── -->
+    <Style x:Key="OgEntitySelectorStyle" TargetType="Border">
+        <Setter Property="Background"   Value="{ThemeResource TextControlBackground}"/>
+        <Setter Property="BorderBrush"  Value="{ThemeResource TextControlBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="4"/>
+        <Setter Property="MinHeight"    Value="32"/>
+    </Style>
+
+    <!-- ── Search input ────────────────────────────────────────────────────── -->
+    <Style x:Key="OgEntitySelectorInputStyle" TargetType="TextBox">
+        <Setter Property="BorderThickness"  Value="0"/>
+        <Setter Property="Background"       Value="Transparent"/>
+        <Setter Property="Padding"          Value="8,4,8,4"/>
+        <Setter Property="FontSize"         Value="13"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+
+    <!-- ── Popup / ListView de resultados ──────────────────────────────────── -->
+    <Style x:Key="OgEntitySelectorPopupStyle" TargetType="Border">
+        <Setter Property="Background"      Value="{ThemeResource ApplicationPageBackgroundThemeBrush}"/>
+        <Setter Property="BorderBrush"     Value="{ThemeResource ControlElevationBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius"   Value="6"/>
+        <Setter Property="Padding"        Value="0,4,0,4"/>
+        <Setter Property="MinWidth"       Value="320"/>
+        <Setter Property="MaxHeight"      Value="280"/>
+    </Style>
+
+    <!-- ── Ítem de la lista de resultados ──────────────────────────────────── -->
+    <Style x:Key="OgEntitySelectorItemStyle" TargetType="ListViewItem">
+        <Setter Property="Padding"          Value="8,4,8,4"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    </Style>
+
+    <!-- ── Estado: cargando ────────────────────────────────────────────────── -->
+    <Style x:Key="OgEntitySelectorStatusTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize"    Value="12"/>
+        <Setter Property="Foreground"  Value="{ThemeResource TextFillColorSecondaryBrush}"/>
+        <Setter Property="Padding"     Value="10,6,10,6"/>
+        <Setter Property="FontStyle"   Value="Italic"/>
+    </Style>
+
+    <!-- ── Nombre primario del ítem ────────────────────────────────────────── -->
+    <Style x:Key="OgEntityItemPrimaryTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize"     Value="13"/>
+        <Setter Property="FontWeight"   Value="SemiBold"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+    </Style>
+
+    <!-- ── Info secundaria del ítem (RFC · email · teléfono) ───────────────── -->
+    <Style x:Key="OgEntityItemSecondaryTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize"    Value="11"/>
+        <Setter Property="Foreground"  Value="{ThemeResource TextFillColorSecondaryBrush}"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+    </Style>
+
+    <!-- ── Badge base ──────────────────────────────────────────────────────── -->
+    <Style x:Key="OgEntityBadgeBaseStyle" TargetType="Border">
+        <Setter Property="CornerRadius"   Value="3"/>
+        <Setter Property="Padding"        Value="5,1,5,1"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <!-- ── Badge: Persona Física ────────────────────────────────────────────── -->
+    <Style x:Key="OgEntityBadgePersonaStyle" TargetType="Border"
+           BasedOn="{StaticResource OgEntityBadgeBaseStyle}">
+        <Setter Property="Background" Value="#EBF3FB"/>
+        <Setter Property="BorderBrush"  Value="#BDD7EE"/>
+        <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+
+    <!-- ── Badge: Empresa ───────────────────────────────────────────────────── -->
+    <Style x:Key="OgEntityBadgeEmpresaStyle" TargetType="Border"
+           BasedOn="{StaticResource OgEntityBadgeBaseStyle}">
+        <Setter Property="Background"   Value="#F0F4EC"/>
+        <Setter Property="BorderBrush"  Value="#C6D9B0"/>
+        <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+
+    <!-- ── Badge: Prospecto ─────────────────────────────────────────────────── -->
+    <Style x:Key="OgEntityBadgeProspectoStyle" TargetType="Border"
+           BasedOn="{StaticResource OgEntityBadgeBaseStyle}">
+        <Setter Property="Background"   Value="#FFF8EC"/>
+        <Setter Property="BorderBrush"  Value="#FFD966"/>
+        <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+
+    <!-- ── Badge: Cliente ───────────────────────────────────────────────────── -->
+    <Style x:Key="OgEntityBadgeClienteStyle" TargetType="Border"
+           BasedOn="{StaticResource OgEntityBadgeBaseStyle}">
+        <Setter Property="Background"   Value="#EBF7EE"/>
+        <Setter Property="BorderBrush"  Value="#A8D5B5"/>
+        <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+
+    <!-- ── Badge: Proveedor ─────────────────────────────────────────────────── -->
+    <Style x:Key="OgEntityBadgeProveedorStyle" TargetType="Border"
+           BasedOn="{StaticResource OgEntityBadgeBaseStyle}">
+        <Setter Property="Background"   Value="#F5EDF8"/>
+        <Setter Property="BorderBrush"  Value="#D8B4E2"/>
+        <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+
+    <!-- ── Badge: Mixto ─────────────────────────────────────────────────────── -->
+    <Style x:Key="OgEntityBadgeMixtoStyle" TargetType="Border"
+           BasedOn="{StaticResource OgEntityBadgeBaseStyle}">
+        <Setter Property="Background"   Value="#F0F0F0"/>
+        <Setter Property="BorderBrush"  Value="#C0C0C0"/>
+        <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+
+    <!-- ── Texto de badge ───────────────────────────────────────────────────── -->
+    <Style x:Key="OgEntityBadgeTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize"   Value="10"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+
+    <!-- ── Panel de entidad seleccionada (readonly preview) ─────────────────── -->
+    <Style x:Key="OgEntitySelectedPreviewStyle" TargetType="Border">
+        <Setter Property="Background"      Value="#F8F8F8"/>
+        <Setter Property="BorderBrush"     Value="#E5E5E5"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius"    Value="4"/>
+        <Setter Property="Padding"         Value="10,6,10,6"/>
+    </Style>
+
+    <!-- Chip name -->
+    <Style x:Key="OgEntityChipNameStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+    </Style>
+
+    <!-- Chip info -->
+    <Style x:Key="OgEntityChipInfoStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+    </Style>
+
+
+</ResourceDictionary>

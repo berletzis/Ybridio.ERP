@@ -5,8 +5,10 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Ybridio.Application.DTOs.Directorio;
 using Ybridio.Application.DTOs.Ventas;
 using Ybridio.Application.Services.Autorizacion;
+using Ybridio.Application.Services.Directorio;
 using Ybridio.Application.Services.Venta;
 using Ybridio.Domain.Ventas;
 using Ybridio.WinUI.Services;
@@ -27,11 +29,14 @@ namespace Ybridio.WinUI.ViewModels.Ventas;
 public sealed partial class VentaDocumentoViewModel : ObservableObject
 {
     private readonly IVentaDocumentalService          _service;
+    private readonly IRelacionComercialService         _relacionComercialService;
     private readonly IErpAuthorizationService         _auth;
     private readonly SessionService                   _session;
     private readonly ICurrentContextTracker           _contextTracker;
 
     private VentaDocumentalDto? _documento;
+    // Entidad de Directorio seleccionada (ADR-038). RelacionComercialId se resuelve en GuardarAsync.
+    private DirectorioSelectorDto? _entidadDirectorioSeleccionada;
 
     // ── Estado de UI ───────────────────────────────────────────────────────────
     [ObservableProperty] private bool         _isNuevo        = true;
@@ -41,7 +46,7 @@ public sealed partial class VentaDocumentoViewModel : ObservableObject
 
     // ── Campos de encabezado ───────────────────────────────────────────────────
     [ObservableProperty] private string       _nombreCliente  = string.Empty;
-    [ObservableProperty] private int?         _clienteId;
+    [ObservableProperty] private int?         _relacionComercialId;
     [ObservableProperty] private TipoPago     _tipoPagoVenta  = TipoPago.Contado;
     [ObservableProperty] private DateTime     _fecha          = DateTime.Today;
     [ObservableProperty] private string?      _observaciones;
@@ -83,8 +88,29 @@ public sealed partial class VentaDocumentoViewModel : ObservableObject
     public bool PuedeRegistrarPago => EstatusVenta == EstatusVenta.Confirmada && !IsNuevo;
     public bool PuedeCancelar      => EstatusVenta == EstatusVenta.Borrador && !IsNuevo;
 
+    /// <summary>ID de empresa del contexto de sesión, expuesto para binding en el selector control.</summary>
+    public int EmpresaId => _session.EmpresaId;
+
     /// <summary>Almacén por defecto (PYME: 1). La Page puede sobreescribir antes de confirmar.</summary>
     public int AlmacenIdConfirmacion { get; set; } = 1;
+
+    /// <summary>
+    /// Selecciona una entidad del Directorio desde el selector institucional (ADR-038).
+    /// RelacionComercialId se resolverá mediante GetOrCreate al guardar.
+    /// </summary>
+    public void SeleccionarCliente(DirectorioSelectorDto? entidad)
+    {
+        _entidadDirectorioSeleccionada = entidad;
+        NombreCliente = entidad?.DisplayName ?? string.Empty;
+    }
+
+    /// <summary>Limpia la selección de cliente. Llamado cuando el usuario borra el selector.</summary>
+    public void LimpiarCliente()
+    {
+        _entidadDirectorioSeleccionada = null;
+        RelacionComercialId = null;
+        NombreCliente       = string.Empty;
+    }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(EliminarDetalleCommand))]
@@ -101,11 +127,13 @@ public sealed partial class VentaDocumentoViewModel : ObservableObject
     /// <param name="contextTracker">Rastreador de contexto de navegación.</param>
     public VentaDocumentoViewModel(
         IVentaDocumentalService  service,
+        IRelacionComercialService relacionComercialService,
         IErpAuthorizationService auth,
         SessionService           session,
         ICurrentContextTracker   contextTracker)
     {
-        _service        = service;
+        _service                  = service;
+        _relacionComercialService = relacionComercialService;
         _auth           = auth;
         _session        = session;
         _contextTracker = contextTracker;
@@ -124,7 +152,7 @@ public sealed partial class VentaDocumentoViewModel : ObservableObject
         if (venta is not null)
         {
             NombreCliente  = venta.NombreCliente;
-            ClienteId      = venta.ClienteId;
+            RelacionComercialId      = venta.RelacionComercialId;
             TipoPagoVenta  = venta.TipoPago;
             Fecha          = venta.Fecha;
             Observaciones  = venta.Observaciones;
@@ -157,13 +185,21 @@ public sealed partial class VentaDocumentoViewModel : ObservableObject
         IsBusy = true; ErrorMessage = SuccessMessage = string.Empty;
         try
         {
+            // ADR-038: GetOrCreate RelacionComercial bajo demanda
+            if (_entidadDirectorioSeleccionada is not null)
+            {
+                var rc = await _relacionComercialService.GetOrCreateAsync(
+                    _session.EmpresaId, _entidadDirectorioSeleccionada, _session.Usuario.Id, ct);
+                if (!rc.Success) { ErrorMessage = rc.Error ?? "No se pudo vincular el cliente."; return; }
+                RelacionComercialId = rc.Value;
+            }
             if (IsNuevo)
             {
                 if (Detalles.Count == 0) { ErrorMessage = "Debe agregar al menos un producto."; return; }
                 var dto = new CrearVentaDocumentalDto(
                     EmpresaId:     _session.EmpresaId,
                     SucursalId:    _session.SucursalId,
-                    ClienteId:     ClienteId,
+                    RelacionComercialId:     RelacionComercialId,
                     NombreCliente: NombreCliente.Trim(),
                     TipoPago:      TipoPagoVenta,
                     Fecha:         Fecha,
@@ -179,7 +215,7 @@ public sealed partial class VentaDocumentoViewModel : ObservableObject
             }
             else
             {
-                var dto = new ActualizarVentaDocumentalDto(ClienteId, NombreCliente.Trim(), TipoPagoVenta, Fecha, Observaciones?.Trim());
+                var dto = new ActualizarVentaDocumentalDto(RelacionComercialId, NombreCliente.Trim(), TipoPagoVenta, Fecha, Observaciones?.Trim());
                 var r   = await _service.ActualizarAsync(_documento!.Id, dto, _session.Usuario.Id, ct);
                 if (!r.Success) { ErrorMessage = r.Error ?? "No se pudo actualizar."; return; }
                 SuccessMessage = "Venta actualizada.";

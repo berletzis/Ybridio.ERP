@@ -28,7 +28,7 @@ public class PedidoConfiguration : IEntityTypeConfiguration<Pedido>
 
         builder.HasOne(e => e.Empresa).WithMany().HasForeignKey(e => e.EmpresaId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(e => e.Sucursal).WithMany().HasForeignKey(e => e.SucursalId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne(e => e.Cliente).WithMany().HasForeignKey(e => e.ClienteId).IsRequired(false).OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne(e => e.RelacionComercial).WithMany().HasForeignKey(e => e.RelacionComercialId).IsRequired(false).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(e => e.Cotizacion).WithMany().HasForeignKey(e => e.CotizacionId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
 
         builder.HasIndex(e => new { e.EmpresaId, e.Fecha }).HasDatabaseName("IX_Pedido_Empresa_Fecha");

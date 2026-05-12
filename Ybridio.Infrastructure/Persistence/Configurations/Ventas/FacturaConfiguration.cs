@@ -27,9 +27,9 @@ internal sealed class FacturaConfiguration : IEntityTypeConfiguration<Factura>
             .WithMany()
             .HasForeignKey(e => e.EmpresaId);
 
-        builder.HasOne(e => e.Cliente)
+        builder.HasOne(e => e.RelacionComercial)
             .WithMany()
-            .HasForeignKey(e => e.ClienteId);
+            .HasForeignKey(e => e.RelacionComercialId);
 
         builder.HasOne(e => e.Venta)
             .WithMany(e => e.Facturas)
