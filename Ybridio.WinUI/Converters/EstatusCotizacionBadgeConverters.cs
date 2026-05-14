@@ -17,10 +17,13 @@ public sealed class EstatusCotizacionToBgBrushConverter : IValueConverter
 
         var color = estatus switch
         {
-            EstatusCotizacion.Enviada  => Color.FromArgb(255, 255, 244, 204), // #FFF4CC — ámbar bg
-            EstatusCotizacion.Aprobada => Color.FromArgb(255, 235, 243, 251), // #EBF3FB — azul bg
-            EstatusCotizacion.Cancelada => Color.FromArgb(255, 248, 248, 248), // #F8F8F8 — gris tenue bg
-            _                          => Color.FromArgb(255, 240, 240, 240), // #F0F0F0 — borrador bg
+#pragma warning disable CS0618
+            EstatusCotizacion.Enviada    => Color.FromArgb(255, 235, 243, 251), // Legacy → Aprobada bg
+#pragma warning restore CS0618
+            EstatusCotizacion.Aprobada   => Color.FromArgb(255, 235, 243, 251), // #EBF3FB — azul bg
+            EstatusCotizacion.Convertida => Color.FromArgb(255, 224, 242, 230), // #E0F2E6 — verde tenue bg
+            EstatusCotizacion.Cancelada  => Color.FromArgb(255, 248, 248, 248), // #F8F8F8 — gris tenue bg
+            _                            => Color.FromArgb(255, 240, 240, 240), // #F0F0F0 — borrador bg
         };
 
         return new SolidColorBrush(color);
@@ -41,10 +44,13 @@ public sealed class EstatusCotizacionToFgBrushConverter : IValueConverter
 
         var color = estatus switch
         {
-            EstatusCotizacion.Enviada  => Color.FromArgb(255, 196, 127,   0), // #C47F00 — ámbar text
-            EstatusCotizacion.Aprobada => Color.FromArgb(255,   0, 120, 212), // #0078D4 — azul text
-            EstatusCotizacion.Cancelada => Color.FromArgb(255, 160, 160, 160), // #A0A0A0 — gris tenue text
-            _                          => Color.FromArgb(255, 138, 138, 138), // #8A8A8A — borrador text
+#pragma warning disable CS0618
+            EstatusCotizacion.Enviada    => Color.FromArgb(255,   0, 120, 212), // Legacy → Aprobada text
+#pragma warning restore CS0618
+            EstatusCotizacion.Aprobada   => Color.FromArgb(255,   0, 120, 212), // #0078D4 — azul text
+            EstatusCotizacion.Convertida => Color.FromArgb(255,   0, 128,  64), // #008040 — verde text
+            EstatusCotizacion.Cancelada  => Color.FromArgb(255, 160, 160, 160), // #A0A0A0 — gris tenue text
+            _                            => Color.FromArgb(255, 138, 138, 138), // #8A8A8A — borrador text
         };
 
         return new SolidColorBrush(color);

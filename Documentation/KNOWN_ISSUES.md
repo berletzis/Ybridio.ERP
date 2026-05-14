@@ -1,6 +1,6 @@
 # KNOWN_ISSUES.md — Problemas Conocidos y Limitaciones
 
-> Última actualización: 2026-05-12 (ADR-040 Operational Commercial Document Standard — KI-023, KI-024, KI-025, KI-026 resueltos)
+> Última actualización: 2026-05-13 (sesión extensa — ver `SESSION_2026-05-13_CONFIG_CATALOGOS_COTIZACIONES.md`)
 > Formato: `[SEVERIDAD] Descripción — Workaround / Plan`
 
 ---
@@ -11,6 +11,88 @@
 - **HIGH** — impacto significativo en UX o seguridad; resolver en siguiente iteración
 - **MEDIUM** — limitación funcional; resolver en fase 2
 - **LOW** — cosmético o técnico menor; backlog
+
+---
+
+### [RESUELTO] KI-033 — OtrosCargos no persistían al guardar cotización nueva (ADR-054)
+
+**Módulo**: Cotizaciones — `CotizacionDocumentoViewModel.GuardarAsync`
+
+**Problema**: Para documentos nuevos (IsNuevo=true), `GuardarAsync` creaba la cotización vía `CrearAsync` pero nunca persistía los cargos acumulados en `ViewModel.Cargos`. Al reabrir, los cargos desaparecían. Además `IvaAplicable` faltaba en `CrearDetalleLineaDto`, perdiéndose el flag de IVA por línea.
+
+**Solución**: Después de `CrearAsync` exitoso, loop explícito sobre `Cargos.ToList()` llamando `AgregarCargoAsync` por cada cargo en memoria. `CrearDetalleLineaDto` actualizado con `IvaAplicable`. **Estado**: ✅ **RESUELTO 2026-05-13**
+
+---
+
+### [RESUELTO] KI-032 — Single Document Session Rule rota cross-host (ADR-056)
+
+**Módulo**: Cotizaciones — `CotizacionDocumentoPage.xaml.cs`, `CotizacionesPage.xaml.cs`
+
+**Problema**: La misma cotización podía abrirse simultáneamente en tab y ventana detached. Causa dual:
+1. `_cotizacionOriginal` (readonly) permanecía null para docs nuevos aunque guardados → window key usaba `_sessionKey` (GUID) → `TryActivateWindow` fallaba.
+2. `_currentInlineDocumentId` no se actualizaba tras primer guardado → check inline fallaba.
+
+**Solución**: Propiedad `DocumentoId` en ViewModel. Window key usa `ViewModel.DocumentoId`. `DocumentSaved` callback actualiza `_currentInlineDocumentId`. **Estado**: ✅ **RESUELTO 2026-05-13**
+
+---
+
+### [RESUELTO] KI-031 — Scroll interno en grids de Cotizaciones (ADR-055)
+
+**Módulo**: Cotizaciones — `CotizacionDocumentoPage.xaml`
+
+**Problema**: `Height="*"` en fila de productos forzaba scroll interno en ListView. `MaxHeight="200"` en OtrosCargos lo clipaba. Experiencia anti-ERP desktop.
+
+**Solución**: Single Document Scroll Pattern — ScrollViewer documental único. `ScrollViewer.VerticalScrollBarVisibility="Disabled"` en ListViews. Sin `MaxHeight` en secciones. **Estado**: ✅ **RESUELTO 2026-05-13**
+
+---
+
+### [RESUELTO] KI-030 — AutoSuggestBox muestra cadena técnica del record en buscador de productos
+
+**Módulo**: Cotizaciones — `CotizacionDocumentoPage.xaml.cs`
+
+**Problema**: `AutoSuggestBox` llama `.ToString()` en cada ítem del dropdown. `ProductoDto` (sealed record) devuelve representación técnica: `ProductoDto { Id=1, Codigo="ABC", ... }` en lugar del nombre legible.
+
+**Solución**: Clase wrapper `ProductoSuggestion` con `override string ToString() => $"{Codigo} — {Nombre}"`. **Estado**: ✅ **RESUELTO 2026-05-13**
+
+---
+
+### [RESUELTO] KI-029 — DbContext concurrency en ConfiguracionFiscalService (ADR-026)
+
+**Módulo**: `ConfiguracionFiscalService` — `CargarConfiguracionFiscalAsync` fire-and-forget
+
+**Problema**: `CargarConfiguracionFiscalAsync()` corría concurrentemente con `HidratarSelectorClienteAsync()` usando el mismo DbContext scoped → `InvalidOperationException: A second operation was started on this context`.
+
+**Solución**: `ConfiguracionFiscalService` usa `IDbContextFactory` (contexto aislado por operación). Mismo patrón que `FolioGeneratorService`. **Estado**: ✅ **RESUELTO 2026-05-13**
+
+---
+
+### [RESUELTO] KI-028 — FolioGeneratorService "non-composable SQL"
+
+**Módulo**: `FolioGeneratorService.GenerarFolioAsync`
+
+**Problema**: `.FirstAsync()` sobre `SqlQuery<long>($"UPDATE ... OUTPUT ...")` causaba `'SqlQuery' was called with non-composable SQL` porque EF Core intenta añadir `TOP 1` sobre sentencia DML.
+
+**Solución**: `.ToListAsync()` materializa client-side antes de acceder con `[0]`. **Estado**: ✅ **RESUELTO 2026-05-13**
+
+---
+
+### [RESUELTO] KI-027 — Cliente no aparecía en chip inferior en modo edición ni tras detach (ADR-043)
+
+**Módulo**: Cotizaciones — `CotizacionDocumentoViewModel`, `CotizacionDocumentoPage.xaml.cs`
+
+**Problema**: `Initialize()` solo asignaba `NombreCliente` y `RelacionComercialId` pero no `_entidadDirectorioSeleccionada`. El chip del selector (bloque visual institucional inferior) quedaba vacío en modo edición y se perdía en detach/rehost porque `EntidadDirectorioSeleccionada` era `null`.
+
+**Solución**: `Initialize()` ahora sintetiza `_entidadDirectorioSeleccionada` desde los datos del documento existente. El constructor primario y el de rehost restauran el chip directamente desde `ViewModel.EntidadDirectorioSeleccionada`. **Estado**: ✅ **RESUELTO con ADR-043**
+
+---
+
+### [RESUELTO] KI-028 — Alerta "descuento global" se repetía al abrir/editar/detach documentos (ADR-043)
+
+**Módulo**: Cotizaciones — `CotizacionDocumentoPage.xaml.cs`
+
+**Problema**: `NbDescuentoGlobal.ValueChanged` se disparaba durante la hidratación de la UI (al hacer `InitializeComponent()` + binding XAML). Si el documento ya tenía descuento global, el handler veía `pct > 0 && HayDescuentosEnLineas` y mostraba la alerta de confirmación aunque el descuento ya estaba aplicado.
+
+**Solución**: Flag `_hidratandoUI = true` antes de `InitializeComponent()`, `false` tras completar toda la inicialización. `NbDescuentoGlobal_ValueChanged` retorna si `_hidratandoUI`. La alerta solo aparece por acción explícita del usuario. **Estado**: ✅ **RESUELTO con ADR-043**
 
 ---
 
@@ -150,6 +232,26 @@ Contenido formulario / grid detalles
 - ❌ Transparencia/overlay sobre tabs de módulo
 - ❌ Headers tipo browser (Chrome/Edge look)
 - ❌ Apariencia docking IDE (Visual Studio look)
+
+---
+
+### [RESUELTO] — DbContext concurrencia al aplicar descuento global en Cotización (ADR-043b)
+
+**Módulo**: CotizacionDocumentoPage / CotizacionDocumentoViewModel
+
+**Excepción**: `System.InvalidOperationException: 'A second operation was started on this context instance before a previous operation completed'`
+
+**Stack**: `CotizacionService.EliminarDetalleAsync → CotizacionDocumentoViewModel.ActualizarDescuentoAsync`
+
+**Causa raíz**: El loop original de `AplicarDescuentoGlobalALineas` llamaba `ActualizarDescuentoAsync` por cada línea. Al final del delete+readd, `linea.DescuentoPct = pct` disparaba INPC → `NumberBox.ValueChanged` (async void) → nueva llamada a `ActualizarDescuentoAsync`. Mientras esa segunda llamada ejecutaba `EliminarDetalleAsync`, el loop principal ya había avanzado a otra línea y también ejecutaba `EliminarDetalleAsync`. Dos operaciones concurrentes sobre el mismo `_context` scoped → excepción.
+
+**Solución aplicada (Two-Phase Discount Apply Pattern)**:
+1. **Fase 1 (memoria)**: Establece todos los `linea.DescuentoPct = pct` ANTES de cualquier service call. El guard anti-reentrancy en `ActualizarDescuentoAsync` detecta `linea.DescuentoPct == pctClamped` → retorna sin service call.
+2. **Fase 2 (BD, único scope IsBusy)**: Persiste cada línea secuencialmente. Guards IsBusy en los handlers del code-behind rechazan eventos concurrentes.
+3. **Guard en `ActualizarDescuentoAsync`**: `if (linea.DescuentoPct == pctClamped) return;` — previene re-entrada desde INPC.
+4. **Guards IsBusy en handlers** — defensa en profundidad.
+
+**Estado**: ✅ RESUELTO — build exitoso, sin cambios de arquitectura.
 
 ---
 

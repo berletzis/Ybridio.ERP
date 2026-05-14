@@ -67,4 +67,28 @@ public interface IWindowManager
     /// <typeparam name="TKey">Tipo del identificador lógico.</typeparam>
     /// <param name="key">Identificador del registro.</param>
     void BringToFront<TWindow, TKey>(TKey key) where TWindow : Window;
+
+    /// <summary>
+    /// Single Document Session Rule — intenta activar/enfocar una ventana existente
+    /// usando solo la clave de documento, sin conocer el tipo de ventana.
+    /// </summary>
+    /// <remarks>
+    /// Usar SIEMPRE antes de abrir cualquier documento para evitar crear múltiples
+    /// sesiones runtime del mismo documento simultáneamente.
+    ///
+    /// Busca en el registro de ventanas activas cualquier ventana cuya key interna
+    /// termine con <c>_{documentKey}</c>. La key de documento sigue la convención:
+    /// <c>detached:{tipo}:{id}</c> (ej: <c>detached:cotizacion:123</c>).
+    ///
+    /// Si la ventana existe: la activa y retorna <c>true</c> → el caller debe abortar la apertura.
+    /// Si no existe: retorna <c>false</c> → el caller puede abrir normalmente.
+    /// </remarks>
+    /// <param name="documentKey">
+    /// Clave del documento (sin prefijo de tipo de ventana).
+    /// Ejemplo: <c>"detached:cotizacion:123"</c>
+    /// </param>
+    /// <returns>
+    /// <c>true</c> si existía una sesión activa y fue activada; <c>false</c> si no existe.
+    /// </returns>
+    bool TryActivateWindow(string documentKey);
 }

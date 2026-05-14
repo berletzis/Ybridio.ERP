@@ -7,33 +7,40 @@
 
     <!--
         RelacionComercialSelectorControl — ADR-038
-        Entity selector ERP/CRM institucional. Busca en Persona + EmpresaComercial directamente.
-        SearchPanel y SelectedChipPanel son mutuamente excluyentes dentro del InputBorder:
-          · Sin selección  → SearchPanel visible,  ChipPanel colapsado.
-          · Con selección  → ChipPanel visible,     SearchPanel colapsado.
-        El popup se cierra inmediatamente al confirmar selección.
-        No se asigna texto al TextBox al seleccionar, evitando ghost text.
-    -->
-    <Grid>
+        Dos estados visuales mutuamente excluyentes:
 
-        <!-- ── Input container (una sola fila, sin Row-1 duplicado) ──────────── -->
-        <Border x:Name="InputBorder"
+        ESTADO A — SIN selección:
+          InputBorder visible  →  TextBox de búsqueda activo
+          EntityChipPanel colapsado
+
+        ESTADO B — CON selección:
+          InputBorder colapsado  →  TextBox completamente oculto
+          EntityChipPanel visible  →  chip compacto debajo (nombre + badge + limpiar)
+
+        REGLA: La entidad seleccionada NUNCA se renderiza dentro del InputBorder/TextBox.
+               El InputBorder es EXCLUSIVAMENTE el campo de búsqueda.
+               El chip compacto (EntityChipPanel) es la representación oficial seleccionada.
+    -->
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <!-- Row 0: InputBorder — campo de búsqueda (solo activo sin selección) -->
+            <RowDefinition Height="Auto"/>
+            <!-- Row 1: EntityChipPanel — chip compacto del seleccionado (solo activo con selección) -->
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- ── ESTADO A: Campo de búsqueda ──────────────────────────────────── -->
+        <Border Grid.Row="0"
+                x:Name="InputBorder"
                 Style="{StaticResource OgEntitySelectorStyle}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- ── PANEL A: búsqueda (visible cuando no hay selección) ──── -->
-                <Grid Grid.Column="0"
-                      x:Name="SearchPanel">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-
-                    <!-- Ícono de búsqueda -->
+                <Grid Grid.Column="0" x:Name="SearchPanel">
                     <FontIcon Glyph="&#xE721;"
                               FontSize="13"
                               HorizontalAlignment="Left"
@@ -43,7 +50,6 @@
                               x:Name="SearchIcon"
                               IsHitTestVisible="False"/>
 
-                    <!-- TextBox con padding izquierdo para dejar espacio al ícono -->
                     <TextBox x:Name="TxtBusqueda"
                              Style="{StaticResource OgEntitySelectorInputStyle}"
                              PlaceholderText="{x:Bind PlaceholderText, Mode=OneWay}"
@@ -56,97 +62,94 @@
                              AutomationProperties.Name="Buscar socio comercial"/>
                 </Grid>
 
-                <!-- ── PANEL B: chip de entidad seleccionada ──────────────── -->
-                <!--
-                    Visible SOLO cuando hay selección activa.
-                    El TextBox de búsqueda queda colapsado para evitar ghost text,
-                    caret visible y texto duplicado.
-                -->
-                <Grid Grid.Column="0"
-                      x:Name="ChipPanel"
-                      MinHeight="32"
-                      Visibility="Collapsed"
-                      ColumnSpacing="6"
-                      Margin="8,0,4,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-
-                    <!-- Ícono semántico por tipo de entidad -->
-                    <FontIcon Grid.Column="0"
-                              x:Name="ChipGlyph"
-                              FontSize="14"
-                              VerticalAlignment="Center"/>
-
-                    <!-- Nombre + info secundaria -->
-                    <StackPanel Grid.Column="1"
-                                VerticalAlignment="Center"
-                                Spacing="1">
-                        <TextBlock x:Name="ChipNombre"
-                                   Style="{StaticResource OgEntityChipNameStyle}"/>
-                        <TextBlock x:Name="ChipInfo"
-                                   Style="{StaticResource OgEntityChipInfoStyle}"
-                                   Visibility="Collapsed"/>
-                    </StackPanel>
-
-                    <!-- Badge tipo entidad -->
-                    <Border Grid.Column="2"
-                            x:Name="ChipBadge"
-                            CornerRadius="3"
-                            Padding="5,1,5,1"
-                            VerticalAlignment="Center"
-                            BorderThickness="1">
-                        <TextBlock x:Name="ChipBadgeText"
-                                   Style="{StaticResource OgEntityBadgeTextStyle}"/>
-                    </Border>
-                </Grid>
-
-                <!-- Indicador de carga -->
                 <ProgressRing Grid.Column="1"
                               x:Name="LoadingRing"
                               Width="16" Height="16"
-                              Margin="0,0,4,0"
+                              Margin="0,0,6,0"
                               IsActive="False"
                               VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!-- ── ESTADO B: Chip compacto del seleccionado ─────────────────────── -->
+        <!--
+            Visible SOLO cuando hay selección activa.
+            Muestra glyph + nombre + badge + botón limpiar.
+            El email y teléfono se muestran en el bloque de metadatos de la página (no aquí).
+            NO duplicar email/teléfono dentro del selector.
+        -->
+        <Border Grid.Row="1"
+                x:Name="EntityChipPanel"
+                Visibility="Collapsed"
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="4"
+                Padding="10,7"
+                Margin="0,4,0,0">
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>  <!-- Glyph -->
+                    <ColumnDefinition Width="*"/>     <!-- Nombre -->
+                    <ColumnDefinition Width="Auto"/>  <!-- Badge -->
+                    <ColumnDefinition Width="Auto"/>  <!-- Limpiar -->
+                </Grid.ColumnDefinitions>
+
+                <!-- Ícono semántico por tipo de entidad -->
+                <FontIcon Grid.Column="0"
+                          x:Name="ChipGlyph"
+                          FontSize="14"
+                          VerticalAlignment="Center"
+                          Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+
+                <!-- Nombre de la entidad seleccionada -->
+                <TextBlock Grid.Column="1"
+                           x:Name="ChipNombre"
+                           FontWeight="SemiBold"
+                           FontSize="13"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"/>
+
+                <!-- Badge tipo: Empresa / Persona Física -->
+                <Border Grid.Column="2"
+                        x:Name="ChipBadge"
+                        CornerRadius="3"
+                        Padding="5,1,5,1"
+                        VerticalAlignment="Center"
+                        BorderThickness="1">
+                    <TextBlock x:Name="ChipBadgeText" FontSize="10"/>
+                </Border>
 
                 <!-- Botón limpiar selección -->
-                <Button Grid.Column="2"
+                <Button Grid.Column="3"
                         x:Name="BtnLimpiar"
-                        Width="28" Height="28"
-                        Padding="0"
-                        Margin="0,0,2,0"
-                        VerticalAlignment="Center"
-                        Style="{StaticResource DocumentSurfaceBackActionButtonStyle}"
                         Click="BtnLimpiar_Click"
-                        Visibility="Collapsed"
+                        IsEnabled="{x:Bind IsEnabled, Mode=OneWay}"
+                        Width="26" Height="26" Padding="0"
+                        VerticalAlignment="Center"
                         ToolTipService.ToolTip="Limpiar selección">
                     <FontIcon Glyph="&#xE711;" FontSize="11"/>
                 </Button>
             </Grid>
         </Border>
 
-        <!-- ── Popup de resultados (posicionado relativo al input) ──────────── -->
+        <!-- ── Popup de resultados de búsqueda ───────────────────────────────── -->
         <Popup x:Name="ResultsPopup"
                IsOpen="False"
                IsLightDismissEnabled="False">
             <Border Style="{StaticResource OgEntitySelectorPopupStyle}"
                     x:Name="PopupBorder">
                 <Grid>
-                    <!-- Estado: cargando -->
                     <TextBlock x:Name="TxtCargando"
                                Style="{StaticResource OgEntitySelectorStatusTextStyle}"
                                Text="Buscando..."
                                Visibility="Collapsed"/>
 
-                    <!-- Estado: sin resultados -->
                     <TextBlock x:Name="TxtSinResultados"
                                Style="{StaticResource OgEntitySelectorStatusTextStyle}"
                                Text="Sin resultados"
                                Visibility="Collapsed"/>
 
-                    <!-- Lista de resultados -->
                     <ListView x:Name="LvResultados"
                               SelectionMode="Single"
                               ItemContainerStyle="{StaticResource OgEntitySelectorItemStyle}"
@@ -161,7 +164,6 @@
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
 
-                                    <!-- Ícono semántico -->
                                     <FontIcon Grid.Column="0"
                                               FontSize="16"
                                               VerticalAlignment="Center"
@@ -170,10 +172,8 @@
                                     <StackPanel Grid.Column="1" Spacing="2">
                                         <TextBlock Text="{x:Bind DisplayName}"
                                                    Style="{StaticResource OgEntityItemPrimaryTextStyle}"/>
-                                        <StackPanel Orientation="Horizontal" Spacing="6">
-                                            <TextBlock Text="{x:Bind InfoSecundaria}"
-                                                       Style="{StaticResource OgEntityItemSecondaryTextStyle}"/>
-                                        </StackPanel>
+                                        <TextBlock Text="{x:Bind InfoSecundaria}"
+                                                   Style="{StaticResource OgEntityItemSecondaryTextStyle}"/>
                                     </StackPanel>
                                 </Grid>
                             </DataTemplate>
@@ -182,6 +182,5 @@
                 </Grid>
             </Border>
         </Popup>
-
     </Grid>
 </UserControl>

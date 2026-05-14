@@ -29,6 +29,13 @@ public class Cotizacion : AuditableEntity
     /// <summary>Nombre del cliente al momento de cotizar (denormalizado para historial).</summary>
     public string NombreCliente { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Folio documental generado al crear la cotización (ej: "COT-000001").
+    /// Null en registros previos a la implementación de SerieDocumento.
+    /// Generado por IFolioGeneratorService — no asignar directamente.
+    /// </summary>
+    public string? Folio { get; set; }
+
     public EstatusCotizacion Estatus     { get; set; } = EstatusCotizacion.Borrador;
     public DateTime          Fecha       { get; set; }
     public DateTime?         FechaVigencia { get; set; }
@@ -57,4 +64,5 @@ public class Cotizacion : AuditableEntity
     public Sucursal?            Sucursal             { get; set; }
     public RelacionComercial?   RelacionComercial    { get; set; }
     public ICollection<CotizacionDetalle> Detalles  { get; set; } = [];
+    public ICollection<CotizacionCargo>   Cargos    { get; set; } = [];
 }

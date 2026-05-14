@@ -54,6 +54,19 @@ public interface ICotizacionService
     /// </summary>
     Task<ServiceResult> EliminarDetalleAsync(long detalleId, Guid usuarioId, CancellationToken ct = default);
 
+    // ── Cargos accesorios (Commercial Charges Pattern) ───────────────────────
+
+    /// <summary>
+    /// Agrega un cargo accesorio (Flete, Maniobras, Seguro, etc.) a la cotización.
+    /// Los cargos son sección separada de los detalles de producto.
+    /// Recalcula Total de la cotización incluyendo el cargo.
+    /// </summary>
+    Task<ServiceResult<CotizacionCargoDto>> AgregarCargoAsync(
+        long cotizacionId, CrearCotizacionCargoDto dto, Guid usuarioId, CancellationToken ct = default);
+
+    /// <summary>Elimina un cargo accesorio y recalcula totales de la cotización.</summary>
+    Task<ServiceResult> EliminarCargoAsync(long cargoId, Guid usuarioId, CancellationToken ct = default);
+
     /// <summary>
     /// Convierte una cotización Aprobada en un Pedido nuevo.
     /// Copia detalles y datos del cliente. Valida pedido.crear.

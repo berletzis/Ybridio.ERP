@@ -10,30 +10,61 @@
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
     <Page.Resources>
-        <converters:DecimalToCurrencyConverter x:Key="CurrencyConverter"/>
+        <converters:DecimalToCurrencyConverter       x:Key="CurrencyConverter"/>
+        <converters:BoolToVisibilityConverter        x:Key="BoolToVisibility"/>
+        <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility"/>
+        <converters:OperationalDateConverter         x:Key="OperationalDateConverter"/>
     </Page.Resources>
 
+    <!--
+        Single Document Scroll Pattern (ADR institucional)
+        ────────────────────────────────────────────────────
+        Estructura obligatoria en superficies documentales ERP:
+
+            Row 0: CommandBar   (Auto) — fijo arriba, siempre visible
+            Row 1: ScrollViewer (*)    — ÚNICO dueño del scroll documental
+            Row 2: StatusBar    (Auto) — fijo abajo, siempre visible
+
+        PROHIBIDO:
+          · ListView/GridView con scroll interno en documentos
+          · Height="*" en filas que contienen grids de datos
+          · MaxHeight arbitrario en secciones documentales
+          · Nested ScrollViewers
+
+        Grids documentales (productos, cargos) crecen dinámicamente
+        con ScrollViewer.VerticalScrollBarVisibility="Disabled" y
+        ScrollViewer.VerticalScrollMode="Disabled" para desactivar
+        el scroll interno del ListView sin constricción de altura.
+    -->
     <Grid>
         <Grid.RowDefinitions>
+            <!-- CommandBar: fijo arriba, siempre visible -->
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
+            <!-- Documento: ScrollViewer documental único, toma todo el espacio disponible -->
             <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
+            <!-- StatusBar: fijo abajo, siempre visible -->
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- CommandBar Enterprise -->
-        <CommandBar Grid.Row="0" Style="{StaticResource ErpDocumentCommandBarStyle}">
-            <!-- ADR-032: Volver a Lista — solo visible en modo INLINE; oculto en ventana standalone -->
+        <!-- ════════════════════════════════════════════════════════════════
+             ROW 0: CommandBar — fijo, no hace scroll
+             ════════════════════════════════════════════════════════════════ -->
+        <CommandBar Grid.Row="0" Style="{StaticResource ErpDocumentCommandBarStyle}"
+                    OverflowButtonVisibility="Collapsed">
+
+            <!-- Navegación: solo en modo INLINE -->
             <AppBarButton x:Name="BtnVolverALista" Label="Volver a Lista" Click="BtnVolverALista_Click"
                           Visibility="Collapsed">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE72B;"/></AppBarButton.Icon>
             </AppBarButton>
+
+            <!-- Grupo 1: Persistencia -->
             <AppBarButton Label="Guardar" Command="{x:Bind ViewModel.GuardarCommand}">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE74E;"/></AppBarButton.Icon>
             </AppBarButton>
             <AppBarSeparator/>
+
+            <!-- Grupo 2: Edición de líneas -->
             <AppBarButton Label="Agregar Línea" Click="BtnAgregarLinea_Click">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE710;"/></AppBarButton.Icon>
             </AppBarButton>
@@ -41,9 +72,8 @@
                 <AppBarButton.Icon><FontIcon Glyph="&#xE74D;"/></AppBarButton.Icon>
             </AppBarButton>
             <AppBarSeparator/>
-            <AppBarButton Label="Enviar" Click="BtnEnviar_Click">
-                <AppBarButton.Icon><FontIcon Glyph="&#xE724;"/></AppBarButton.Icon>
-            </AppBarButton>
+
+            <!-- Grupo 3: Workflow comercial -->
             <AppBarButton Label="Aprobar" Click="BtnAprobar_Click">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE8FB;"/></AppBarButton.Icon>
             </AppBarButton>
@@ -53,227 +83,477 @@
             <AppBarButton Label="Cancelar Cotización" Click="BtnCancelarCotizacion_Click">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE711;"/></AppBarButton.Icon>
             </AppBarButton>
+            <AppBarSeparator/>
 
-            <!-- ADR-032: Abrir en nueva ventana — solo visible en modo INLINE -->
-            <CommandBar.SecondaryCommands>
-                <AppBarButton x:Name="BtnAbrirEnVentana" Label="Abrir en nueva ventana" Click="BtnAbrirEnVentana_Click"
-                              Visibility="Collapsed">
-                    <AppBarButton.Icon><FontIcon Glyph="&#xE8A7;"/></AppBarButton.Icon>
-                </AppBarButton>
-            </CommandBar.SecondaryCommands>
+            <!-- Grupo 4: Acciones operacionales -->
+            <AppBarButton Label="Enviar" Click="BtnEnviar_Click">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE724;"/></AppBarButton.Icon>
+            </AppBarButton>
+
+            <!-- Grupo 5: Workspace — solo inline mode -->
+            <AppBarSeparator x:Name="SepAbrirVentana" Visibility="Collapsed"/>
+            <AppBarButton x:Name="BtnAbrirEnVentana" Label="Abrir en ventana"
+                          Click="BtnAbrirEnVentana_Click" Visibility="Collapsed">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE8A7;"/></AppBarButton.Icon>
+            </AppBarButton>
         </CommandBar>
 
-        <!-- Header strip: título + badge de estado -->
-        <Border Grid.Row="1" Background="{ThemeResource LayerFillColorDefaultBrush}"
-                BorderBrush="#E5E5E5" BorderThickness="0,0,0,1"
-                Padding="{StaticResource ErpDocumentHeaderPadding}">
-            <StackPanel Orientation="Horizontal" Spacing="12">
-                <TextBlock Text="{x:Bind ViewModel.TituloDocumento, Mode=OneWay}"
-                           FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                <Border Background="{ThemeResource AccentFillColorDefaultBrush}"
-                        CornerRadius="4" Padding="8,2,8,2">
-                    <TextBlock Text="{x:Bind ViewModel.EstatusTextoDisplay, Mode=OneWay}"
-                               Foreground="White" FontSize="12" FontWeight="SemiBold"/>
-                </Border>
-            </StackPanel>
-        </Border>
-
-        <!-- Formulario encabezado -->
-        <Border Grid.Row="2" Style="{StaticResource ErpOperationalCardStyle}"
-                Padding="{StaticResource ErpDocumentFormPadding}">
-            <Grid ColumnSpacing="16" RowSpacing="10">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
+        <!-- ════════════════════════════════════════════════════════════════
+             ROW 1: ScrollViewer — ÚNICO dueño del scroll documental
+             Todo el contenido documental vive aquí.
+             El Grid interno usa SOLO filas Auto para crecimiento dinámico.
+             ════════════════════════════════════════════════════════════════ -->
+        <ScrollViewer Grid.Row="1"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <Grid>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
+                    <!-- Todas Auto: crecen con el contenido, sin constricción -->
+                    <RowDefinition Height="Auto"/>  <!-- Header strip -->
+                    <RowDefinition Height="Auto"/>  <!-- Formulario encabezado -->
+                    <RowDefinition Height="Auto"/>  <!-- Líneas de producto -->
+                    <RowDefinition Height="Auto"/>  <!-- Otros Cargos -->
+                    <RowDefinition Height="Auto"/>  <!-- Totales -->
                 </Grid.RowDefinitions>
 
-                <!-- Columna izquierda: selector de cliente + info -->
-                <StackPanel Grid.Column="0" Grid.Row="0" Spacing="4">
-                    <TextBlock Text="Cliente *" FontWeight="SemiBold" FontSize="12"/>
-                    <!-- ADR-037: RelacionComercialSelectorControl — patrón institucional obligatorio -->
-                    <selector:RelacionComercialSelectorControl
-                        x:Name="SelectorCliente"
-                        PlaceholderText="Buscar socio comercial por nombre, RFC o email..."
-                        EmpresaId="{x:Bind ViewModel.EmpresaId, Mode=OneWay}"
-                        IsEnabled="{x:Bind ViewModel.PuedeEditar, Mode=OneWay}"
-                        SelectionChanged="SelectorCliente_SelectionChanged"/>
-                </StackPanel>
+                <!-- ── Header strip: título + badge de estado ── -->
+                <Border Grid.Row="0"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        BorderBrush="#E5E5E5" BorderThickness="0,0,0,1"
+                        Padding="{StaticResource ErpDocumentHeaderPadding}">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <TextBlock Text="{x:Bind ViewModel.TituloDocumento, Mode=OneWay}"
+                                   FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <Border Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                CornerRadius="4" Padding="8,2,8,2">
+                            <TextBlock Text="{x:Bind ViewModel.EstatusTextoDisplay, Mode=OneWay}"
+                                       Foreground="White" FontSize="12" FontWeight="SemiBold"/>
+                        </Border>
+                    </StackPanel>
+                </Border>
 
-                <!-- Info de cliente seleccionado (solo lectura) -->
-                <Border Grid.Column="0" Grid.Row="1"
-                        Background="#F8F8F8" BorderBrush="#E5E5E5" BorderThickness="1"
-                        CornerRadius="4" Padding="10,8"
-                        Visibility="{x:Bind ViewModel.TieneClienteSeleccionado, Mode=OneWay}">
-                    <Grid ColumnSpacing="16">
+                <!-- ── Formulario encabezado ── -->
+                <Border Grid.Row="1" Style="{StaticResource ErpOperationalCardStyle}"
+                        Padding="{StaticResource ErpDocumentFormPadding}">
+                    <Grid ColumnSpacing="16" RowSpacing="10">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0" Spacing="2">
-                            <TextBlock Text="Email" FontSize="10" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                            <TextBlock Text="{x:Bind ViewModel.ClienteEmail, Mode=OneWay}"
-                                       FontSize="12" TextTrimming="CharacterEllipsis"/>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Col 0, Row 0: Selector de cliente -->
+                        <StackPanel Grid.Column="0" Grid.Row="0" Spacing="4">
+                            <TextBlock Text="Cliente *" FontWeight="SemiBold" FontSize="12"/>
+                            <selector:RelacionComercialSelectorControl
+                                x:Name="SelectorCliente"
+                                PlaceholderText="Buscar socio comercial por nombre, RFC o email..."
+                                EmpresaId="{x:Bind ViewModel.EmpresaId, Mode=OneWay}"
+                                IsEnabled="{x:Bind ViewModel.PuedeEditar, Mode=OneWay}"
+                                SelectionChanged="SelectorCliente_SelectionChanged"/>
                         </StackPanel>
-                        <StackPanel Grid.Column="1" Spacing="2">
-                            <TextBlock Text="Teléfono" FontSize="10" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                            <TextBlock Text="{x:Bind ViewModel.ClienteTelefono, Mode=OneWay}" FontSize="12"/>
+
+                        <!-- Col 1, Row 0: Observaciones -->
+                        <StackPanel Grid.Column="1" Grid.Row="0" Spacing="4">
+                            <TextBlock Text="Observaciones" FontWeight="SemiBold" FontSize="12"/>
+                            <TextBox PlaceholderText="Observaciones"
+                                     Text="{x:Bind ViewModel.Observaciones, Mode=TwoWay}"/>
                         </StackPanel>
-                        <StackPanel Grid.Column="2" Spacing="2" MinWidth="100">
-                            <TextBlock Text="Límite Crédito" FontSize="10" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                            <TextBlock Text="{x:Bind ViewModel.ClienteLimiteCredito, Mode=OneWay}"
-                                       FontSize="12" FontWeight="SemiBold" TextAlignment="Right"/>
+
+                        <!-- Col 0, Row 1: Info de cliente seleccionado -->
+                        <Border Grid.Column="0" Grid.Row="1"
+                                Background="#F8F8F8" BorderBrush="#E5E5E5" BorderThickness="1"
+                                CornerRadius="4" Padding="10,8"
+                                Visibility="{x:Bind ViewModel.TieneClienteSeleccionado, Mode=OneWay}">
+                            <Grid ColumnSpacing="16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Spacing="2">
+                                    <TextBlock Text="Email" FontSize="10"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                    <TextBlock Text="{x:Bind ViewModel.ClienteEmail, Mode=OneWay}"
+                                               FontSize="12" TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Spacing="2">
+                                    <TextBlock Text="Teléfono" FontSize="10"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                    <TextBlock Text="{x:Bind ViewModel.ClienteTelefono, Mode=OneWay}" FontSize="12"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- Col 1, Row 1: Descuento Global (ADR-042) -->
+                        <Border Grid.Column="1" Grid.Row="1"
+                                Background="#F8F8F8" BorderBrush="#E5E5E5" BorderThickness="1"
+                                CornerRadius="4" Padding="10,8">
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="110"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+                                    <TextBlock Text="Descuento Global (%)" FontWeight="SemiBold" FontSize="12"/>
+                                    <TextBlock FontSize="10" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                               Text="Se aplica a todas las líneas (no acumulable)"
+                                               TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <NumberBox Grid.Column="1"
+                                           x:Name="NbDescuentoGlobal"
+                                           Value="{x:Bind ViewModel.DescuentoGlobalPctDouble, Mode=OneWay}"
+                                           Minimum="0" Maximum="100"
+                                           SmallChange="1" LargeChange="5"
+                                           SpinButtonPlacementMode="Compact"
+                                           PlaceholderText="0 %"
+                                           HorizontalContentAlignment="Right"
+                                           VerticalAlignment="Center"
+                                           IsEnabled="{x:Bind ViewModel.PuedeEditar, Mode=OneWay}"
+                                           ValueChanged="NbDescuentoGlobal_ValueChanged"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Col 0, Row 2: Fechas -->
+                        <StackPanel Grid.Column="0" Grid.Row="2" Orientation="Horizontal" Spacing="24">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Fecha" FontWeight="SemiBold" FontSize="12"/>
+                                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                    <CalendarDatePicker x:Name="DpFecha"
+                                                       Date="{x:Bind ViewModel.FechaOffset, Mode=OneWay}"
+                                                       DateChanged="DpFecha_DateChanged"
+                                                       PlaceholderText="Seleccionar"
+                                                       IsEnabled="{x:Bind ViewModel.PuedeEditar, Mode=OneWay}"/>
+                                    <TextBlock x:Name="LblFecha"
+                                               Text="{x:Bind ViewModel.FechaOffset, Mode=OneWay, Converter={StaticResource OperationalDateConverter}}"
+                                               VerticalAlignment="Center" FontSize="13"
+                                               FontWeight="SemiBold"
+                                               Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                </StackPanel>
+                            </StackPanel>
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Vigencia" FontWeight="SemiBold" FontSize="12"/>
+                                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                    <CalendarDatePicker x:Name="DpVigencia"
+                                                       Date="{x:Bind ViewModel.FechaVigenciaOffset, Mode=OneWay}"
+                                                       DateChanged="DpVigencia_DateChanged"
+                                                       PlaceholderText="Seleccionar"
+                                                       IsEnabled="{x:Bind ViewModel.PuedeEditar, Mode=OneWay}"/>
+                                    <TextBlock x:Name="LblVigencia"
+                                               Text="{x:Bind ViewModel.FechaVigenciaOffset, Mode=OneWay, Converter={StaticResource OperationalDateConverter}}"
+                                               VerticalAlignment="Center" FontSize="13"
+                                               FontWeight="SemiBold"
+                                               Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                </StackPanel>
+                            </StackPanel>
                         </StackPanel>
                     </Grid>
                 </Border>
 
-                <StackPanel Grid.Column="1" Grid.Row="0" Spacing="4">
-                    <TextBlock Text="Observaciones" FontWeight="SemiBold" FontSize="12"/>
-                    <TextBox PlaceholderText="Observaciones"
-                             Text="{x:Bind ViewModel.Observaciones, Mode=TwoWay}"/>
-                </StackPanel>
+                <!-- ── Líneas de producto ──
+                     Dynamic Operational Grid Growth Rule:
+                     · ScrollViewer.VerticalScrollBarVisibility="Disabled" → desactiva scrollbar interna
+                     · ScrollViewer.VerticalScrollMode="Disabled"          → desactiva gesto de scroll interno
+                     · Sin Height="*" ni MaxHeight → ListView crece con sus ítems
+                     · El ScrollViewer documental padre controla el scroll total
+                -->
+                <Border Grid.Row="2" Style="{StaticResource ErpOperationalCardStyle}">
+                    <Grid>
+                        <ListView Style="{StaticResource OutlookDataGridStyle}"
+                                  ItemsSource="{x:Bind ViewModel.Detalles, Mode=OneWay}"
+                                  SelectedItem="{x:Bind ViewModel.DetalleSeleccionado, Mode=TwoWay}"
+                                  ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                  ScrollViewer.VerticalScrollMode="Disabled">
 
-                <StackPanel Grid.Column="0" Grid.Row="2" Orientation="Horizontal" Spacing="16">
-                    <StackPanel Spacing="4" Width="180">
-                        <TextBlock Text="Fecha" FontWeight="SemiBold" FontSize="12"/>
-                        <DatePicker Date="{x:Bind ViewModel.FechaOffset, Mode=TwoWay}"/>
-                    </StackPanel>
-                    <StackPanel Spacing="4" Width="180">
-                        <TextBlock Text="Vigencia" FontWeight="SemiBold" FontSize="12"/>
-                        <DatePicker Date="{x:Bind ViewModel.FechaVigenciaOffset, Mode=TwoWay}"/>
-                    </StackPanel>
-                </StackPanel>
+                            <!-- Cabecera -->
+                            <ListView.Header>
+                                <Border Background="#FAFAFA" BorderBrush="#E8E8E8" BorderThickness="0,0,0,1">
+                                    <Grid Padding="{StaticResource ErpHeaderPadding}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="80"/>
+                                            <ColumnDefinition Width="3*"/>
+                                            <ColumnDefinition Width="90"/>
+                                            <ColumnDefinition Width="80"/>
+                                            <ColumnDefinition Width="50"/>
+                                            <ColumnDefinition Width="110"/>
+                                            <ColumnDefinition Width="110"/>
+                                            <ColumnDefinition Width="40"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="1" Text="SKU"             Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                        <TextBlock Grid.Column="2" Text="Descripción"     Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                        <TextBlock Grid.Column="3" Text="Cantidad"        Style="{StaticResource ErpGridHeaderTextStyle}" TextAlignment="Right"/>
+                                        <TextBlock Grid.Column="4" Text="Desc. %"         Style="{StaticResource ErpGridHeaderTextStyle}" TextAlignment="Right"/>
+                                        <TextBlock Grid.Column="5" Text="IVA"             Style="{StaticResource ErpGridHeaderTextStyle}" TextAlignment="Center"/>
+                                        <TextBlock Grid.Column="6" Text="Precio Unitario" Style="{StaticResource ErpGridHeaderTextStyle}" TextAlignment="Right"/>
+                                        <TextBlock Grid.Column="7" Text="Importe Neto"    Style="{StaticResource ErpGridHeaderTextStyle}" TextAlignment="Right"/>
+                                    </Grid>
+                                </Border>
+                            </ListView.Header>
+
+                            <!-- Plantilla de fila -->
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="vm:DetalleLineaEditable">
+                                    <Grid Height="{StaticResource ErpRowHeight}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="80"/>
+                                            <ColumnDefinition Width="3*"/>
+                                            <ColumnDefinition Width="90"/>
+                                            <ColumnDefinition Width="80"/>
+                                            <ColumnDefinition Width="50"/>
+                                            <ColumnDefinition Width="110"/>
+                                            <ColumnDefinition Width="110"/>
+                                            <ColumnDefinition Width="40"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Grid.Column="1" Text="{x:Bind Sku}"
+                                                   Style="{StaticResource ErpCellSecondaryStyle}"
+                                                   VerticalAlignment="Center" FontSize="11"/>
+
+                                        <TextBlock Grid.Column="2" Text="{x:Bind Descripcion}"
+                                                   Style="{StaticResource ErpCellPrimaryStyle}"
+                                                   VerticalAlignment="Center"/>
+
+                                        <NumberBox Grid.Column="3"
+                                                   Value="{x:Bind CantidadDouble, Mode=TwoWay}"
+                                                   Minimum="0" SmallChange="1" LargeChange="10"
+                                                   SpinButtonPlacementMode="Hidden"
+                                                   HorizontalAlignment="Stretch"
+                                                   VerticalAlignment="Center"
+                                                   HorizontalContentAlignment="Right"
+                                                   Tag="{x:Bind}"
+                                                   ValueChanged="NumberBox_Cantidad_ValueChanged"
+                                                   FontSize="13"/>
+
+                                        <NumberBox Grid.Column="4"
+                                                   Value="{x:Bind DescuentoPctDouble, Mode=TwoWay}"
+                                                   Minimum="0" Maximum="100"
+                                                   SmallChange="1" LargeChange="5"
+                                                   SpinButtonPlacementMode="Hidden"
+                                                   HorizontalAlignment="Stretch"
+                                                   VerticalAlignment="Center"
+                                                   HorizontalContentAlignment="Right"
+                                                   Tag="{x:Bind}"
+                                                   ValueChanged="NumberBox_Descuento_ValueChanged"
+                                                   FontSize="13"/>
+
+                                        <TextBlock Grid.Column="5" Text="{x:Bind IvaTexto}"
+                                                   Style="{StaticResource ErpCellSecondaryStyle}"
+                                                   VerticalAlignment="Center"
+                                                   TextAlignment="Center" FontSize="11"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+
+                                        <TextBlock Grid.Column="6"
+                                                   Text="{x:Bind PrecioUnitario, Mode=OneWay, Converter={StaticResource CurrencyConverter}}"
+                                                   Style="{StaticResource ErpCellSecondaryStyle}"
+                                                   VerticalAlignment="Center" TextAlignment="Right"/>
+
+                                        <TextBlock Grid.Column="7"
+                                                   Text="{x:Bind Importe, Mode=OneWay, Converter={StaticResource CurrencyConverter}}"
+                                                   Style="{StaticResource ErpCellPrimaryStyle}"
+                                                   VerticalAlignment="Center" TextAlignment="Right"/>
+
+                                        <Button Grid.Column="8"
+                                                Style="{StaticResource ErpActionButtonStyle}"
+                                                Content="&#xE74D;"
+                                                FontFamily="Segoe Fluent Icons"
+                                                FontSize="14"
+                                                Tag="{x:Bind}"
+                                                Click="BtnEliminarLinea_Click"
+                                                ToolTipService.ToolTip="Eliminar línea"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+
+                        <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
+                                      Width="40" Height="40"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Grid>
+                </Border>
+
+                <!-- ── Otros Cargos (Commercial Charges Pattern) ──
+                     Misma regla: sin MaxHeight, scroll interno desactivado.
+                     La sección crece con los cargos agregados.
+                -->
+                <Border Grid.Row="3" Style="{StaticResource ErpOperationalCardStyle}"
+                        Padding="0,8,0,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Header sección Cargos -->
+                        <Grid Grid.Row="0" Padding="16,4,16,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Otros Cargos"
+                                       FontSize="12" FontWeight="SemiBold"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       VerticalAlignment="Center"/>
+                            <Button Grid.Column="1"
+                                    Content="+ Agregar Cargo"
+                                    FontSize="11"
+                                    Style="{StaticResource ErpActionButtonStyle}"
+                                    IsEnabled="{x:Bind ViewModel.PuedeEditar, Mode=OneWay}"
+                                    Click="BtnAgregarCargo_Click"/>
+                        </Grid>
+
+                        <!-- Grid de cargos — crece dinámicamente -->
+                        <ListView Grid.Row="1"
+                                  x:Name="ListaCargos"
+                                  Style="{StaticResource OutlookDataGridStyle}"
+                                  ItemsSource="{x:Bind ViewModel.Cargos, Mode=OneWay}"
+                                  SelectedItem="{x:Bind ViewModel.CargoSeleccionado, Mode=TwoWay}"
+                                  ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                  ScrollViewer.VerticalScrollMode="Disabled">
+                            <ListView.Header>
+                                <Border Background="#FAFAFA" BorderBrush="#E8E8E8" BorderThickness="0,0,0,1">
+                                    <Grid Padding="16,6,16,6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="3*"/>
+                                            <ColumnDefinition Width="50"/>
+                                            <ColumnDefinition Width="130"/>
+                                            <ColumnDefinition Width="30"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="1" Text="Descripción" FontSize="11" FontWeight="SemiBold" Foreground="#888"/>
+                                        <TextBlock Grid.Column="2" Text="IVA"         FontSize="11" FontWeight="SemiBold" Foreground="#888" TextAlignment="Center"/>
+                                        <TextBlock Grid.Column="3" Text="Importe"     FontSize="11" FontWeight="SemiBold" Foreground="#888" TextAlignment="Right"/>
+                                    </Grid>
+                                </Border>
+                            </ListView.Header>
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="vm:CargoLineaEditable">
+                                    <Grid Height="36">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="3*"/>
+                                            <ColumnDefinition Width="50"/>
+                                            <ColumnDefinition Width="130"/>
+                                            <ColumnDefinition Width="30"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="1" Text="{x:Bind Descripcion}"
+                                                   FontSize="13" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="2" Text="{x:Bind IvaTexto}"
+                                                   FontSize="11" TextAlignment="Center" VerticalAlignment="Center"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        <TextBlock Grid.Column="3"
+                                                   Text="{x:Bind Importe, Converter={StaticResource CurrencyConverter}}"
+                                                   Style="{StaticResource ErpCellPrimaryStyle}"
+                                                   TextAlignment="Right" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="4"
+                                                Style="{StaticResource ErpActionButtonStyle}"
+                                                Content="&#xE74D;" FontFamily="Segoe Fluent Icons" FontSize="12"
+                                                Tag="{x:Bind}"
+                                                Click="BtnEliminarCargo_Click"
+                                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+                </Border>
+
+                <!-- ── Totales ── -->
+                <Border Grid.Row="4" Style="{StaticResource ErpTotalesCardStyle}">
+                    <Grid HorizontalAlignment="Right" MinWidth="320" RowSpacing="4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="160"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Subtotal sin descuentos -->
+                        <TextBlock Grid.Column="0" Grid.Row="0" Text="Subtotal sin descuentos:"
+                                   Style="{StaticResource ErpCellSecondaryStyle}"
+                                   Visibility="{x:Bind ViewModel.HayDescuento, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"/>
+                        <TextBlock Grid.Column="1" Grid.Row="0"
+                                   Text="{x:Bind ViewModel.SubtotalBruto, Mode=OneWay, Converter={StaticResource CurrencyConverter}}"
+                                   Style="{StaticResource ErpCellSecondaryStyle}" TextAlignment="Right"
+                                   Visibility="{x:Bind ViewModel.HayDescuento, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"/>
+
+                        <!-- Descuento monetario -->
+                        <TextBlock Grid.Column="0" Grid.Row="1" Text="(-) Descuento:"
+                                   Style="{StaticResource ErpCellSecondaryStyle}"
+                                   Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                                   Visibility="{x:Bind ViewModel.HayDescuento, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"/>
+                        <TextBlock Grid.Column="1" Grid.Row="1"
+                                   Text="{x:Bind ViewModel.DescuentoTotal, Mode=OneWay, Converter={StaticResource CurrencyConverter}}"
+                                   Style="{StaticResource ErpCellSecondaryStyle}" TextAlignment="Right"
+                                   Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                                   Visibility="{x:Bind ViewModel.HayDescuento, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"/>
+
+                        <!-- Subtotal neto -->
+                        <TextBlock Grid.Column="0" Grid.Row="2" Text="Subtotal:"
+                                   Style="{StaticResource ErpCellSecondaryStyle}"/>
+                        <TextBlock Grid.Column="1" Grid.Row="2"
+                                   Text="{x:Bind ViewModel.Subtotal, Mode=OneWay, Converter={StaticResource CurrencyConverter}}"
+                                   Style="{StaticResource ErpCellSecondaryStyle}" TextAlignment="Right"/>
+
+                        <!-- Otros Cargos -->
+                        <TextBlock Grid.Column="0" Grid.Row="3" Text="(+) Otros Cargos:"
+                                   Style="{StaticResource ErpCellSecondaryStyle}"
+                                   Visibility="{x:Bind ViewModel.HayCargos, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"/>
+                        <TextBlock Grid.Column="1" Grid.Row="3"
+                                   Text="{x:Bind ViewModel.TotalOtrosCargos, Mode=OneWay, Converter={StaticResource CurrencyConverter}}"
+                                   Style="{StaticResource ErpCellSecondaryStyle}" TextAlignment="Right"
+                                   Visibility="{x:Bind ViewModel.HayCargos, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"/>
+
+                        <!-- Impuestos -->
+                        <TextBlock Grid.Column="0" Grid.Row="4" Text="Impuestos (IVA):"
+                                   Style="{StaticResource ErpCellSecondaryStyle}"/>
+                        <TextBlock Grid.Column="1" Grid.Row="4"
+                                   Text="{x:Bind ViewModel.Impuestos, Mode=OneWay, Converter={StaticResource CurrencyConverter}}"
+                                   Style="{StaticResource ErpCellSecondaryStyle}" TextAlignment="Right"/>
+
+                        <!-- Total -->
+                        <TextBlock Grid.Column="0" Grid.Row="5" Text="Total:"
+                                   FontWeight="SemiBold" FontSize="14"/>
+                        <TextBlock Grid.Column="1" Grid.Row="5"
+                                   Text="{x:Bind ViewModel.Total, Mode=OneWay, Converter={StaticResource CurrencyConverter}}"
+                                   FontWeight="SemiBold" FontSize="14" TextAlignment="Right"/>
+                    </Grid>
+                </Border>
+
             </Grid>
-        </Border>
+        </ScrollViewer>
 
-        <!-- Grid de detalles -->
-        <Border Grid.Row="3" Style="{StaticResource ErpOperationalCardStyle}">
-            <Grid>
-                <ListView Style="{StaticResource OutlookDataGridStyle}"
-                          ItemsSource="{x:Bind ViewModel.Detalles, Mode=OneWay}"
-                          SelectedItem="{x:Bind ViewModel.DetalleSeleccionado, Mode=TwoWay}">
-                    <ListView.Header>
-                        <Border Background="#FAFAFA" BorderBrush="#E8E8E8" BorderThickness="0,0,0,1">
-                            <Grid Padding="{StaticResource ErpHeaderPadding}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="8"/>
-                                    <ColumnDefinition Width="80"/>
-                                    <ColumnDefinition Width="3*"/>
-                                    <ColumnDefinition Width="90"/>
-                                    <ColumnDefinition Width="90"/>
-                                    <ColumnDefinition Width="50"/>
-                                    <ColumnDefinition Width="110"/>
-                                    <ColumnDefinition Width="110"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="1" Text="SKU"             Style="{StaticResource ErpGridHeaderTextStyle}"/>
-                                <TextBlock Grid.Column="2" Text="Descripción"     Style="{StaticResource ErpGridHeaderTextStyle}"/>
-                                <TextBlock Grid.Column="3" Text="Existencia"      Style="{StaticResource ErpGridHeaderTextStyle}" TextAlignment="Right"/>
-                                <TextBlock Grid.Column="4" Text="Cantidad"        Style="{StaticResource ErpGridHeaderTextStyle}" TextAlignment="Right"/>
-                                <TextBlock Grid.Column="5" Text="IVA"             Style="{StaticResource ErpGridHeaderTextStyle}" TextAlignment="Center"/>
-                                <TextBlock Grid.Column="6" Text="Precio Unitario" Style="{StaticResource ErpGridHeaderTextStyle}" TextAlignment="Right"/>
-                                <TextBlock Grid.Column="7" Text="Importe"         Style="{StaticResource ErpGridHeaderTextStyle}" TextAlignment="Right"/>
-                            </Grid>
-                        </Border>
-                    </ListView.Header>
-                    <ListView.ItemTemplate>
-                        <DataTemplate x:DataType="vm:DetalleLineaEditable">
-                            <Grid Height="{StaticResource ErpRowHeight}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="8"/>
-                                    <ColumnDefinition Width="80"/>
-                                    <ColumnDefinition Width="3*"/>
-                                    <ColumnDefinition Width="90"/>
-                                    <ColumnDefinition Width="90"/>
-                                    <ColumnDefinition Width="50"/>
-                                    <ColumnDefinition Width="110"/>
-                                    <ColumnDefinition Width="110"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="1" Text="{x:Bind Sku}"
-                                           Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"
-                                           FontSize="11"/>
-                                <TextBlock Grid.Column="2" Text="{x:Bind Descripcion}"
-                                           Style="{StaticResource ErpCellPrimaryStyle}" VerticalAlignment="Center"/>
-                                <!-- Existencia informativa: no reserva stock (§3 requerimiento) -->
-                                <TextBlock Grid.Column="3" Text="{x:Bind ExistenciaDisponible}"
-                                           Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"
-                                           TextAlignment="Right" FontSize="11"
-                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                <!-- Cantidad editable inline (ADR-041) -->
-                                <NumberBox Grid.Column="4"
-                                           Value="{x:Bind CantidadDouble, Mode=TwoWay}"
-                                           Minimum="0" SmallChange="1" LargeChange="10"
-                                           SpinButtonPlacementMode="Hidden"
-                                           HorizontalAlignment="Stretch"
-                                           VerticalAlignment="Center"
-                                           HorizontalContentAlignment="Right"
-                                           Tag="{x:Bind}"
-                                           ValueChanged="NumberBox_Cantidad_ValueChanged"
-                                           FontSize="13"/>
-                                <!-- IVA: Sí / No basado en Producto.IvaAplicable (ADR-040) -->
-                                <TextBlock Grid.Column="5" Text="{x:Bind IvaTexto}"
-                                           Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"
-                                           TextAlignment="Center" FontSize="11"
-                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                <TextBlock Grid.Column="6" Text="{x:Bind PrecioUnitario, Mode=OneWay, Converter={StaticResource CurrencyConverter}}"
-                                           Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"
-                                           TextAlignment="Right"/>
-                                <TextBlock Grid.Column="7" Text="{x:Bind Importe, Mode=OneWay, Converter={StaticResource CurrencyConverter}}"
-                                           Style="{StaticResource ErpCellPrimaryStyle}" VerticalAlignment="Center"
-                                           TextAlignment="Right"/>
-                            </Grid>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
-                <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
-                              Width="40" Height="40" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-            </Grid>
-        </Border>
-
-        <!-- Totales -->
-        <Border Grid.Row="4" Style="{StaticResource ErpTotalesCardStyle}">
-            <Grid HorizontalAlignment="Right" MinWidth="280" RowSpacing="4">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="140"/>
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-                <TextBlock Grid.Column="0" Grid.Row="0" Text="Subtotal:"
-                           Style="{StaticResource ErpCellSecondaryStyle}"/>
-                <TextBlock Grid.Column="1" Grid.Row="0"
-                           Text="{x:Bind ViewModel.Subtotal, Mode=OneWay, Converter={StaticResource CurrencyConverter}}"
-                           Style="{StaticResource ErpCellSecondaryStyle}" TextAlignment="Right"/>
-                <TextBlock Grid.Column="0" Grid.Row="1" Text="Impuestos (IVA):"
-                           Style="{StaticResource ErpCellSecondaryStyle}"/>
-                <TextBlock Grid.Column="1" Grid.Row="1"
-                           Text="{x:Bind ViewModel.Impuestos, Mode=OneWay, Converter={StaticResource CurrencyConverter}}"
-                           Style="{StaticResource ErpCellSecondaryStyle}" TextAlignment="Right"/>
-                <TextBlock Grid.Column="0" Grid.Row="2" Text="Total:"
-                           FontWeight="SemiBold" FontSize="14"/>
-                <TextBlock Grid.Column="1" Grid.Row="2"
-                           Text="{x:Bind ViewModel.Total, Mode=OneWay, Converter={StaticResource CurrencyConverter}}"
-                           FontWeight="SemiBold" FontSize="14" TextAlignment="Right"/>
-            </Grid>
-        </Border>
-
-        <!-- StatusBar -->
-        <Border Grid.Row="5" Style="{StaticResource ErpGridStatusBarStyle}" Margin="{StaticResource ErpStatusRegionMargin}">
+        <!-- ════════════════════════════════════════════════════════════════
+             ROW 2: StatusBar — fijo, no hace scroll
+             ════════════════════════════════════════════════════════════════ -->
+        <Border Grid.Row="2" Style="{StaticResource ErpGridStatusBarStyle}"
+                Margin="{StaticResource ErpStatusRegionMargin}">
             <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
                 <TextBlock Style="{StaticResource ErpGridStatusTextStyle}">
                     <Run Text="{x:Bind ViewModel.Detalles.Count, Mode=OneWay}"/>
                     <Run Text="línea(s)"/>
                 </TextBlock>
-                <TextBlock Style="{StaticResource ErpGridErrorTextStyle}"   Text="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"/>
+                <TextBlock Style="{StaticResource ErpGridStatusTextStyle}" Text="•"/>
+                <TextBlock Style="{StaticResource ErpGridStatusTextStyle}">
+                    <Run Text="{x:Bind ViewModel.TotalArticulos, Mode=OneWay}"/>
+                    <Run Text="artículo(s)"/>
+                </TextBlock>
+                <TextBlock Style="{StaticResource ErpGridErrorTextStyle}"   Text="{x:Bind ViewModel.ErrorMessage,   Mode=OneWay}"/>
                 <TextBlock Style="{StaticResource ErpGridSuccessTextStyle}" Text="{x:Bind ViewModel.SuccessMessage, Mode=OneWay}"/>
             </StackPanel>
         </Border>
+
     </Grid>
 </Page>

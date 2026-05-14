@@ -2,13 +2,405 @@
 
 > Este documento registra las decisiones técnicas importantes tomadas durante el desarrollo de Ybridio ERP,
 > incluyendo la alternativa descartada y la razón de la elección.  
-> Última actualización: 2026-05-12 (ADR-041: Operational Editable Document Lines Pattern)
+> Última actualización: 2026-05-13 (sesión extensa — ver `SESSION_2026-05-13_CONFIG_CATALOGOS_COTIZACIONES.md`)
+
+---
+
+## ADR-050 — Singleton Operational Surface Pattern
+
+**Contexto:** EmpresaPage (y futuras pantallas singleton) tenían layout aislado que rompía la consistencia visual del ERP.
+
+**Decisión:** Toda pantalla de entidad singleton adopta el mismo patrón operacional que grids multi-registro:
+- CommandBar institucional (Editar / Guardar / Cancelar / Actualizar)
+- Grid izquierdo con el registro único visible
+- Surface derecho con formulario (read-only o editable según IsEditing)
+- Snapshot pattern para cancelar
+
+**Anti-patrón eliminado:** ScrollViewer + StackPanel MaxWidth=600 + botón flotante aislado.
+
+**Aplica a:** Empresa, ConfiguraciónFiscal, ConfiguraciónSistema, PreferenciasGlobales.
+
+---
+
+## ADR-051 — Shared Sequence/Folio Pattern
+
+**Contexto:** Folios documentales hardcodeados o inexistentes. `FiscalConstants.TasaIvaEstandar` como único control de IVA.
+
+**Decisión:** `SerieDocumento` como entidad propia con generación atómica vía SQL:
+```sql
+UPDATE catalogos.SerieDocumento SET SiguienteNumero = SiguienteNumero + 1
+OUTPUT DELETED.SiguienteNumero WHERE Id = @id
+```
+`IFolioGeneratorService` usa `IDbContextFactory` (contexto aislado) para seguridad ante concurrencia. `.ToListAsync()` antes de acceder al resultado para evitar composición SQL sobre sentencias DML.
+
+**Document Identity Rule:** Cada conversión documental genera folio NUEVO independiente. `COT-000001 → PED-000001 → VTA-000001`. Trazabilidad vía referencias cruzadas, nunca folios compartidos.
+
+**Anti-patrones prohibidos:** Reutilizar folio entre conversiones. Usar ParametroGlobal para consecutivos runtime.
+
+---
+
+## ADR-052 — Commercial Tax Pattern (Single Source of Truth Fiscal)
+
+**Contexto:** Ambigüedad entre catálogo fiscal (TipoImpuesto) y parámetros operacionales. Existencia de `FiscalConstants.TasaIvaEstandar = 0.16m` hardcodeado en múltiples lugares.
+
+**Decisión — Una sola fuente de verdad fiscal:**
+```
+TipoImpuesto (catálogo)  →  QUÉ impuestos existen + cuál es su tasa
+ParametroGlobal (config) →  CUÁL TipoImpuesto usar por default (almacena TipoImpuestoId como int)
+IConfiguracionFiscalService → resuelve ParametroGlobal → TipoImpuesto → Tasa decimal
+FiscalConstants.TasaIvaEstandar → FALLBACK únicamente, documentado como tal
+```
+
+**ParametrosClave:** Constantes tipadas análogas a PermisosClave. `ParametrosClave.Fiscal.ImpuestoDefaultProducto = "impuesto.default.producto"`. NUNCA strings literales en código.
+
+**Concurrencia:** `ConfiguracionFiscalService` usa `IDbContextFactory` (contexto propio aislado) — aplica ADR-026 a servicios de configuración.
+
+**Anti-patrones prohibidos:** `iva.tasa.default = "0.16"` (tasa en texto). Duplicar tasas en ParametroGlobal. Múltiples fuentes fiscales.
+
+---
+
+## ADR-053 — Product Type Classification Pattern
+
+**Contexto:** TipoProducto solo tenía `Nombre`. No había forma de distinguir programáticamente Inventariable vs Servicio.
+
+**Decisión:** Campo `Clave` operacional (max 10, ej: PROD, SERV, REF, EQP, LIC, MOB) como identificador humano en reglas de negocio. El `Id` es técnico y NO reemplaza la Clave operacional.
+
+**Regla institucional:** Los Servicios son Productos con `TipoProducto.Clave = "SERV"`. No existe tabla `Servicios` separada.
+
+---
+
+## ADR-054 — Commercial Charges Pattern
+
+**Contexto:** Necesidad de cargos accesorios (Flete, Maniobras, Seguro) en documentos comerciales. Prohibido representarlos como Productos inventariables.
+
+**Decisión:** `CotizacionCargo` como entidad propia (child record de Cotizacion, sin AuditableEntity). Sección visual separada en el documento. Cargos impactan IVA y Total del documento:
+```
+Total = Subtotal(productos) + OtrosCargos + IVA(productos con IVA + cargos con AplicaIva)
+```
+Cargos en memoria (IsNuevo=true) se persisten en batch después de `CrearAsync`, antes de `Initialize()`.
+
+**Anti-patrón eliminado:** Usar Productos con flag especial para representar cargos documentales.
+
+---
+
+## ADR-055 — Single Document Scroll Pattern
+
+**Contexto:** `CotizacionDocumentoPage` tenía `Height="*"` en la fila de productos y `MaxHeight="200"` en OtrosCargos, causando scroll interno en ambos grids.
+
+**Decisión — Estructura obligatoria en superficies documentales:**
+```
+Row 0 (Auto): CommandBar — fijo, siempre visible
+Row 1 (*):    ScrollViewer — ÚNICO dueño del scroll documental
+Row 2 (Auto): StatusBar — fijo, siempre visible
+```
+Dentro del ScrollViewer: Grid con TODAS las filas en `Auto`. ListViews con:
+```xml
+ScrollViewer.VerticalScrollBarVisibility="Disabled"
+ScrollViewer.VerticalScrollMode="Disabled"
+```
+
+**Resultado:** Los grids crecen dinámicamente con su contenido. El usuario hace scroll sobre el documento completo, nunca dentro de grids pequeños.
+
+**Anti-patrones prohibidos:** `Height="*"` en filas de grids documentales. `MaxHeight` arbitrario en secciones documentales. Nested ScrollViewers. Scroll interno en grids operacionales.
+
+**Aplica a:** Cotizaciones, Pedidos, Ventas, OrdenesTrabajo, documentos futuros.
+
+---
+
+## ADR-056 — Global Document Runtime Ownership Pattern
+
+**Contexto:** Single Document Session Rule se rompía entre hosts (tab vs ventana detached) para documentos nuevos recién guardados.
+
+**Causa raíz dual:**
+1. `_cotizacionOriginal` (readonly) permanecía `null` para docs nuevos aunque ya guardados → window key usaba `_sessionKey` (GUID) → `TryActivateWindow` no encontraba la ventana
+2. `_currentInlineDocumentId` no se actualizaba tras primer guardado → check 2 fallaba → segunda instancia inline
+
+**Decisión:**
+- `ViewModel.DocumentoId` (`public long? DocumentoId => _documento?.Id`) expuesta para acceso desde la Page
+- Window key usa `ViewModel.DocumentoId?.ToString() ?? _sessionKey` (no `_cotizacionOriginal?.Id`)
+- `DocumentSaved` callback en `BtnNueva_Click` actualiza `_currentInlineDocumentId = page.ViewModel.DocumentoId`
+
+**Invariante:** Un documento comercial existe como máximo UNA vez en toda la aplicación, sin importar si está en tab inline, ventana detached, o combinación de ambos.
+
+---
+
+## ADR-043 — Runtime Persistence, Client Chip & Discount Alert Lifecycle
+
+**Decisión**: Corrección operacional incremental del módulo Cotizaciones — runtime state, cliente visible, descuento sin alerta duplicada, DatePicker compacto, command surface limpio.
+
+### Reglas establecidas
+
+**Chip de cliente**:
+- `Initialize()` sintetiza `_entidadDirectorioSeleccionada` desde `RelacionComercialId` + `NombreCliente` del documento existente.
+- Permite que `EntidadDirectorioSeleccionada` sea no-null en modo edición y en detach/rehost sin reejecutar Initialize().
+- El chip siempre lee de `ViewModel.EntidadDirectorioSeleccionada`, NUNCA del textbox superior.
+
+**Guard de GetOrCreate**:
+- Se añade `_clienteModificadoPorUsuario` (bool). Solo se activa en `SeleccionarCliente()` y `LimpiarCliente()`.
+- `GuardarAsync` llama a `GetOrCreate` **solo cuando** `_clienteModificadoPorUsuario = true`.
+- Documentos existentes sin cambio de cliente preservan `RelacionComercialId` sin renegociar con el servicio.
+
+**Alerta de descuento global**:
+- La alerta "Aplicar descuento global eliminará los descuentos individuales" se muestra **solo** cuando:
+  1. El usuario cambia activamente el `NumberBox` de descuento global, Y
+  2. `HayDescuentosEnLineas = true`.
+- Nunca se muestra: al abrir, editar, rehidratar, detach/rehost del documento.
+- Guard: `_hidratandoUI = true` antes de `InitializeComponent()`, `false` después de toda la inicialización/rehost. `NbDescuentoGlobal_ValueChanged` retorna inmediatamente si `_hidratandoUI`.
+
+**DatePicker compacto (token)**:
+- `ErpDateFieldWidth` reducido de 220 → 185 en `FormBase.xaml`.
+- Mantiene visibilidad de día/mes/año en locale español, aspecto más compacto e institucional.
+
+**Command surface separation**:
+- `OverflowButtonVisibility="Collapsed"` en el CommandBar elimina el botón "...".
+- `BtnAbrirEnVentana` movido a `CommandBar.Content` (zona izquierda de la barra que queda libre), alineado a la derecha. Visualmente separado como acción workspace/window, no operacional.
+
+**Anti-patrones eliminados**:
+- Ya no se reinstancia la entidad de Directorio desde el constructor de la página (constructor anterior creaba un `DirectorioSelectorDto` inline en la página, no en el ViewModel).
+- Ya no se llama GetOrCreate en GuardarAsync para documentos existentes sin cambio de cliente.
+- Ya no se muestra la alerta de descuento al abrir o rehidratar documentos con descuento global previo.
+
+---
+
+## Single Document Session Rule — Un documento, una sesión runtime
+
+**Problema**: Al abrir una Cotización en una ventana detached, el Document Surface inline se cerraba (correcto). Pero si el usuario intentaba re-abrir el mismo documento desde el grid, el sistema creaba una nueva instancia ignorando que ya existía una sesión activa en la ventana OS real → dos ViewModels, dos dirty states, conflicto de edición.
+
+**Regla institucional**: Un documento comercial NO puede existir simultáneamente en múltiples sesiones runtime independientes. Desacoplar una ventana NO crea nueva sesión — solo cambia el host visual. La sesión runtime (ViewModel, estado, dirty) sigue siendo única.
+
+**Implementación**:
+
+1. **`IWindowManager.TryActivateWindow(string documentKey)`** — busca en el registro de ventanas activas cualquier entrada cuya key interna termina con `_{documentKey}`. Si existe: activa/enfoca la ventana y retorna `true`. Si no: retorna `false`.
+
+2. **`CotizacionesPage._currentInlineDocumentId`** — rastrea el ID del documento actualmente en el Document Surface inline.
+
+3. **`AbrirCotizacionInline`** — aplica Single Document Session Rule antes de crear cualquier instancia:
+   ```
+   1. ¿En ventana detached? → TryActivateWindow → return (no nueva instancia)
+   2. ¿Ya inline con mismo ID? → return (ya visible)
+   3. Sin sesión → crear nueva sesión normalmente
+   ```
+
+**Clave de convención**: `detached:{tipo}:{id}` (ej: `detached:cotizacion:123`)  
+**Key interna de WindowManager**: `DetachedDocumentWindow_detached:cotizacion:123`
+
+**Diseñado para reutilización**: `TryActivateWindow` en `IWindowManager` funciona para cualquier tipo de documento. Aplicar el mismo patrón en `PedidosPage`, `VentasPage`, `OrdenesTrabajoPage`.
+
+---
+
+## Commercial Document Workflow Pattern — Separación Estados vs Acciones Operacionales
+
+**Problema**: El modelo anterior mezclaba estados comerciales con acciones operacionales. "Enviada" como estado comercial generaba restricciones incorrectas: "solo se puede aprobar desde Enviada" y "solo se puede enviar desde Borrador" — contradiciendo la realidad operacional donde una cotización aprobada puede enviarse múltiples veces.
+
+**Decisión**: Separar formalmente **estados comerciales** de **acciones operacionales**.
+
+### Estados comerciales (EstatusCotizacion)
+
+```
+Borrador → Aprobada → Convertida  (terminal)
+              ↘
+              Cancelada            (terminal)
+```
+
+| Estado | Valor | Descripción |
+|---|---|---|
+| Borrador | 0 | En edición — estado inicial |
+| ~~Enviada~~ | 1 | **LEGACY** — mantenido para compatibilidad BD. Tratar como Aprobada |
+| Aprobada | 2 | Aprobada comercialmente |
+| Convertida | 3 | Convertida a Pedido — terminal |
+| Cancelada | 9 | Cancelada — terminal |
+
+### Acciones operacionales (NO modifican estado)
+
+- **Guardar**: persiste cambios, no cambia estado
+- **Enviar**: acción operacional (V1: stub; Future: email/PDF/auditoría). Disponible desde cualquier estado activo — una cotización Aprobada puede enviarse múltiples veces
+- **Duplicar** (futuro), **Imprimir** (futuro)
+
+### Acciones de workflow (SÍ modifican estado)
+
+- **Aprobar**: Borrador → Aprobada
+- **Convertir a Pedido**: Aprobada → Convertida (también crea el Pedido)
+- **Cancelar**: cualquier estado activo → Cancelada
+
+### Guardas correctas
+
+```csharp
+PuedeEnviar   = !IsNuevo && Estatus is not (Cancelada or Convertida)  // Acción operacional
+PuedeAprobar  = !IsNuevo && Estatus == Borrador                        // Workflow
+PuedeConvertir = !IsNuevo && Estatus == Aprobada                       // Workflow
+PuedeCancelar = !IsNuevo && Estatus is not (Cancelada or Convertida)  // Workflow
+PuedeEditar   = Estatus is not (Cancelada or Convertida)
+```
+
+### CommandBar grouping
+
+```
+[Guardar] [—] [Agregar] [Eliminar] [—] [Aprobar] [Convertir] [Cancelar] [—] [Enviar]
+   ↑ persistencia  ↑ líneas    ↑────── workflow comercial ──────↑   ↑ operacional
+```
+
+### Diseñado para reutilización
+
+El patrón aplica a: Cotizaciones ✅ | Pedidos 🔲 | Ventas 🔲 | OrdenesTrabajo 🔲
+
+---
+
+## Operational Date Display Pattern — CalendarDatePicker + etiqueta legible
+
+**Decisión**: Reemplazar `DatePicker` (spinner de columnas, propenso a clipping) por `CalendarDatePicker` + etiqueta textual operacional "8 Junio 2026".
+
+**Estructura**: CalendarDatePicker como input (OneWay + handler), etiqueta como representación oficial visible (x:Bind + OperationalDateConverter). Los dos son complementarios — el picker es mecanismo de selección, la etiqueta es el texto legible.
+
+**`OperationalDateConverter`** (`Converters/OperationalDateConverter.cs`): convierte `DateTimeOffset`/`DateTimeOffset?`/`DateTime` → "8 Junio 2026". `FormatOperationalDate()` también disponible como método estático para uso programático.
+
+**Por qué CalendarDatePicker**: más compacto, abre calendario visual completo, sin problemas de clipping de columnas. `Date` es `DateTimeOffset?` — compatible con OneWay binding desde propiedades `DateTimeOffset` del ViewModel.
+
+**Por qué OneWay + handler**: `CalendarDatePicker.Date` (nullable) + ViewModel (non-nullable) requieren conversión explícita. El handler `DateChanged` propaga el cambio limpiamente.
+
+---
+
+## Selector DTO Hydration Rule — Single Source of Truth para entidad seleccionada
+
+**Problema**: `Initialize()` creaba un `DirectorioSelectorDto` sintético con tres errores:
+1. `EntityType = Empresa` hardcodeado — incorrecto para Personas
+2. `EmpresaComercialId = RelacionComercialId` — mapping erróneo (`RelacionComercialId` ≠ `EmpresaComercialId`)
+3. Sin Email, Teléfono ni RFC — metadata vacía
+
+**Solución: Hydration en dos fases**:
+- **Fase 1 (síncrona, en constructor)**: DTO sintético mínimo para display inmediato del nombre
+- **Fase 2 (async, fire-and-forget)**: `HidratarSelectorClienteAsync` carga el DTO real desde BD con `IDirectorioService.ObtenerDtoParaSelectorAsync`, actualiza ViewModel y chip visual
+
+**`ObtenerDtoParaSelectorAsync(relacionComercialId)`** (nuevo en `IDirectorioService`):
+- Carga `RelacionComercial` con `Include(Persona)` + `Include(EmpresaComercial)`
+- Determina el tipo correcto según qué navegación está set
+- Devuelve DTO con todos los campos completos
+
+**`RestaurarEntidadSeleccionada(dto)`** (nuevo en `CotizacionDocumentoViewModel`):
+- Actualiza `_entidadDirectorioSeleccionada`, `NombreCliente`, `ClienteEmail`, `ClienteTelefono`
+- **NO marca `IsDirty`** — es restauración de estado, no acción del usuario
+
+**Rehost/Detach**: El ViewModel ya tiene el DTO hidratado de la página original. El constructor de rehost simplemente asigna `SelectorCliente.EntidadSeleccionada = ViewModel.EntidadDirectorioSeleccionada`. Sin re-carga.
+
+**Regla institucional**: PROHIBIDO crear `DirectorioSelectorDto` manual con datos parciales. Usar `ObtenerDtoParaSelectorAsync` como Single Source of Truth.
+
+---
+
+## Global Discount Lifecycle — Discount Uniformity Rule & Invalidation Pattern
+
+**Decisión**: El `DescuentoGlobalPct` en el ViewModel es un **indicador de uniformidad**, no un estado persistente. Representa "todas las líneas tienen el mismo % de descuento." En cuanto una línea individual diverge, el concepto global deja de ser semánticamente válido y se borra automáticamente.
+
+**Regla de uniformidad**: El descuento global es válido SOLO cuando `∀ línea: línea.DescuentoPct == DescuentoGlobalPct`.
+
+**Invalidation Pattern** (silencioso, sin alerta):
+```csharp
+// ViewModel — InvalidarDescuentoGlobal()
+internal void InvalidarDescuentoGlobal()
+{
+    if (DescuentoGlobalPct != 0)
+        DescuentoGlobalPct = 0;  // Solo borra el indicador, no los descuentos de línea
+}
+
+// Code-behind — NumberBox_Descuento_ValueChanged
+if (nuevoPct != ViewModel.DescuentoGlobalPct)
+    ViewModel.InvalidarDescuentoGlobal();  // Silencioso, sin diálogo
+```
+
+**Punto de entrada**: `NumberBox_Descuento_ValueChanged` — cuando el usuario edita manualmente el descuento de UNA línea con un valor diferente al global actual, se invalida automáticamente. Los descuentos de línea existentes NO se modifican.
+
+**Guard de no-interferencia**: El guard `(decimal)args.NewValue == ViewModel.DescuentoGlobalPct` en el handler previene que `AplicarDescuentoGlobalALineas` (Phase 1) dispare la invalidación — solo cambios manuales del usuario llegan al código de invalidación.
+
+**Semántica visual**: "Subtotal sin descuentos" (antes: "Subtotal bruto") y "Importe Neto" (antes: "Importe") hacen explícito que el importe ya incluye el descuento aplicado.
+
+---
+
+## ADR-043b — Two-Phase Discount Apply Pattern (Concurrencia DbContext)
+
+**Problema**: `AplicarDescuentoGlobalALineas` para documentos EXISTENTES causaba `InvalidOperationException: "A second operation was started on this context instance"` al aplicar descuento global en documentos con múltiples líneas.
+
+**Causa raíz**: La secuencia original llamaba `ActualizarDescuentoAsync` dentro del loop. Esta función establece `linea.DescuentoPct = pct` al final (después del delete+readd). Esa asignación dispara INPC sincrónicamente → NumberBox.ValueChanged → `NumberBox_Descuento_ValueChanged` (async void) → `ActualizarDescuentoAsync` de NUEVO. Mientras este segunda llamada hace `await EliminarDetalleAsync`, el loop principal ya avanzó a la siguiente iteración y también llama `EliminarDetalleAsync`. Dos operaciones concurrentes sobre el mismo `_context` scoped → excepción.
+
+**Solución: Two-Phase Discount Apply Pattern**:
+
+```
+Fase 1 (síncrona, memoria):
+  foreach linea → linea.DescuentoPct = pct
+  INPC dispara NumberBox.ValueChanged → handler → ActualizarDescuentoAsync
+      → guard: linea.DescuentoPct == pct → return early (sin service call)
+  
+Fase 2 (async, BD, único scope IsBusy):
+  IsBusy = true
+  foreach linea → EliminarDetalleAsync + AgregarDetalleAsync (secuencial)
+  linea.Id = newId  ← solo actualizar Id, DescuentoPct ya está correcto
+  IsBusy = false
+```
+
+**Tres layers de protección:**
+1. `linea.DescuentoPct == pctClamped` guard en `ActualizarDescuentoAsync` — protección PRIMARIA contra re-entrada desde INPC
+2. `if (ViewModel.IsBusy) return;` en `NumberBox_Descuento_ValueChanged` — defensa en profundidad (eventos concurrentes durante Fase 2)
+3. `if (ViewModel.IsBusy) return;` en `NbDescuentoGlobal_ValueChanged` — evita iniciar operación global mientras service está ocupado
+
+**Regla institucional (aplicar a futuros módulos)**:
+> Todo operación que actualice múltiples líneas en documentos EXISTENTES debe seguir el Two-Phase Pattern: actualizar memoria primero (todos los valores), luego persistir secuencialmente bajo un scope IsBusy único.
+
+**Archivos modificados**: `CotizacionDocumentoViewModel.cs` (AplicarDescuentoGlobalALineas, LimpiarDescuentoGlobal, ActualizarDescuentoAsync), `CotizacionDocumentoPage.xaml.cs` (NumberBox_Descuento_ValueChanged, NbDescuentoGlobal_ValueChanged).
+
+---
+
+## ADR-042 — Commercial Discount Pattern
+
+**Decisión**: Descuentos comerciales (por línea y global) para documentos comerciales del ERP — Cotizaciones como piloto, reutilizable en Pedidos, Compras, Ventas, Facturación.
+
+**Regla No Acumulable**: Descuento global y descuentos individuales por línea son MUTUAMENTE EXCLUYENTES. Si el usuario aplica un descuento global cuando existen descuentos por línea, se muestra confirmación institucional antes de proceder. Al confirmar, los descuentos individuales se eliminan y el global se aplica a todas las líneas.
+
+**Fórmula oficial (Single Source of Truth)**:
+```
+ImporteNeto = Cantidad × PrecioUnitario × (1 − DescuentoPct / 100)
+```
+El descuento se aplica **antes** del IVA. El IVA se calcula sobre el importe neto.
+
+**CommercialDocumentCalculator** (`Ybridio.Application.Common`): clase estática reutilizable con métodos puros. Toda aritmética comercial debe derivar de aquí. NUNCA duplicar la fórmula.
+
+**Totales del documento**:
+```
+SubtotalBruto  = SUM(Cantidad × PrecioUnitario)         ← visible solo cuando HayDescuento
+DescuentoTotal = SubtotalBruto − Subtotal               ← visible solo cuando HayDescuento
+Subtotal       = SUM(ImporteNeto)                       ← siempre visible
+Impuestos      = SUM(ImporteNeto líneas IVA) × TasaIva  ← siempre visible
+Total          = Subtotal + Impuestos                   ← siempre visible
+```
+
+**Persistencia**: `DescuentoPct` se almacena por línea en `ventas.CotizacionDetalle`. Script de BD: `Documentation/Scripts/AddDescuentoPct_CotizacionDetalle.sql`. El descuento global no tiene columna propia; se detecta al cargar si todas las líneas tienen el mismo porcentaje.
+
+**UI**: columna `Desc. %` editable inline (NumberBox) en el grid de líneas. Bloque `Descuento Global (%)` en el formulario de encabezado (Col 1, Row 1). Fix cliente en edición: se restaura el chip del selector via `DirectorioSelectorDto` sintético sin disparar `SelectionChanged`.
+
+**DatePicker fix**: `HorizontalAlignment="Stretch"` en ambos DatePickers garantiza que el ancho del token `ErpDateFieldWidth=220` se aplique al control interno, mostrando el año completo.
+
+**Archivos clave**:
+- `Ybridio.Application/Common/CommercialDocumentCalculator.cs` — SoT cálculos
+- `Ybridio.Domain/Ventas/CotizacionDetalle.cs` — campo `DescuentoPct`
+- `Ybridio.Application/DTOs/Ventas/CotizacionDto.cs` — DTOs actualizados
+- `Ybridio.Application/Services/Venta/CotizacionService.cs` — usa Calculator
+- `Ybridio.WinUI/ViewModels/Ventas/CotizacionDocumentoViewModel.cs` — `DetalleLineaEditable` + `DescuentoGlobalPct`
+- `Ybridio.WinUI/Views/Ventas/CotizacionDocumentoPage.xaml` — columnas + bloque global + totales
+- `Ybridio.WinUI/Views/Ventas/CotizacionDocumentoPage.xaml.cs` — handlers + fix selector edición
+
+**Alternativas descartadas**:
+- Descuentos acumulables (global + línea): descartado — ambigüedad fiscal y de UX inaceptable para PYME.
+- Almacenar descuento global en columna propia de `Cotizacion`: descartado — scope incremental; detectar heurísticamente al cargar es suficiente para V1.
+- Modal pesado para editar descuento: descartado — edición inline en grid es más rápida (ERP operacional).
 
 ---
 
 ## ADR-041 — Operational Editable Document Lines Pattern
 
 **Decisión**: Las líneas de un documento comercial (Cotización) deben ser editables inline sin abrir ningún diálogo pesado. La columna `Cantidad` usa un `NumberBox` inline. Toda modificación recalcula importe de línea y totales del documento de forma inmediata. `DetalleLineaEditable` implementa `INotifyPropertyChanged` para que el grid refleje cambios en tiempo real.
+
+**Revisión 2 (correctivos operacionales)**:
+- Cantidad = 0 en `NumberBox`: muestra confirmación antes de eliminar; si el usuario cancela, restaura el valor anterior sin efectos secundarios.
+- Botón eliminar por línea (columna `⊗` de 40px, `ErpActionButtonStyle` con glyph de papelera) con confirmación institucional (`ContentDialog`).
+- `TotalArticulos = SUM(Cantidad)` expuesto como `ObservableProperty` en el ViewModel, notificado en `RecalcularTotales()`.
+- Status bar actualizado: muestra `N línea(s) • M artículo(s)` usando tokens `ErpGridStatusTextStyle`.
+- DatePicker `Fecha` y `Vigencia` cambiados de `Width="180"` a `Width="220"` para mostrar el año completo sin truncamiento.
 
 **Problema identificado**:
 - `DetalleLineaEditable` era un POCO sin notificaciones: la columna `Importe` no se actualizaba visualmente al cambiar la cantidad.

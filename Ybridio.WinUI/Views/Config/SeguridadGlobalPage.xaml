@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page x:Class="Ybridio.WinUI.Views.Config.SeguridadGlobalPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <Page.Resources>
+        <Style TargetType="TabViewItem" BasedOn="{StaticResource OutlookTabItemStyle}"/>
+    </Page.Resources>
+
+    <TabView x:Name="TabsSeguridad"
+             TabWidthMode="SizeToContent"
+             IsAddTabButtonVisible="False"
+             Background="Transparent"
+             SelectionChanged="SeguridadTabs_SelectionChanged">
+
+        <TabViewItem x:Name="TabUsuarios" Header="Usuarios" IsClosable="False">
+            <Frame x:Name="FrameUsuarios"/>
+        </TabViewItem>
+
+        <TabViewItem x:Name="TabRoles" Header="Roles" IsClosable="False">
+            <Frame x:Name="FrameRoles"/>
+        </TabViewItem>
+
+        <TabViewItem x:Name="TabPerfiles" Header="Perfiles" IsClosable="False">
+            <Frame x:Name="FramePerfiles"/>
+        </TabViewItem>
+
+        <TabViewItem x:Name="TabPermisos" Header="Permisos" IsClosable="False">
+            <Frame x:Name="FramePermisos"/>
+        </TabViewItem>
+
+        <TabViewItem x:Name="TabScopes" Header="Scopes" IsClosable="False">
+            <Frame x:Name="FrameScopes"/>
+        </TabViewItem>
+
+        <TabViewItem x:Name="TabArquitectura" Header="Arquitectura" IsClosable="False">
+            <Frame x:Name="FrameArquitectura"/>
+        </TabViewItem>
+
+    </TabView>
+</Page>

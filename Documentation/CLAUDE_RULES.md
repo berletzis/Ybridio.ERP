@@ -3,7 +3,179 @@
 > Estas reglas aplican para TODOS los requerimientos futuros del proyecto.  
 > Claude Code debe leer y respetar este documento ANTES de implementar cualquier cambio.  
 > Estas reglas son **permanentes** y forman parte oficial de la arquitectura del ERP.  
-> Última actualización: 2026-05-12 (ADR-041: Operational Editable Document Lines Pattern)
+> Última actualización: 2026-05-13 (ADR-050→ADR-056: Config Global, Folios, Tax Pattern, Charges, Scroll, Ownership)
+
+---
+
+## 0b-ext1. Single Document Scroll Pattern (ADR-055)
+
+**OBLIGATORIO en TODAS las superficies documentales del ERP.**
+
+### Anti-patrones PROHIBIDOS
+
+```xml
+<!-- ❌ PROHIBIDO: Height="*" en fila de grids documentales → scroll interno -->
+<RowDefinition Height="*"/>
+<ListView .../>  <!-- ListView captura el scroll con Height="*" -->
+
+<!-- ❌ PROHIBIDO: MaxHeight arbitrario en secciones documentales -->
+<Border MaxHeight="200">
+    <ListView .../>  <!-- Se clipa y genera scroll interno -->
+</Border>
+
+<!-- ❌ PROHIBIDO: Nested ScrollViewers -->
+<ScrollViewer>
+    <ListView .../>  <!-- ListView tiene su propio ScrollViewer interno -->
+</ScrollViewer>
+```
+
+### Estructura obligatoria en superficies documentales
+
+```xml
+<!-- ✅ CORRECTO: ScrollViewer como único dueño del scroll -->
+<Grid>
+    <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>  <!-- CommandBar fijo arriba -->
+        <RowDefinition Height="*"/>     <!-- ScrollViewer — único scroll owner -->
+        <RowDefinition Height="Auto"/>  <!-- StatusBar fijo abajo -->
+    </Grid.RowDefinitions>
+
+    <CommandBar Grid.Row="0" .../>
+
+    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+        <Grid>
+            <!-- TODAS las filas internas en Auto — crecen con contenido -->
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <!-- etc. -->
+            </Grid.RowDefinitions>
+
+            <!-- ListView con scroll DESACTIVADO — crece dinámicamente -->
+            <ListView ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                      ScrollViewer.VerticalScrollMode="Disabled" .../>
+        </Grid>
+    </ScrollViewer>
+
+    <Border Grid.Row="2" Style="{StaticResource ErpGridStatusBarStyle}" .../>
+</Grid>
+```
+
+### Dynamic Operational Grid Growth Rule
+
+- Los grids documentales **siempre crecen** con el número de ítems
+- El usuario hace scroll sobre el **documento completo**, nunca dentro de grids pequeños
+- Sin `Height`, `MaxHeight`, ni `MinHeight` forzados en secciones documentales
+
+---
+
+## 0b-ext2. Commercial Tax Pattern (ADR-052)
+
+**Una sola fuente de verdad fiscal. NUNCA hardcodear tasas fiscales.**
+
+```
+catalogos.TipoImpuesto      = QUÉ impuestos existen + cuál es su tasa
+ParametroGlobal (int)       = CUÁL TipoImpuesto usar por default
+IConfiguracionFiscalService = resuelve la cadena ParametroGlobal → TipoImpuesto → Tasa
+FiscalConstants             = FALLBACK ÚNICAMENTE (si no hay configuración)
+```
+
+### Reglas de consumo
+
+```csharp
+// ✅ CORRECTO: Tasa desde configuración institucional
+_tasaIva = await _configuracionFiscal.ObtenerTasaIvaProductoAsync(ct);
+Impuestos = CommercialDocumentCalculator.CalcularImpuestos(lineas, _tasaIva);
+
+// ❌ PROHIBIDO: Tasa hardcodeada
+Impuestos = CommercialDocumentCalculator.CalcularImpuestos(lineas, 0.16m);
+Impuestos = CommercialDocumentCalculator.CalcularImpuestos(lineas, FiscalConstants.TasaIvaEstandar);
+
+// ✅ CORRECTO: ParametroGlobal fiscal almacena TipoImpuestoId (int)
+"impuesto.default.producto" = "3"  // TipoImpuestoId = 3
+
+// ❌ PROHIBIDO: ParametroGlobal fiscal almacena la tasa directamente
+"iva.tasa.default" = "0.16"  // Doble fuente de verdad
+```
+
+### ParametrosClave
+
+SIEMPRE usar `ParametrosClave.*`. NUNCA strings literales en código.
+
+```csharp
+ParametrosClave.Fiscal.ImpuestoDefaultProducto  // "impuesto.default.producto"
+ParametrosClave.Fiscal.ImpuestoDefaultServicio   // "impuesto.default.servicio"
+ParametrosClave.Fiscal.ImpuestoDefaultCargo      // "impuesto.default.cargo"
+```
+
+---
+
+## 0b-ext3. Shared Sequence/Folio Pattern (ADR-051)
+
+**NUNCA generar folios en UI. NUNCA usar ParametroGlobal para consecutivos runtime.**
+
+```csharp
+// ✅ CORRECTO: Folio generado en Application layer, atómico
+var folio = await _folioGenerator.GenerarFolioAsync(
+    empresaId, TipoDocumentoSerie.Cotizacion, sucursalId, ct);
+// folio puede ser null si no hay serie configurada — no falla
+
+// ❌ PROHIBIDO: Folio en ViewModel o code-behind
+var folio = $"COT-{++_contador}";  // No atómico, no persistido, no institucional
+```
+
+**Document Identity Rule:** Cada documento tiene folio propio e independiente.
+```
+COT-000001 → [convertir] → PED-000001 (NUEVO folio)
+```
+NUNCA reutilizar el mismo folio en la conversión.
+
+**Concurrencia:** `IFolioGeneratorService` usa `IDbContextFactory` (contexto aislado). Nunca el DbContext scoped del llamador. `.ToListAsync()` antes de `[0]` al usar `SqlQuery<T>` con sentencias DML + OUTPUT.
+
+---
+
+## 0b-ext4. Commercial Charges Pattern (ADR-054)
+
+**Los OtrosCargos NO son productos. NUNCA representarlos con Producto + flag especial.**
+
+```
+Servicios (Instalación, Consultoría)  → Producto con TipoProducto.Clave = "SERV"
+OtrosCargos (Flete, Maniobras, Seguro) → CotizacionCargo — entidad propia
+```
+
+**Fórmula de totales con OtrosCargos:**
+```csharp
+TotalOtrosCargos = Cargos.Sum(c => c.Importe);
+Impuestos = IVA(productos con IvaAplicable=true) + IVA(cargos con AplicaIva=true);
+Total = Subtotal + TotalOtrosCargos + Impuestos;
+```
+
+**Persistencia de cargos en documento nuevo:**
+Los cargos en memoria (IsNuevo=true) se persisten en loop DESPUÉS de `CrearAsync`, antes de `Initialize()`.
+
+---
+
+## 0b-ext5. Global Document Runtime Ownership Pattern (ADR-056)
+
+**Un documento comercial existe como máximo UNA vez en toda la aplicación.**
+
+```csharp
+// ✅ CORRECTO: Window key usa DocumentoId del ViewModel (se actualiza tras guardar)
+var cotizacionId = ViewModel.DocumentoId?.ToString() ?? _sessionKey;
+var windowKey    = $"detached:cotizacion:{cotizacionId}";
+
+// ❌ PROHIBIDO: Window key usa campo readonly del constructor (null para docs nuevos guardados)
+var cotizacionId = _cotizacionOriginal?.Id.ToString() ?? _sessionKey;
+```
+
+**Actualización de inline tracking tras primer guardado:**
+```csharp
+// En BtnNueva_Click — obligatorio para Single Document Session Rule cross-host
+page.ViewModel.DocumentSaved = () =>
+{
+    _currentInlineDocumentId = page.ViewModel.DocumentoId;
+};
+```
 
 ---
 
@@ -73,6 +245,291 @@ private async void NumberBox_Cantidad_ValueChanged(NumberBox sender, NumberBoxVa
         await ViewModel.ActualizarCantidadAsync(linea, (decimal)args.NewValue);
 }
 ```
+
+---
+
+## 0a-ext4. Single Document Session Rule
+
+**Un documento comercial NO puede existir simultáneamente en múltiples sesiones runtime.**
+
+### Anti-patrones PROHIBIDOS
+
+```csharp
+// ❌ PROHIBIDO: abrir documento sin verificar si ya hay sesión activa
+private async Task AbrirCotizacionInline(long id)
+{
+    var result = await _service.ObtenerAsync(id);
+    var page = new CotizacionDocumentoPage(result.Value); // ← PUEDE CREAR SEGUNDA INSTANCIA
+    ...
+}
+```
+
+### Patrón obligatorio (en TODA page que abre documentos)
+
+```csharp
+private long? _currentInlineDocumentId;  // Tracking de sesión inline
+
+private async Task AbrirDocumentoInline(long id)
+{
+    // Verificación 1: ¿En ventana detached?
+    if (_windowManager.TryActivateWindow($"detached:{tipo}:{id}"))
+        return;  // Sesión activa encontrada — NO crear nueva
+
+    // Verificación 2: ¿Ya inline con mismo ID?
+    if (ViewModel.IsDocumentSurfaceVisible && _currentInlineDocumentId == id)
+        return;
+
+    // Sin sesión activa — crear normalmente
+    var result = await _service.ObtenerAsync(id);
+    ...
+    _currentInlineDocumentId = id;
+}
+
+private void OnVolverALista()
+{
+    _currentInlineDocumentId = null;  // Limpiar tracking
+    ...
+}
+```
+
+### `TryActivateWindow` — contrato
+
+```csharp
+// En IWindowManager — Single Document Session Rule
+bool TryActivateWindow(string documentKey);
+// Busca ventana cuya key interna termina con _{documentKey}
+// true → ventana activada, caller debe abortar apertura
+// false → no existe, caller puede abrir normalmente
+
+// Clave de convención:
+"detached:cotizacion:123"
+"detached:pedido:456"
+"detached:ot:789"
+```
+
+### Aplica a todos los módulos con Document Surface
+
+- Cotizaciones ✅ | Pedidos 🔲 | Ventas 🔲 | OrdenesTrabajo 🔲
+
+---
+
+## 0a-ext3. Commercial Document Workflow Pattern
+
+**Regla crítica**: NUNCA tratar acciones como estados. NUNCA limitar acciones operacionales por estado comercial incorrecto.
+
+### Estados vs Acciones
+
+| Tipo | Ejemplos | Cambia estado |
+|---|---|---|
+| Estado comercial | Borrador, Aprobada, Convertida, Cancelada | — |
+| Acción de workflow | Aprobar, Convertir, Cancelar | SÍ |
+| Acción operacional | Enviar, Imprimir, Duplicar | NO |
+
+### Anti-patrones PROHIBIDOS
+
+```csharp
+// ❌ PROHIBIDO: acción operacional que cambia estado
+private async void BtnEnviar_Click(...)
+    => await ViewModel.CambiarEstatusCommand.ExecuteAsync(EstatusCotizacion.Enviada);
+
+// ❌ PROHIBIDO: acción operacional restringida por estado incorrecto
+public bool PuedeEnviar => Estatus == EstatusCotizacion.Borrador;
+
+// ❌ PROHIBIDO: estado "Enviada" en flujo normal
+EstatusCotizacion.Enviada  // = LEGACY, solo para compatibilidad BD
+```
+
+### Patrón correcto
+
+```csharp
+// ✅ Acción operacional — sin cambio de estado
+private void BtnEnviar_Click(object sender, RoutedEventArgs e)
+{
+    if (!ViewModel.PuedeEnviar) return;
+    ViewModel.SuccessMessage = "Cotización lista para envío.";
+    // Future: generar PDF, enviar correo, auditoría
+}
+
+// ✅ Guarda correcta — disponible desde cualquier estado activo
+public bool PuedeEnviar => !IsNuevo && Estatus is not (Cancelada or Convertida);
+
+// ✅ Acción de workflow — sí cambia estado
+private async void BtnAprobar_Click(...) 
+    => await ViewModel.CambiarEstatusCommand.ExecuteAsync(Aprobada);
+```
+
+### Flujo oficial
+
+```
+Borrador → Aprobada → Convertida (terminal)
+               ↘ Cancelada (terminal)
+```
+
+---
+
+## 0a-ext2. Operational Date Display Pattern
+
+**Todo campo de fecha en documentos comerciales DEBE usar CalendarDatePicker + etiqueta operacional.**
+
+```xaml
+<!-- ✅ Patrón institucional obligatorio -->
+<StackPanel Spacing="4">
+    <TextBlock Text="Fecha" FontWeight="SemiBold" FontSize="12"/>
+    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+        <CalendarDatePicker x:Name="DpFecha"
+                           Date="{x:Bind ViewModel.FechaOffset, Mode=OneWay}"
+                           DateChanged="DpFecha_DateChanged"
+                           IsEnabled="{x:Bind ViewModel.PuedeEditar, Mode=OneWay}"/>
+        <TextBlock Text="{x:Bind ViewModel.FechaOffset, Mode=OneWay,
+                         Converter={StaticResource OperationalDateConverter}}"
+                   FontSize="13" FontWeight="SemiBold"/>
+    </StackPanel>
+</StackPanel>
+```
+
+```csharp
+// Code-behind handler obligatorio
+private void DpFecha_DateChanged(CalendarDatePicker sender, CalendarDatePickerDateChangedEventArgs args)
+{
+    if (args.NewDate.HasValue)
+        ViewModel.FechaOffset = args.NewDate.Value;
+}
+
+// Formato: "8 Junio 2026" — via OperationalDateConverter.FormatOperationalDate(date)
+```
+
+- **PROHIBIDO**: `DatePicker` con spinner de columnas — clipping, UX incómoda, formato ambiguo
+- **PROHIBIDO**: formato numérico ambiguo "06/08/26"
+- **OBLIGATORIO**: `OperationalDateConverter` (centralizado en `Converters/`) — no duplicar la lógica de formato
+
+---
+
+## 0a-ext. Selector DTO Hydration Rule
+
+**PROHIBIDO**: crear `DirectorioSelectorDto` manualmente con datos parciales.
+
+```csharp
+// ❌ PROHIBIDO — DTO parcial incorrecto
+_entidad = new DirectorioSelectorDto
+{
+    EntityType         = DirectorioEntityType.Empresa, // hardcoded — puede ser Persona
+    EmpresaComercialId = relacionComercialId,          // RelacionComercialId ≠ EmpresaComercialId
+    DisplayName        = nombreCliente                 // sin email, teléfono, RFC
+};
+
+// ✅ CORRECTO — hidratación real desde BD
+var dto = await _directorioService.ObtenerDtoParaSelectorAsync(relacionComercialId, ct);
+ViewModel.RestaurarEntidadSeleccionada(dto);
+SelectorCliente.EntidadSeleccionada = dto;
+```
+
+`ObtenerDtoParaSelectorAsync` es el Single Source of Truth. Usarlo en:
+- Modo edición (constructor de página)
+- Cualquier restauración post-initialize de entidad seleccionada
+
+`RestaurarEntidadSeleccionada` en ViewModel: NO marca `IsDirty` — es restauración, no acción de usuario.
+
+---
+
+## 0b-ext. Global Discount Lifecycle — Uniformity Rule
+
+**El descuento global solo es válido cuando TODAS las líneas tienen el mismo porcentaje.**
+
+### Anti-patrones PROHIBIDOS
+
+- Mantener `DescuentoGlobalPct > 0` cuando las líneas tienen descuentos distintos — es información ambigua.
+- Mostrar alerta o confirmación al invalidar el global automáticamente.
+- Eliminar descuentos de línea al invalidar el global.
+
+### Regla obligatoria
+
+```csharp
+// En NumberBox_Descuento_ValueChanged (code-behind):
+// SIEMPRE evaluar si el nuevo valor rompe la uniformidad global
+if (nuevoPct != ViewModel.DescuentoGlobalPct)
+    ViewModel.InvalidarDescuentoGlobal(); // silencioso, sin dialog
+
+// En ViewModel — método canónico:
+internal void InvalidarDescuentoGlobal()
+{
+    if (DescuentoGlobalPct != 0)
+        DescuentoGlobalPct = 0; // Solo el indicador — los descuentos de línea se preservan
+}
+```
+
+### Guard de no-interferencia
+
+El guard `(decimal)args.NewValue == ViewModel.DescuentoGlobalPct` en `NumberBox_Descuento_ValueChanged` impide que `AplicarDescuentoGlobalALineas` (Phase 1) dispare la invalidación. Solo los cambios MANUALES del usuario llegan a la invalidación.
+
+### Semántica visual obligatoria
+
+| Campo | Label correcto |
+|---|---|
+| Importe de línea después de descuento | **"Importe Neto"** |
+| Suma bruta antes de descuentos | **"Subtotal sin descuentos"** |
+| Suma neta después de descuentos | **"Subtotal"** |
+
+---
+
+## 0b. Commercial Discount Pattern (ADR-042)
+
+**Todo descuento comercial en documentos ERP DEBE cumplir este estándar.**
+
+### Anti-patrones PROHIBIDOS
+
+- Fórmula `Cantidad × Precio × (1 − Desc/100)` duplicada fuera de `CommercialDocumentCalculator`.
+- Descuentos acumulables (global + línea simultáneos) — ambiguos e incorrectos fiscalmente.
+- Aplicar descuento global sin confirmación cuando existen descuentos individuales.
+- Calcular IVA sobre el precio bruto (antes de descuento) — IVA va sobre el importe NETO.
+- Almacenar `Importe` bruto cuando hay descuento — el `Importe` persistido es siempre el neto.
+- Hardcodear porcentajes de descuento en la UI.
+
+### Reglas obligatorias
+
+```csharp
+// ✅ CommercialDocumentCalculator es el ÚNICO lugar donde vive la fórmula
+decimal importe = CommercialDocumentCalculator.CalcularImporteLinea(cantidad, precio, descuentoPct);
+
+// ✅ DetalleLineaEditable.Importe usa el Calculator (Single Source of Truth)
+public decimal Importe
+    => CommercialDocumentCalculator.CalcularImporteLinea(_cantidad, _precioUnitario, _descuentoPct);
+
+// ✅ Descuento global NO acumulable — confirmación antes de aplicar
+if (pct > 0 && ViewModel.HayDescuentosEnLineas)
+{
+    var continuar = await MostrarConfirmacionDescuentoGlobalAsync(); // en code-behind
+    if (!continuar) return; // usuario canceló
+}
+await ViewModel.AplicarDescuentoGlobalALineas(pct);
+
+// ✅ DescuentoGlobalPct wrapper double para NumberBox
+public double DescuentoGlobalPctDouble => (double)DescuentoGlobalPct;
+
+// ✅ Totales del documento
+private void RecalcularTotales()
+{
+    SubtotalBruto  = Detalles.Sum(d => d.Cantidad * d.PrecioUnitario); // bruto
+    Subtotal       = Detalles.Sum(d => d.Importe);                     // neto
+    DescuentoTotal = SubtotalBruto - Subtotal;                         // diferencia
+    Impuestos      = CommercialDocumentCalculator.CalcularImpuestos(
+        Detalles.Select(d => (d.Importe, d.IvaAplicable)),
+        FiscalConstants.TasaIvaEstandar);
+    Total = CommercialDocumentCalculator.CalcularTotal(Subtotal, Impuestos);
+    OnPropertyChanged(nameof(HayDescuento));
+}
+```
+
+### Persistencia de descuento (por línea)
+
+- `DetalleLineaEditable.DescuentoPct` → se guarda en `CotizacionDetalle.DescuentoPct` (decimal 5,2).
+- `Importe` persistido = importe neto (con descuento ya aplicado).
+- Descuento global: NO tiene columna propia en `Cotizacion`. Se detecta al cargar si todas las líneas tienen el mismo porcentaje > 0 → `DescuentoGlobalPct` se restaura automáticamente.
+
+### Reutilización en futuros módulos (Pedidos, OC, Ventas, Facturación)
+
+- Usar siempre `CommercialDocumentCalculator` — jamás reimplementar la fórmula.
+- Agregar `DescuentoPct` a `PedidoDetalle`, `OrdenCompraDetalle`, `VentaDetalle` siguiendo el mismo patrón.
+- El script SQL de referencia está en `Documentation/Scripts/AddDescuentoPct_CotizacionDetalle.sql`.
 
 ---
 

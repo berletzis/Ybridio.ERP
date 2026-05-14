@@ -10,6 +10,8 @@ using Ybridio.WinUI.Services;
 using Ybridio.WinUI.Services.Windowing;
 using Ybridio.WinUI.Services.Workspace;
 using Ybridio.WinUI.ViewModels;
+using Ybridio.Application.Services.Catalogos;
+using Ybridio.Application.Services.Configuracion;
 using Ybridio.WinUI.ViewModels.Config;
 using Ybridio.WinUI.ViewModels.Dashboard;
 using Ybridio.WinUI.Services.Diagnostic;
@@ -116,6 +118,14 @@ public partial class App : Microsoft.UI.Xaml.Application
         services.AddTransient<PermisosViewModel>();
         services.AddTransient<ScopesViewModel>();
 
+        // ── ViewModels — Configuración Global (nuevos) ────────────────────────
+        services.AddTransient<ParametrosViewModel>();
+        services.AddTransient<ImpuestosViewModel>();
+        services.AddTransient<OtrosCargosViewModel>();
+        services.AddTransient<UnidadesMedidaViewModel>();
+        services.AddTransient<TiposProductoViewModel>();
+        services.AddTransient<SeriesDocumentoViewModel>();
+
         // ── Pages ─────────────────────────────────────────────────────────────
         services.AddTransient<LoginPage>();
         services.AddTransient<ShellPage>();
@@ -145,6 +155,14 @@ public partial class App : Microsoft.UI.Xaml.Application
         services.AddTransient<PermisosPage>();
         services.AddTransient<ScopesPage>();
         services.AddTransient<ArquitecturaSegPage>();
+        services.AddTransient<ParametrosPage>();
+        services.AddTransient<ImpuestosPage>();
+        services.AddTransient<OtrosCargosPage>();
+        services.AddTransient<UnidadesMedidaPage>();
+        services.AddTransient<TiposProductoPage>();
+        services.AddTransient<WorkflowPage>();
+        services.AddTransient<SeguridadGlobalPage>();
+        services.AddTransient<SeriesDocumentoPage>();
         services.AddTransient<ClientesPage>();
         services.AddTransient<CotizacionesPage>();
         services.AddTransient<PedidosPage>();

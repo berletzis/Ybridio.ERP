@@ -49,6 +49,14 @@
     <None Remove="Views\Config\PermisosPage.xaml" />
     <None Remove="Views\Config\ScopesPage.xaml" />
     <None Remove="Views\Config\ArquitecturaSegPage.xaml" />
+    <None Remove="Views\Config\ParametrosPage.xaml" />
+    <None Remove="Views\Config\ImpuestosPage.xaml" />
+    <None Remove="Views\Config\OtrosCargosPage.xaml" />
+    <None Remove="Views\Config\UnidadesMedidaPage.xaml" />
+    <None Remove="Views\Config\TiposProductoPage.xaml" />
+    <None Remove="Views\Config\WorkflowPage.xaml" />
+    <None Remove="Views\Config\SeguridadGlobalPage.xaml" />
+    <None Remove="Views\Config\SeriesDocumentoPage.xaml" />
     <None Remove="Views\Finanzas\FinanzasPage.xaml" />
     <None Remove="Views\Finanzas\GastosPage.xaml" />
     <None Remove="Views\Finanzas\IngresosPage.xaml" />
@@ -225,6 +233,30 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Update="Views\Config\ArquitecturaSegPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Config\ParametrosPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Config\ImpuestosPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Config\OtrosCargosPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Config\UnidadesMedidaPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Config\TiposProductoPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Config\WorkflowPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Config\SeguridadGlobalPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Config\SeriesDocumentoPage.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Update="Views\Finanzas\FinanzasPage.xaml">

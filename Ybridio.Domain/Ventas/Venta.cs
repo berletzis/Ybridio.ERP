@@ -15,6 +15,9 @@ public class Venta : AuditableEntity
     public int? CajaId { get; set; }
     public int? AperturaCajaId { get; set; }
 
+    /// <summary>Folio documental (ej: "VTA-000001"). Null en registros POS anteriores a SerieDocumento.</summary>
+    public string? Folio { get; set; }
+
     // ── Campos del flujo documental (nullable para compatibilidad con registros POS existentes) ──
     /// <summary>FK al cliente del catálogo. Null para ventas POS sin registro de cliente.</summary>
     public int? RelacionComercialId { get; set; }

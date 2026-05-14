@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
@@ -9,6 +10,7 @@ using Ybridio.Application.Common;
 using Ybridio.Application.DTOs.Directorio;
 using Ybridio.Application.DTOs.Ventas;
 using Ybridio.Application.Services.Autorizacion;
+using Ybridio.Application.Services.Configuracion;
 using Ybridio.Application.Services.Directorio;
 using Ybridio.Application.Services.Venta;
 using Ybridio.Domain.Common;
@@ -29,11 +31,14 @@ namespace Ybridio.WinUI.ViewModels.Ventas;
 /// al servicio). El encabezado se actualiza con "Guardar" via ActualizarAsync.</para>
 /// </summary>
 /// <remarks>
-/// Fórmulas (ADR-040 — Operational Commercial Document Standard):
-/// - DetalleLinea.Importe = Cantidad × PrecioUnitario (calculado, persistido en BD)
-/// - Subtotal = SUM(Detalles.Importe) — runtime, se persiste en BD al guardar
-/// - Impuestos = SUM(Importe × TasaIvaEstandar) para líneas con IvaAplicable = true
-/// - Total = Subtotal + Impuestos
+/// Fórmulas (ADR-040 + ADR-042 — Commercial Discount Pattern):
+/// - DetalleLinea.Importe = Cantidad × PrecioUnitario × (1 − DescuentoPct/100)
+///   calculado por <see cref="CommercialDocumentCalculator.CalcularImporteLinea"/>.
+/// - SubtotalBruto = SUM(Cantidad × PrecioUnitario) — sin descuento
+/// - Subtotal      = SUM(Detalles.Importe)          — neto con descuento
+/// - DescuentoTotal = SubtotalBruto − Subtotal
+/// - Impuestos     = SUM(Importe líneas con IVA) × TasaIvaEstandar
+/// - Total         = Subtotal + Impuestos
 /// </remarks>
 public sealed partial class CotizacionDocumentoViewModel : ObservableObject
 {
@@ -43,11 +48,29 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
     private readonly SessionService                   _session;
     private readonly IOperationalObservabilityService _observability;
     private readonly ICurrentContextTracker           _contextTracker;
+    private readonly IConfiguracionFiscalService      _configuracionFiscal;
+
+    /// <summary>
+    /// Tasa IVA activa (0..1) cargada desde IConfiguracionFiscalService.
+    /// Fallback: FiscalConstants.TasaIvaEstandar hasta que CargarConfiguracionFiscalAsync complete.
+    /// </summary>
+    private decimal _tasaIva = FiscalConstants.TasaIvaEstandar;
 
     // El documento cargado (null si es nuevo)
     private CotizacionDto? _documento;
+
+    /// <summary>
+    /// ID del documento cotización actualmente cargado.
+    /// Null si el documento es nuevo y no ha sido guardado todavía.
+    /// Expuesto para que la Page pueda construir correctamente la window key
+    /// del Single Document Session Rule (Global Document Runtime Ownership Pattern).
+    /// </summary>
+    public long? DocumentoId => _documento?.Id;
     // Entidad de Directorio seleccionada (ADR-038). RelacionComercialId se resuelve en GuardarAsync.
     private DirectorioSelectorDto? _entidadDirectorioSeleccionada;
+    // True solo cuando el usuario cambió activamente el cliente; false al inicializar/rehidratar.
+    // Impide llamar GetOrCreate innecesariamente al guardar documentos existentes sin cambio de cliente.
+    private bool _clienteModificadoPorUsuario;
 
     /// <summary>
     /// Entidad del Directorio actualmente seleccionada (ADR-038 / ADR-039).
@@ -92,8 +115,10 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
     [ObservableProperty] private string? clienteEmail;
     [ObservableProperty] private string? clienteTelefono;
     [ObservableProperty] private decimal clienteLimiteCredito;
+
     /// <summary>True cuando hay un cliente seleccionado del Directorio o un RelacionComercialId existente (ADR-038).</summary>
     public bool TieneClienteSeleccionado => _entidadDirectorioSeleccionada is not null || RelacionComercialId.HasValue;
+
     /// <summary>ID de empresa del contexto de sesión, expuesto para binding en el selector control.</summary>
     public int EmpresaId => _session.EmpresaId;
 
@@ -103,16 +128,37 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
     // ── Totales (runtime, recalculados cuando cambian los detalles) ─────────
 
     /// <summary>
-    /// Subtotal = SUM(Detalles.Importe)
-    /// Calculado runtime en el ViewModel; se persiste en BD al llamar Guardar.
+    /// Subtotal bruto antes de descuentos: SUM(Cantidad × PrecioUnitario).
+    /// Visible solo cuando hay descuentos activos.
+    /// </summary>
+    [ObservableProperty] private decimal subtotalBruto;
+
+    /// <summary>
+    /// Subtotal neto después de descuentos: SUM(Detalles.Importe).
+    /// Calculado runtime; se persiste en BD al llamar Guardar.
     /// </summary>
     [ObservableProperty] private decimal subtotal;
 
     /// <summary>
-    /// Total = Subtotal + Impuestos (ADR-040).
+    /// Monto monetario total de descuentos: SubtotalBruto − Subtotal.
+    /// Visible en totales solo cuando HayDescuento es true.
+    /// </summary>
+    [ObservableProperty] private decimal descuentoTotal;
+
+    /// <summary>
+    /// Total = Subtotal + OtrosCargos + Impuestos (ADR-040 + Commercial Charges Pattern).
     /// Se persistirá en BD al llamar Guardar.
     /// </summary>
     [ObservableProperty] private decimal total;
+
+    /// <summary>
+    /// Suma de todos los cargos accesorios (Flete, Maniobras, Seguro, etc.) del documento.
+    /// Commercial Charges Pattern: sección separada de las líneas de producto.
+    /// </summary>
+    [ObservableProperty] private decimal totalOtrosCargos;
+
+    /// <summary>Hay al menos un cargo accesorio en el documento.</summary>
+    public bool HayCargos => Cargos.Count > 0;
 
     /// <summary>
     /// Impuestos = SUM(líneas con IVA) × TasaIvaEstandar (ADR-040).
@@ -121,31 +167,93 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
     [ObservableProperty] private decimal impuestos;
 
     /// <summary>
+    /// Porcentaje de descuento global aplicado al documento (0–100).
+    /// Cuando se aplica, reemplaza todos los descuentos individuales (ADR-042).
+    /// Runtime — no persiste directamente; se refleja en DescuentoPct de cada línea.
+    /// </summary>
+    [ObservableProperty] private decimal descuentoGlobalPct;
+
+    /// <summary>Wrapper double de DescuentoGlobalPct para el NumberBox de WinUI.</summary>
+    public double DescuentoGlobalPctDouble => (double)DescuentoGlobalPct;
+
+    partial void OnDescuentoGlobalPctChanged(decimal value)
+        => OnPropertyChanged(nameof(DescuentoGlobalPctDouble));
+
+    /// <summary>Hay al menos un descuento activo en el documento (línea o global).</summary>
+    public bool HayDescuento => DescuentoTotal > 0;
+
+    /// <summary>Hay al menos una línea con DescuentoPct > 0.</summary>
+    public bool HayDescuentosEnLineas => Detalles.Any(d => d.DescuentoPct > 0);
+
+    /// <summary>
     /// Indica si el documento tiene cambios no guardados (ADR-040).
-    /// Se activa al agregar/eliminar líneas, cambiar cantidades, cambiar cliente u observaciones.
+    /// Se activa al agregar/eliminar líneas, cambiar cantidades/descuentos, cambiar cliente u observaciones.
     /// Se reinicia a <c>false</c> tras guardar exitosamente.
     /// </summary>
     [ObservableProperty] private bool isDirty;
 
+    /// <summary>
+    /// Total de artículos = SUM(Cantidad) de todas las líneas. Status bar info (ADR-041).
+    /// </summary>
+    [ObservableProperty] private decimal totalArticulos;
+
     // ── UI helpers ───────────────────────────────────────────────────────────
     public string TituloDocumento => IsNuevo ? "Nueva Cotización" : $"Cotización #{_documento?.Id}";
+    /// <summary>
+    /// Texto del badge de estado comercial — Commercial Document Workflow Pattern.
+    /// "Enviada" (legacy) se muestra como "Aprobada" en el nuevo modelo.
+    /// </summary>
     public string EstatusTextoDisplay => Estatus switch
     {
-        EstatusCotizacion.Borrador  => "Borrador",
-        EstatusCotizacion.Enviada   => "Enviada",
-        EstatusCotizacion.Aprobada  => "Aprobada",
-        EstatusCotizacion.Cancelada => "Cancelada",
-        _                           => Estatus.ToString()
+        EstatusCotizacion.Borrador   => "Borrador",
+#pragma warning disable CS0618
+        EstatusCotizacion.Enviada    => "Aprobada",   // Legacy — tratar como Aprobada en display
+#pragma warning restore CS0618
+        EstatusCotizacion.Aprobada   => "Aprobada",
+        EstatusCotizacion.Convertida => "Convertida",
+        EstatusCotizacion.Cancelada  => "Cancelada",
+        _                            => Estatus.ToString()
     };
-    public bool PuedeEditar       => Estatus != EstatusCotizacion.Cancelada;
-    public bool PuedeEnviar       => Estatus == EstatusCotizacion.Borrador;
-    public bool PuedeAprobar      => Estatus == EstatusCotizacion.Enviada;
-    public bool PuedeConvertir    => Estatus == EstatusCotizacion.Aprobada && !IsNuevo;
-    public bool PuedeCancelar     => Estatus is EstatusCotizacion.Borrador or EstatusCotizacion.Enviada && !IsNuevo;
+
+    // ── Guardas del workflow (Commercial Document Workflow Pattern) ──────────
+
+    /// <summary>Puede editar: cualquier estado no terminal.</summary>
+    public bool PuedeEditar => Estatus is not (EstatusCotizacion.Cancelada or EstatusCotizacion.Convertida);
+
+    /// <summary>
+    /// Enviar = ACCIÓN OPERACIONAL (no modifica estado).
+    /// Disponible desde cualquier estado activo. Future: email, PDF, auditoría de envío.
+    /// Una cotización Aprobada puede enviarse múltiples veces sin cambiar estado.
+    /// </summary>
+    public bool PuedeEnviar => !IsNuevo && Estatus is not (EstatusCotizacion.Cancelada or EstatusCotizacion.Convertida);
+
+    /// <summary>Aprobar = transición de workflow Borrador → Aprobada.</summary>
+#pragma warning disable CS0618
+    public bool PuedeAprobar => !IsNuevo && Estatus is EstatusCotizacion.Borrador or EstatusCotizacion.Enviada;
+#pragma warning restore CS0618
+
+    /// <summary>Convertir = workflow Aprobada → Convertida (genera Pedido).</summary>
+#pragma warning disable CS0618
+    public bool PuedeConvertir => !IsNuevo && Estatus is EstatusCotizacion.Aprobada or EstatusCotizacion.Enviada;
+#pragma warning restore CS0618
+
+    /// <summary>Cancelar = transición a estado terminal Cancelada (desde cualquier estado activo).</summary>
+    public bool PuedeCancelar => !IsNuevo && Estatus is not (EstatusCotizacion.Cancelada or EstatusCotizacion.Convertida);
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(EliminarDetalleCommand))]
     private DetalleLineaEditable? detalleSeleccionado;
+
+    // ── Otros Cargos (Commercial Charges Pattern) ─────────────────────────────
+    /// <summary>Cargos accesorios del documento (Flete, Maniobras, Seguro, etc.).</summary>
+    public System.Collections.ObjectModel.ObservableCollection<CargoLineaEditable> Cargos { get; } = [];
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(EliminarCargoCommand))]
+    private CargoLineaEditable? cargoSeleccionado;
+
+    /// <summary>Callback para abrir el diálogo de agregar cargo (requiere XamlRoot).</summary>
+    public Func<Task<CargoLineaEditable?>>? SolicitarAgregarCargo;
 
     // Callbacks para acciones que requieren XamlRoot (abrirán dialogs o workspace)
     public Action<DetalleLineaEditable?>? SolicitarNuevoEditar;
@@ -165,15 +273,36 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
         IErpAuthorizationService         auth,
         SessionService                   session,
         IOperationalObservabilityService observability,
-        ICurrentContextTracker           contextTracker)
+        ICurrentContextTracker           contextTracker,
+        IConfiguracionFiscalService      configuracionFiscal)
     {
         _service                   = service;
         _relacionComercialService  = relacionComercialService;
-        _auth            = auth;
-        _session         = session;
-        _observability   = observability;
-        _contextTracker  = contextTracker;
+        _auth                 = auth;
+        _session              = session;
+        _observability        = observability;
+        _contextTracker       = contextTracker;
+        _configuracionFiscal  = configuracionFiscal;
         Detalles.CollectionChanged += (_, _) => RecalcularTotales();
+    }
+
+    /// <summary>
+    /// Carga la tasa IVA institucional desde IConfiguracionFiscalService (Commercial Tax Pattern).
+    /// Best-effort — se llama fire-and-forget desde el constructor de la Page.
+    /// Si falla, el fallback FiscalConstants.TasaIvaEstandar permanece activo.
+    /// </summary>
+    public async System.Threading.Tasks.Task CargarConfiguracionFiscalAsync(
+        System.Threading.CancellationToken ct = default)
+    {
+        try
+        {
+            _tasaIva = await _configuracionFiscal.ObtenerTasaIvaProductoAsync(ct);
+            RecalcularTotales();  // Re-aplicar totales con la tasa real
+        }
+        catch
+        {
+            // Best-effort: si falla, _tasaIva ya tiene el fallback de FiscalConstants
+        }
     }
 
     /// <summary>Inicializa el ViewModel con una cotización existente o deja en blanco para nueva.</summary>
@@ -184,16 +313,42 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
 
         if (cotizacion is not null)
         {
-            NombreCliente = cotizacion.NombreCliente;
-            RelacionComercialId     = cotizacion.RelacionComercialId;
-            Fecha         = cotizacion.Fecha;
-            FechaVigencia = cotizacion.FechaVigencia;
-            Observaciones = cotizacion.Observaciones;
-            Estatus       = cotizacion.Estatus;
+            NombreCliente       = cotizacion.NombreCliente;
+            RelacionComercialId = cotizacion.RelacionComercialId;
+            Fecha               = cotizacion.Fecha;
+            FechaVigencia       = cotizacion.FechaVigencia;
+            Observaciones       = cotizacion.Observaciones;
+            Estatus             = cotizacion.Estatus;
+
+            // Sintetizar entidad de Directorio desde datos del documento (ADR-043).
+            // Permite que EntidadDirectorioSeleccionada esté disponible para restaurar
+            // el chip del selector en modo edición y en detach/rehost sin llamar Initialize().
+            // _clienteModificadoPorUsuario = false → GuardarAsync NO llamará GetOrCreate.
+            if (RelacionComercialId.HasValue)
+            {
+                _entidadDirectorioSeleccionada = new DirectorioSelectorDto
+                {
+                    EntityType         = DirectorioEntityType.Empresa,
+                    EmpresaComercialId = RelacionComercialId,
+                    DisplayName        = NombreCliente
+                };
+            }
+            _clienteModificadoPorUsuario = false;
 
             Detalles.Clear();
             foreach (var d in cotizacion.Detalles)
-                Detalles.Add(WirarLinea(new DetalleLineaEditable(d.Id, d.ProductoId, d.Descripcion, d.Cantidad, d.PrecioUnitario)));
+                Detalles.Add(WirarLinea(new DetalleLineaEditable(
+                    d.Id, d.ProductoId, d.Descripcion, d.Cantidad, d.PrecioUnitario,
+                    sku: d.Sku, ivaAplicable: d.IvaAplicable, descuentoPct: d.DescuentoPct)));
+
+            // Cargar cargos accesorios (Commercial Charges Pattern)
+            Cargos.Clear();
+            if (cotizacion.Cargos is not null)
+                foreach (var c in cotizacion.Cargos.OrderBy(c => c.Orden))
+                    Cargos.Add(new CargoLineaEditable(c.Id, c.OtroCargoId, c.Descripcion, c.Importe, c.AplicaIva));
+
+            // Detectar si había un descuento global (todas las líneas con mismo %)
+            DetectarDescuentoGlobal(cotizacion.Detalles);
         }
 
         OnPropertyChanged(nameof(TieneClienteSeleccionado));
@@ -205,12 +360,34 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Restaura la entidad del Directorio desde un DTO completamente hidratado (post-Initialize).
+    /// A diferencia de <see cref="SeleccionarCliente"/>, NO marca <see cref="IsDirty"/> como true
+    /// porque es una operación de restauración, no una acción del usuario.
+    /// </summary>
+    /// <remarks>
+    /// Selector DTO Hydration Rule: llamar después de Initialize() para reemplazar el DTO
+    /// sintético mínimo (solo nombre, tipo erróneo) por el DTO real cargado de BD.
+    /// Corrige: EntityType erróneo, EmpresaComercialId incorrecto, Email/Teléfono nulos.
+    /// </remarks>
+    public void RestaurarEntidadSeleccionada(DirectorioSelectorDto entidad)
+    {
+        _entidadDirectorioSeleccionada = entidad;
+        NombreCliente   = entidad.DisplayName;
+        ClienteEmail    = entidad.Email;
+        ClienteTelefono = entidad.Telefono;
+        OnPropertyChanged(nameof(EntidadDirectorioSeleccionada));
+        OnPropertyChanged(nameof(TieneClienteSeleccionado));
+        // IsDirty intencional: NO se marca — es restauración de estado, no cambio del usuario
+    }
+
+    /// <summary>
     /// Selecciona una entidad del Directorio (Persona o EmpresaComercial) desde el selector (ADR-038).
     /// RelacionComercialId se resolverá mediante GetOrCreate al guardar el documento.
     /// </summary>
     public void SeleccionarCliente(DirectorioSelectorDto? entidad)
     {
         _entidadDirectorioSeleccionada = entidad;
+        _clienteModificadoPorUsuario   = true;
         NombreCliente        = entidad?.DisplayName ?? string.Empty;
         ClienteEmail         = entidad?.Email;
         ClienteTelefono      = entidad?.Telefono;
@@ -223,6 +400,7 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
     public void LimpiarCliente()
     {
         _entidadDirectorioSeleccionada = null;
+        _clienteModificadoPorUsuario   = true;
         RelacionComercialId  = null;
         NombreCliente        = string.Empty;
         ClienteEmail         = null;
@@ -239,7 +417,7 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
     {
         if (_session.Usuario is null) return;
 
-        // Validaciones básicas (§7 requerimiento)
+        // Validaciones básicas
         if (_entidadDirectorioSeleccionada is null && !RelacionComercialId.HasValue)
             { ErrorMessage = "Debe seleccionar un cliente del Directorio."; return; }
         if (string.IsNullOrWhiteSpace(NombreCliente)) { ErrorMessage = "El nombre del cliente es obligatorio."; return; }
@@ -248,8 +426,10 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
         IsBusy = true; ErrorMessage = SuccessMessage = string.Empty;
         try
         {
-            // ADR-038: GetOrCreate RelacionComercial bajo demanda
-            if (_entidadDirectorioSeleccionada is not null)
+            // ADR-038: GetOrCreate RelacionComercial bajo demanda.
+            // Solo si el usuario cambió activamente el cliente (_clienteModificadoPorUsuario);
+            // en documentos existentes sin cambio de cliente ya tenemos RelacionComercialId.
+            if (_entidadDirectorioSeleccionada is not null && _clienteModificadoPorUsuario)
             {
                 var rc = await _relacionComercialService.GetOrCreateAsync(
                     _session.EmpresaId, _entidadDirectorioSeleccionada, _session.Usuario!.Id, ct);
@@ -258,19 +438,36 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
             }
             if (IsNuevo)
             {
-                // NEW document: create everything in one call
+                // NEW document: create header + detalles en una sola operación
                 var dto = new CrearCotizacionDto(
                     _session.EmpresaId, _session.SucursalId != 0 ? _session.SucursalId : null,
                     RelacionComercialId, NombreCliente, Fecha, FechaVigencia, Observaciones,
-                    Detalles.Select(d => new CrearDetalleLineaDto(d.ProductoId, d.Descripcion, d.Cantidad, d.PrecioUnitario)).ToList());
+                    Detalles.Select(d => new CrearDetalleLineaDto(
+                        d.ProductoId, d.Descripcion, d.Cantidad, d.PrecioUnitario,
+                        d.DescuentoPct, d.IvaAplicable)).ToList());   // IvaAplicable persiste por línea
 
                 var r = await _service.CrearAsync(dto, _session.Usuario.Id, ct);
                 if (!r.Success) { ErrorMessage = r.Error ?? "No se pudo crear."; return; }
-                SuccessMessage = $"Cotización #{r.Value!.Id} creada.";
-                Initialize(r.Value);
+
+                // Commercial Charges Persistence Pattern:
+                // Los cargos se acumulan en memoria mientras IsNuevo=true.
+                // Una vez creado el documento (con Id asignado) los persistimos individualmente.
+                var cargosEnMemoria = Cargos.ToList();
+                var cotizacionId    = r.Value!.Id;
+                var userId          = _session.Usuario.Id;
+                foreach (var cargo in cargosEnMemoria)
+                {
+                    var cargoDto = new Application.DTOs.Ventas.CrearCotizacionCargoDto(
+                        cargo.OtroCargoId, cargo.Descripcion, cargo.Importe, cargo.AplicaIva,
+                        cargosEnMemoria.IndexOf(cargo));
+                    var rc = await _service.AgregarCargoAsync(cotizacionId, cargoDto, userId, ct);
+                    if (rc.Success) cargo.Id = rc.Value!.Id;
+                }
+
+                SuccessMessage = $"Cotización #{r.Value.Id} creada.";
+                Initialize(r.Value);   // Rehidrata ViewModel con el DTO guardado (incluye Id)
                 IsDirty = false;
 
-                // Document Surface UX Pattern: notificar al módulo padre que el documento se guardó
                 DocumentSaved?.Invoke();
             }
             else
@@ -283,7 +480,6 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
                 _documento = r.Value;
                 IsDirty = false;
 
-                // Document Surface UX Pattern: notificar al módulo padre que el documento se guardó
                 DocumentSaved?.Invoke();
             }
             ReportarContexto();
@@ -295,16 +491,7 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
     public async Task AgregarDetalleAsync(CancellationToken ct = default)
     {
         if (_session.Usuario is null) return;
-        // For existing docs: calls service immediately
-        // For new docs: the callback will add to local collection
-        if (!IsNuevo && _documento is not null)
-        {
-            // Delegate to page via callback for dialog, then add via service
-            // The page will provide SolicitarAgregarDetalle which shows a dialog
-            // and returns the filled DetalleLineaEditable
-            return;
-        }
-        // For new docs: the page will handle this via SolicitarAgregarDetalle callback
+        if (!IsNuevo && _documento is not null) return;
     }
 
     /// <summary>
@@ -353,7 +540,6 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
 
         if (nuevaCantidad == 0)
         {
-            // Cantidad 0 → eliminar línea
             DetalleSeleccionado = linea;
             await EliminarDetalleCommand.ExecuteAsync(null);
             return;
@@ -362,7 +548,6 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
         if (IsNuevo)
         {
             linea.Cantidad = nuevaCantidad; // INPC notifica Importe automáticamente
-            // IsDirty + RecalcularTotales se disparan via CantidadCambiadaCallback
         }
         else
         {
@@ -373,38 +558,194 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
                 var rEliminar = await _service.EliminarDetalleAsync(linea.Id, _session.Usuario.Id);
                 if (!rEliminar.Success) { ErrorMessage = rEliminar.Error ?? "No se pudo actualizar la cantidad."; return; }
 
-                var dto = new CrearDetalleLineaDto(linea.ProductoId, linea.Descripcion, nuevaCantidad, linea.PrecioUnitario);
+                var dto = new CrearDetalleLineaDto(linea.ProductoId, linea.Descripcion, nuevaCantidad, linea.PrecioUnitario, linea.DescuentoPct);
                 var rAgregar = await _service.AgregarDetalleAsync(_documento!.Id, dto, _session.Usuario.Id);
                 if (!rAgregar.Success) { ErrorMessage = rAgregar.Error ?? "No se pudo actualizar la cantidad."; return; }
 
                 linea.Id       = rAgregar.Value!.Id;
-                linea.Cantidad = nuevaCantidad; // INPC notifica Importe + dispara callback
+                linea.Cantidad = nuevaCantidad;
                 IsDirty = true;
             }
             finally { IsBusy = false; }
         }
     }
 
+    /// <summary>
+    /// Actualiza el descuento de una línea individual (ADR-042 / ADR-043).
+    /// Para documentos NUEVOS: aplica en memoria (INPC + callback → RecalcularTotales).
+    /// Para documentos EXISTENTES: persiste en BD mediante delete + readd.
+    /// </summary>
+    /// <remarks>
+    /// Guard anti-reentrancy (ADR-043): si el valor ya está en el nivel deseado, retorna sin
+    /// llamar al servicio. Esto evita la concurrencia DbContext cuando INPC de
+    /// <see cref="DetalleLineaEditable.DescuentoPct"/> re-dispara
+    /// <c>NumberBox_Descuento_ValueChanged</c>, que vuelve a llamar a este método con el
+    /// mismo valor que ya fue aplicado por <see cref="AplicarDescuentoGlobalALineas"/>.
+    /// </remarks>
+    public async Task ActualizarDescuentoAsync(DetalleLineaEditable linea, decimal nuevoPct)
+    {
+        var pctClamped = Math.Clamp(nuevoPct, 0m, 100m);
+
+        if (IsNuevo)
+        {
+            linea.DescuentoPct = pctClamped;
+            return;
+        }
+
+        // Guard anti-reentrancy: el valor ya está aplicado en memoria — sin service call.
+        // Ocurre cuando AplicarDescuentoGlobalALineas (Fase 1) ya pre-configuró el descuento
+        // y el handler NumberBox_Descuento_ValueChanged se re-disparó por INPC.
+        if (linea.DescuentoPct == pctClamped) return;
+
+        if (_session.Usuario is null) return;
+        IsBusy = true; ErrorMessage = SuccessMessage = string.Empty;
+        try
+        {
+            var rEliminar = await _service.EliminarDetalleAsync(linea.Id, _session.Usuario.Id);
+            if (!rEliminar.Success) { ErrorMessage = rEliminar.Error ?? "No se pudo actualizar el descuento."; return; }
+
+            var dto = new CrearDetalleLineaDto(linea.ProductoId, linea.Descripcion, linea.Cantidad, linea.PrecioUnitario, pctClamped);
+            var rAgregar = await _service.AgregarDetalleAsync(_documento!.Id, dto, _session.Usuario.Id);
+            if (!rAgregar.Success) { ErrorMessage = rAgregar.Error ?? "No se pudo actualizar el descuento."; return; }
+
+            linea.Id           = rAgregar.Value!.Id;
+            linea.DescuentoPct = pctClamped; // INPC notifica Importe + callback → RecalcularTotales
+            IsDirty = true;
+        }
+        finally { IsBusy = false; }
+    }
+
+    /// <summary>
+    /// Invalida silenciosamente el indicador de descuento global (ADR-042 / Global Discount Lifecycle).
+    /// Se llama cuando el usuario modifica manualmente el descuento de UNA línea individual,
+    /// lo que rompe la uniformidad del descuento global.
+    ///
+    /// <para>Regla de uniformidad: el descuento global solo es válido cuando TODAS las líneas
+    /// tienen el mismo porcentaje. En cuanto una línea diverge, el concepto global es ambiguo.</para>
+    ///
+    /// <para>NO elimina los descuentos de línea existentes — solo borra el indicador global.
+    /// NO muestra alertas — comportamiento silencioso y operacional.</para>
+    /// </summary>
+    internal void InvalidarDescuentoGlobal()
+    {
+        if (DescuentoGlobalPct != 0)
+            DescuentoGlobalPct = 0;
+    }
+
+    /// <summary>
+    /// Aplica el descuento global a todas las líneas, reemplazando descuentos individuales (ADR-042 / ADR-043).
+    /// Debe llamarse solo después de confirmación del usuario cuando hay descuentos en líneas.
+    /// </summary>
+    /// <remarks>
+    /// Patrón dos fases (ADR-043) para evitar concurrencia DbContext:
+    ///
+    /// FASE 1 — Memoria: establece <see cref="DetalleLineaEditable.DescuentoPct"/> en todas
+    ///   las líneas ANTES de cualquier llamada al servicio. Los handlers ValueChanged del
+    ///   NumberBox que se re-disparan por INPC encontrarán el guard en
+    ///   <see cref="ActualizarDescuentoAsync"/> (valor ya igual) y retornan sin service call.
+    ///
+    /// FASE 2 — Persistencia (solo docs existentes): persiste cada línea con un único scope
+    ///   IsBusy. NO vuelve a establecer DescuentoPct (ya hecho en Fase 1) para no re-disparar INPC.
+    ///   Los handlers que se disparen durante los await de Fase 2 son rechazados por el guard IsBusy
+    ///   en el code-behind.
+    /// </remarks>
+    public async Task AplicarDescuentoGlobalALineas(decimal pct)
+    {
+        var pctClamped = Math.Clamp(pct, 0m, 100m);
+        DescuentoGlobalPct = pctClamped;
+
+        // ── FASE 1: memoria (instantáneo, sin service calls) ───────────────────
+        // INPC dispara NumberBox.ValueChanged por cada línea; el guard en ActualizarDescuentoAsync
+        // detecta que el valor ya está aplicado y retorna sin llamar al servicio.
+        foreach (var linea in Detalles.ToList())
+            linea.DescuentoPct = pctClamped;
+
+        RecalcularTotales();
+        IsDirty = true;
+
+        if (IsNuevo) return;
+
+        // ── FASE 2: persistencia en BD (docs existentes, scope único IsBusy) ──
+        if (_session.Usuario is null) return;
+        IsBusy = true; ErrorMessage = SuccessMessage = string.Empty;
+        try
+        {
+            foreach (var linea in Detalles.ToList())
+            {
+                var rEliminar = await _service.EliminarDetalleAsync(linea.Id, _session.Usuario.Id);
+                if (!rEliminar.Success) { ErrorMessage = rEliminar.Error ?? "Error al actualizar descuento."; return; }
+
+                var dto = new CrearDetalleLineaDto(linea.ProductoId, linea.Descripcion, linea.Cantidad, linea.PrecioUnitario, pctClamped);
+                var rAgregar = await _service.AgregarDetalleAsync(_documento!.Id, dto, _session.Usuario.Id);
+                if (!rAgregar.Success) { ErrorMessage = rAgregar.Error ?? "Error al actualizar línea."; return; }
+
+                // Solo actualizar el ID — DescuentoPct ya fue establecido en Fase 1
+                linea.Id = rAgregar.Value!.Id;
+            }
+        }
+        finally { IsBusy = false; }
+    }
+
+    /// <summary>
+    /// Limpia el descuento global y todos los descuentos de línea (ADR-042 / ADR-043).
+    /// Mismo patrón dos fases que <see cref="AplicarDescuentoGlobalALineas"/>.
+    /// </summary>
+    public async Task LimpiarDescuentoGlobal()
+    {
+        DescuentoGlobalPct = 0;
+
+        // FASE 1: memoria
+        foreach (var linea in Detalles.ToList())
+            linea.DescuentoPct = 0;
+
+        RecalcularTotales();
+        IsDirty = true;
+
+        if (IsNuevo) return;
+
+        // FASE 2: persistencia BD
+        if (_session.Usuario is null) return;
+        IsBusy = true; ErrorMessage = SuccessMessage = string.Empty;
+        try
+        {
+            foreach (var linea in Detalles.ToList())
+            {
+                var rEliminar = await _service.EliminarDetalleAsync(linea.Id, _session.Usuario.Id);
+                if (!rEliminar.Success) { ErrorMessage = rEliminar.Error ?? "Error al limpiar descuento."; return; }
+
+                var dto = new CrearDetalleLineaDto(linea.ProductoId, linea.Descripcion, linea.Cantidad, linea.PrecioUnitario, 0m);
+                var rAgregar = await _service.AgregarDetalleAsync(_documento!.Id, dto, _session.Usuario.Id);
+                if (!rAgregar.Success) { ErrorMessage = rAgregar.Error ?? "Error al actualizar línea."; return; }
+
+                linea.Id = rAgregar.Value!.Id;
+            }
+        }
+        finally { IsBusy = false; }
+    }
+
     public async Task<bool> AgregarDetalleLocalAsync(DetalleLineaEditable detalle)
     {
         if (IsNuevo)
         {
-            // New doc: add to local collection
             Detalles.Add(WirarLinea(detalle));
             IsDirty = true;
             return true;
         }
         else
         {
-            // Existing doc: persist immediately
             if (_session.Usuario is null) return false;
             IsBusy = true; ErrorMessage = SuccessMessage = string.Empty;
             try
             {
-                var dto = new CrearDetalleLineaDto(detalle.ProductoId, detalle.Descripcion, detalle.Cantidad, detalle.PrecioUnitario);
+                var dto = new CrearDetalleLineaDto(detalle.ProductoId, detalle.Descripcion, detalle.Cantidad, detalle.PrecioUnitario, detalle.DescuentoPct);
                 var r   = await _service.AgregarDetalleAsync(_documento!.Id, dto, _session.Usuario.Id);
                 if (!r.Success) { ErrorMessage = r.Error ?? "No se pudo agregar."; return false; }
-                Detalles.Add(WirarLinea(new DetalleLineaEditable(r.Value!.Id, r.Value.ProductoId, r.Value.Descripcion, r.Value.Cantidad, r.Value.PrecioUnitario, ivaAplicable: detalle.IvaAplicable)));
+                Detalles.Add(WirarLinea(new DetalleLineaEditable(
+                    r.Value!.Id, r.Value.ProductoId, r.Value.Descripcion,
+                    r.Value.Cantidad, r.Value.PrecioUnitario,
+                    sku: detalle.Sku,               // Preservar SKU del detalle original
+                    ivaAplicable: detalle.IvaAplicable,
+                    descuentoPct: r.Value.DescuentoPct)));
                 IsDirty = true;
                 RecalcularTotales();
                 return true;
@@ -436,6 +777,76 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
             DetalleSeleccionado = null;
             IsDirty = true;
             RecalcularTotales();
+        }
+        finally { IsBusy = false; }
+    }
+
+    // ── Cargos — Commercial Charges Pattern ──────────────────────────────────
+
+    [RelayCommand]
+    public async Task AgregarCargoAsync(CancellationToken ct = default)
+    {
+        if (SolicitarAgregarCargo is null) return;
+        var cargo = await SolicitarAgregarCargo();
+        if (cargo is null) return;
+
+        if (IsNuevo)
+        {
+            // Nuevo documento: cargo en memoria, se persistirá en GuardarAsync
+            cargo.Id = 0;
+            Cargos.Add(cargo);
+            IsDirty = true;
+            RecalcularTotales();
+            OnPropertyChanged(nameof(HayCargos));
+            return;
+        }
+
+        // Documento existente: persistir inmediatamente
+        if (_session.Usuario is null) return;
+        IsBusy = true; ErrorMessage = SuccessMessage = string.Empty;
+        try
+        {
+            var dto = new Application.DTOs.Ventas.CrearCotizacionCargoDto(
+                cargo.OtroCargoId, cargo.Descripcion, cargo.Importe, cargo.AplicaIva, Cargos.Count);
+            var r = await _service.AgregarCargoAsync(_documento!.Id, dto, _session.Usuario.Id, ct);
+            if (!r.Success) { ErrorMessage = r.Error ?? "No se pudo agregar el cargo."; return; }
+            cargo.Id = r.Value!.Id;
+            Cargos.Add(cargo);
+            IsDirty = true;
+            RecalcularTotales();
+            OnPropertyChanged(nameof(HayCargos));
+        }
+        finally { IsBusy = false; }
+    }
+
+    private bool HayCargoSeleccionado => CargoSeleccionado is not null;
+
+    [RelayCommand(CanExecute = nameof(HayCargoSeleccionado))]
+    public async Task EliminarCargoAsync(CancellationToken ct = default)
+    {
+        if (CargoSeleccionado is null) return;
+
+        if (IsNuevo || CargoSeleccionado.Id == 0)
+        {
+            Cargos.Remove(CargoSeleccionado);
+            CargoSeleccionado = null;
+            IsDirty = true;
+            RecalcularTotales();
+            OnPropertyChanged(nameof(HayCargos));
+            return;
+        }
+
+        if (_session.Usuario is null) return;
+        IsBusy = true; ErrorMessage = SuccessMessage = string.Empty;
+        try
+        {
+            var r = await _service.EliminarCargoAsync(CargoSeleccionado.Id, _session.Usuario.Id, ct);
+            if (!r.Success) { ErrorMessage = r.Error ?? "No se pudo eliminar el cargo."; return; }
+            Cargos.Remove(CargoSeleccionado);
+            CargoSeleccionado = null;
+            IsDirty = true;
+            RecalcularTotales();
+            OnPropertyChanged(nameof(HayCargos));
         }
         finally { IsBusy = false; }
     }
@@ -475,12 +886,13 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Conecta el callback de recálculo a la línea (ADR-041).
+    /// Conecta el callback de recálculo a la línea (ADR-041 / ADR-042).
     /// Debe llamarse en TODA ruta que crea una <see cref="DetalleLineaEditable"/>.
+    /// El mismo callback maneja cambios de Cantidad y de DescuentoPct.
     /// </summary>
     private DetalleLineaEditable WirarLinea(DetalleLineaEditable linea)
     {
-        linea.CantidadCambiadaCallback = () =>
+        linea.ValorCambiadoCallback = () =>
         {
             IsDirty = true;
             RecalcularTotales();
@@ -489,25 +901,45 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Recalcula Subtotal, Impuestos y Total a partir de las líneas actuales (ADR-040).
-    /// Centraliza toda la aritmética — NO duplicar en otros métodos.
+    /// Recalcula todos los totales del documento a partir de las líneas actuales (ADR-040 / ADR-042).
+    /// Single Source of Truth para aritmética — NO duplicar en otros métodos.
     /// </summary>
     private void RecalcularTotales()
     {
-        Subtotal   = CalcularSubtotal();
-        Impuestos  = CalcularImpuestos();
-        Total      = Subtotal + Impuestos;
+        SubtotalBruto  = Detalles.Sum(d => d.Cantidad * d.PrecioUnitario);
+        Subtotal       = Detalles.Sum(d => d.Importe);  // neto con descuento
+        DescuentoTotal = SubtotalBruto - Subtotal;
+
+        // Commercial Charges Pattern: cargos en sección separada
+        TotalOtrosCargos = Cargos.Sum(c => c.Importe);
+
+        // IVA sobre productos + IVA sobre cargos que aplican (Commercial Tax Pattern)
+        var ivaProductos = CommercialDocumentCalculator.CalcularImpuestos(
+            Detalles.Select(d => (d.Importe, d.IvaAplicable)), _tasaIva);
+        var ivaCargos    = CommercialDocumentCalculator.CalcularImpuestos(
+            Cargos.Select(c => (c.Importe, c.AplicaIva)), _tasaIva);
+        Impuestos = ivaProductos + ivaCargos;
+
+        // Total = Subtotal (productos) + OtrosCargos + Impuestos
+        Total          = CommercialDocumentCalculator.CalcularTotal(Subtotal + TotalOtrosCargos, Impuestos);
+        TotalArticulos = Detalles.Sum(d => d.Cantidad);
+        OnPropertyChanged(nameof(HayDescuento));
+        OnPropertyChanged(nameof(HayDescuentosEnLineas));
     }
 
-    /// <summary>Subtotal = SUM(Detalles.Importe).</summary>
-    private decimal CalcularSubtotal() => Detalles.Sum(d => d.Importe);
-
     /// <summary>
-    /// Impuestos = SUM(Importe × TasaIvaEstandar) para líneas con IvaAplicable = true.
-    /// Usa <see cref="FiscalConstants.TasaIvaEstandar"/> — no hardcoding.
+    /// Detecta si todas las líneas cargadas tienen el mismo descuento > 0 (indica descuento global anterior).
+    /// Restaura <see cref="DescuentoGlobalPct"/> si es el caso.
     /// </summary>
-    private decimal CalcularImpuestos()
-        => Detalles.Where(d => d.IvaAplicable).Sum(d => d.Importe) * FiscalConstants.TasaIvaEstandar;
+    private void DetectarDescuentoGlobal(IReadOnlyList<DetalleLineaDto> detalles)
+    {
+        if (detalles.Count == 0) return;
+        var primerPct = detalles[0].DescuentoPct;
+        if (primerPct > 0 && detalles.All(d => d.DescuentoPct == primerPct))
+            DescuentoGlobalPct = primerPct;
+        else
+            DescuentoGlobalPct = 0;
+    }
 
     private void RefrescarPermisosUI()
     {
@@ -521,7 +953,6 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
 
     private void ReportarContexto()
     {
-        // CategoriaFiltro se usa para reflejar cliente activo en el panel diagnóstico
         var clienteInfo = RelacionComercialId.HasValue ? $"Cliente: {NombreCliente} (ID={RelacionComercialId})" : "Sin cliente";
         _contextTracker.SetViewModelContext(new CurrentOperationalContext(
             Module: "Ventas", SubModule: "Cotizaciones",
@@ -542,11 +973,12 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
 /// <summary>
 /// Línea de detalle editable en memoria para el documento.
 /// Id = 0 para líneas nuevas no guardadas; > 0 para líneas ya persistidas.
-/// Implementa <see cref="INotifyPropertyChanged"/> para que el ListView refleje cambios de cantidad
-/// e importe sin necesidad de guardar (ADR-041 — Operational Editable Document Lines Pattern).
+/// Implementa <see cref="INotifyPropertyChanged"/> para que el ListView refleje cambios de cantidad,
+/// descuento e importe sin necesidad de guardar (ADR-041 + ADR-042).
 /// </summary>
 /// <remarks>
-/// Importe = Cantidad × PrecioUnitario — runtime, NO persistido directamente aquí.
+/// Importe = Cantidad × PrecioUnitario × (1 − DescuentoPct/100) — calculado via
+/// <see cref="CommercialDocumentCalculator.CalcularImporteLinea"/>, Single Source of Truth.
 /// Se persiste en BD cuando el servicio llama a SaveChangesAsync.
 /// </remarks>
 public sealed class DetalleLineaEditable : System.ComponentModel.INotifyPropertyChanged
@@ -556,33 +988,29 @@ public sealed class DetalleLineaEditable : System.ComponentModel.INotifyProperty
     private void OnPropertyChanged(string name)
         => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
 
-    // ── Callback al ViewModel para recalcular totales al cambiar cantidad ──────
+    // ── Callback al ViewModel para recalcular totales ─────────────────────────
     /// <summary>
-    /// Invocado cuando cambia la cantidad. El ViewModel lo conecta a RecalcularTotales().
-    /// Permite que la edición inline en el ListView dispare el recálculo del documento.
+    /// Invocado cuando cambia la cantidad o el descuento. El ViewModel lo conecta a RecalcularTotales().
     /// </summary>
-    internal Action? CantidadCambiadaCallback { get; set; }
+    internal Action? ValorCambiadoCallback { get; set; }
 
     public DetalleLineaEditable() { }
 
     /// <param name="id">0 para líneas nuevas no guardadas; &gt;0 para líneas ya persistidas.</param>
-    /// <param name="sku">Código/SKU del producto. Solo informativo — no se persiste en detalle.</param>
-    /// <param name="existenciaDisponible">
-    /// Existencia total disponible en la empresa al momento de cargar el diálogo.
-    /// Runtime — no se persiste ni reserva stock. Solo orientativo para el vendedor.
-    /// </param>
+    /// <param name="sku">Código/SKU del producto. Solo informativo.</param>
     /// <param name="ivaAplicable">Si <c>true</c>, el producto tiene IVA estándar (ADR-040).</param>
+    /// <param name="descuentoPct">Porcentaje de descuento de la línea (0–100, ADR-042).</param>
     public DetalleLineaEditable(long id, int? productoId, string descripcion, decimal cantidad, decimal precioUnitario,
-        string? sku = null, decimal? existenciaDisponible = null, bool ivaAplicable = false)
+        string? sku = null, bool ivaAplicable = false, decimal descuentoPct = 0m)
     {
-        Id                   = id;
-        ProductoId           = productoId;
-        Descripcion          = descripcion;
-        _cantidad            = cantidad;
-        _precioUnitario      = precioUnitario;
-        Sku                  = sku;
-        ExistenciaDisponible = existenciaDisponible;
-        IvaAplicable         = ivaAplicable;
+        Id             = id;
+        ProductoId     = productoId;
+        Descripcion    = descripcion;
+        _cantidad      = cantidad;
+        _precioUnitario = precioUnitario;
+        Sku            = sku;
+        IvaAplicable   = ivaAplicable;
+        _descuentoPct  = Math.Clamp(descuentoPct, 0m, 100m);
     }
 
     public long    Id         { get; set; }
@@ -595,7 +1023,7 @@ public sealed class DetalleLineaEditable : System.ComponentModel.INotifyProperty
 
     /// <summary>
     /// Cantidad de la línea.
-    /// Al cambiar notifica Cantidad, CantidadDouble e Importe, y dispara CantidadCambiadaCallback.
+    /// Al cambiar notifica Cantidad, CantidadDouble e Importe, y dispara ValorCambiadoCallback.
     /// </summary>
     public decimal Cantidad
     {
@@ -603,10 +1031,7 @@ public sealed class DetalleLineaEditable : System.ComponentModel.INotifyProperty
         set => SetCantidad(value);
     }
 
-    /// <summary>
-    /// Wrapper double de Cantidad para el NumberBox de WinUI (ADR-041).
-    /// TwoWay binding convierte automáticamente entre double y decimal.
-    /// </summary>
+    /// <summary>Wrapper double de Cantidad para el NumberBox de WinUI (ADR-041).</summary>
     public double CantidadDouble
     {
         get => (double)_cantidad;
@@ -620,14 +1045,15 @@ public sealed class DetalleLineaEditable : System.ComponentModel.INotifyProperty
         OnPropertyChanged(nameof(Cantidad));
         OnPropertyChanged(nameof(CantidadDouble));
         OnPropertyChanged(nameof(Importe));
-        CantidadCambiadaCallback?.Invoke();
+        OnPropertyChanged(nameof(DescuentoImporte));
+        ValorCambiadoCallback?.Invoke();
     }
 
     // ── PrecioUnitario con notificación INPC ──────────────────────────────────
 
     private decimal _precioUnitario;
 
-    /// <summary>Precio unitario. Al cambiar notifica PrecioUnitario e Importe.</summary>
+    /// <summary>Precio unitario. Al cambiar notifica PrecioUnitario, Importe y DescuentoImporte.</summary>
     public decimal PrecioUnitario
     {
         get => _precioUnitario;
@@ -637,17 +1063,46 @@ public sealed class DetalleLineaEditable : System.ComponentModel.INotifyProperty
             _precioUnitario = value;
             OnPropertyChanged(nameof(PrecioUnitario));
             OnPropertyChanged(nameof(Importe));
+            OnPropertyChanged(nameof(DescuentoImporte));
         }
     }
 
-    /// <summary>SKU/código del producto. Solo informativo en el grid — no se persiste en el detalle.</summary>
-    public string? Sku { get; set; }
+    // ── DescuentoPct con notificación INPC ────────────────────────────────────
+
+    private decimal _descuentoPct;
 
     /// <summary>
-    /// Existencia disponible total de la empresa al momento de crear la línea.
-    /// Runtime — no se reserva ni descuenta. Solo orientativo para el vendedor (§25 CLAUDE_RULES.md).
+    /// Porcentaje de descuento de la línea (0–100, ADR-042).
+    /// Al cambiar notifica DescuentoPct, DescuentoPctDouble, DescuentoImporte e Importe,
+    /// y dispara ValorCambiadoCallback para recalcular totales del documento.
     /// </summary>
-    public decimal? ExistenciaDisponible { get; set; }
+    public decimal DescuentoPct
+    {
+        get => _descuentoPct;
+        set => SetDescuentoPct(value);
+    }
+
+    /// <summary>Wrapper double de DescuentoPct para el NumberBox en el grid.</summary>
+    public double DescuentoPctDouble
+    {
+        get => (double)_descuentoPct;
+        set => SetDescuentoPct((decimal)value);
+    }
+
+    private void SetDescuentoPct(decimal value)
+    {
+        var clamped = Math.Clamp(value, 0m, 100m);
+        if (_descuentoPct == clamped) return;
+        _descuentoPct = clamped;
+        OnPropertyChanged(nameof(DescuentoPct));
+        OnPropertyChanged(nameof(DescuentoPctDouble));
+        OnPropertyChanged(nameof(DescuentoImporte));
+        OnPropertyChanged(nameof(Importe));
+        ValorCambiadoCallback?.Invoke();
+    }
+
+    /// <summary>SKU/código del producto. Solo informativo en el grid.</summary>
+    public string? Sku { get; set; }
 
     /// <summary>
     /// Indica si el producto tiene IVA estándar aplicable (ADR-040).
@@ -659,9 +1114,43 @@ public sealed class DetalleLineaEditable : System.ComponentModel.INotifyProperty
     public string IvaTexto => IvaAplicable ? "Sí" : "No";
 
     /// <summary>
-    /// Importe = Cantidad × PrecioUnitario.
-    /// Se notifica automáticamente cuando cambian Cantidad o PrecioUnitario.
-    /// El servicio lo persiste en BD al guardar.
+    /// Importe neto = Cantidad × PrecioUnitario × (1 − DescuentoPct/100).
+    /// Calculado via <see cref="CommercialDocumentCalculator"/> — Single Source of Truth.
+    /// Se notifica automáticamente cuando cambian Cantidad, PrecioUnitario o DescuentoPct.
     /// </summary>
-    public decimal Importe => _cantidad * _precioUnitario;
+    public decimal Importe
+        => CommercialDocumentCalculator.CalcularImporteLinea(_cantidad, _precioUnitario, _descuentoPct);
+
+    /// <summary>
+    /// Monto monetario del descuento de esta línea (ADR-042).
+    /// Se notifica automáticamente cuando cambian Cantidad, PrecioUnitario o DescuentoPct.
+    /// </summary>
+    public decimal DescuentoImporte
+        => CommercialDocumentCalculator.CalcularDescuentoLinea(_cantidad, _precioUnitario, _descuentoPct);
+}
+
+/// <summary>
+/// Cargo accesorio editable en memoria para el documento de cotización.
+/// Commercial Charges Pattern: sección separada de las líneas de producto.
+/// Id = 0 para cargos nuevos no persistidos; > 0 para cargos ya guardados en BD.
+/// </summary>
+public sealed class CargoLineaEditable
+{
+    public long   Id          { get; set; }
+    public int?   OtroCargoId { get; set; }
+    public string Descripcion { get; set; }
+    public decimal Importe    { get; set; }
+    public bool   AplicaIva   { get; set; }
+
+    /// <summary>Texto para columna IVA del grid.</summary>
+    public string IvaTexto => AplicaIva ? "Sí" : "No";
+
+    public CargoLineaEditable(long id, int? otroCargoId, string descripcion, decimal importe, bool aplicaIva)
+    {
+        Id          = id;
+        OtroCargoId = otroCargoId;
+        Descripcion = descripcion;
+        Importe     = importe;
+        AplicaIva   = aplicaIva;
+    }
 }

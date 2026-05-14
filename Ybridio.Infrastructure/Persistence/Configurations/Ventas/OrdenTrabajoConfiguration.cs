@@ -12,6 +12,12 @@ public class OrdenTrabajoConfiguration : IEntityTypeConfiguration<OrdenTrabajo>
         builder.HasKey(e => e.Id);
         builder.Property(e => e.Id).UseIdentityColumn();
 
+        builder.Property(e => e.Folio).HasMaxLength(50);
+        builder.HasIndex(e => new { e.EmpresaId, e.Folio })
+            .HasFilter("[Folio] IS NOT NULL")
+            .IsUnique()
+            .HasDatabaseName("UQ_OrdenTrabajo_EmpresaFolio");
+
         builder.Property(e => e.Estatus).IsRequired().HasConversion<int>();
         builder.Property(e => e.NombreCliente).IsRequired().HasMaxLength(200);
         builder.Property(e => e.Fecha).IsRequired();

@@ -7,100 +7,120 @@
       mc:Ignorable="d"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
-    <Page.Resources>
-        <!-- Aplica OutlookTabItemStyle a todos los TabViewItem de esta página (incluyendo anidados) -->
-        <Style TargetType="TabViewItem" BasedOn="{StaticResource OutlookTabItemStyle}"/>
-    </Page.Resources>
-
     <Grid>
 
         <!-- ═══════════════════════════════════════════════════════════════════
-             MODO GLOBAL  (Empresa · Tiendas · Seguridad)
+             MODO GLOBAL — NavigationView vertical institucional
              Visible cuando el parámetro de navegación es "Global" o null.
+             Estilo: Visual Studio Settings / Outlook Settings / ERP desktop moderno.
              ═══════════════════════════════════════════════════════════════════ -->
 
-        <!--
-            Visual Container Hierarchy (Module Layer - Global):
-            Border wrapper con padding y fondo sutil para separación física clara
-            del Workspace Layer. Evita efecto "tabs ensimados" y establece boundary visual.
-        -->
-        <Border Padding="16,12,16,16"
-                Background="{ThemeResource LayerFillColorDefaultBrush}">
+        <NavigationView x:Name="NavGlobal"
+                        PaneDisplayMode="Left"
+                        OpenPaneLength="220"
+                        IsSettingsVisible="False"
+                        IsBackButtonVisible="Collapsed"
+                        IsPaneToggleButtonVisible="False"
+                        Visibility="Collapsed"
+                        SelectionChanged="NavGlobal_SelectionChanged">
 
-            <TabView x:Name="TabsGlobal"
-                     TabWidthMode="SizeToContent"
-                     IsAddTabButtonVisible="False"
-                     Background="Transparent"
-                     SelectionChanged="GlobalTabs_SelectionChanged">
+            <NavigationView.MenuItems>
 
-                <!-- ── Empresa ──────────────────────────────────────────────── -->
-                <TabViewItem x:Name="TabGlobalEmpresa" Header="Empresa" IsClosable="False">
-                    <Frame x:Name="FrameEmpresa"/>
-                </TabViewItem>
+                <!-- ── Empresa ───────────────────────────────────────────── -->
+                <NavigationViewItemHeader Content="EMPRESA"/>
 
-                <!-- ── Tiendas ─────────────────────────────────────────────── -->
-                <TabViewItem x:Name="TabGlobalTiendas" Header="Tiendas" IsClosable="False">
-                    <Frame x:Name="FrameTiendasGlobal"/>
-                </TabViewItem>
+                <NavigationViewItem Content="Empresa" Tag="empresa">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE731;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
 
-                <!-- ── Auditoría del Sistema ──────────────────────────────── -->
-                <TabViewItem x:Name="TabGlobalAuditoria" Header="Auditoría del Sistema" IsClosable="False">
-                    <Frame x:Name="FrameAuditoria"/>
-                </TabViewItem>
+                <NavigationViewItem Content="Sucursales" Tag="sucursales">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE73D;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
 
-                <!-- ── Seguridad (con sub-tabs propios) ───────────────────── -->
-                <TabViewItem x:Name="TabGlobalSeguridad" Header="Seguridad" IsClosable="False">
+                <!-- ── Configuración Operacional ─────────────────────────── -->
+                <NavigationViewItemHeader Content="CONFIGURACIÓN"/>
 
-                    <TabView x:Name="TabsSeguridad"
-                             TabWidthMode="SizeToContent"
-                             IsAddTabButtonVisible="False"
-                             Background="Transparent"
-                             SelectionChanged="SeguridadTabs_SelectionChanged">
+                <NavigationViewItem Content="Parámetros" Tag="parametros">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE713;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
 
-                        <TabViewItem x:Name="TabUsuariosGlobal" Header="Usuarios" IsClosable="False">
-                            <Frame x:Name="FrameUsuariosGlobal"/>
-                        </TabViewItem>
+                <NavigationViewItem Content="Impuestos" Tag="impuestos">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE946;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
 
-                        <TabViewItem x:Name="TabRolesGlobal" Header="Roles" IsClosable="False">
-                            <Frame x:Name="FrameRolesGlobal"/>
-                        </TabViewItem>
+                <NavigationViewItem Content="Otros Cargos" Tag="otros-cargos">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8D6;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
 
-                        <TabViewItem x:Name="TabPerfilesGlobal" Header="Perfiles" IsClosable="False">
-                            <Frame x:Name="FramePerfilesGlobal"/>
-                        </TabViewItem>
+                <!-- ── Catálogos ─────────────────────────────────────────── -->
+                <NavigationViewItemHeader Content="CATÁLOGOS"/>
 
-                        <TabViewItem x:Name="TabPermisosGlobal" Header="Permisos" IsClosable="False">
-                            <Frame x:Name="FramePermisosGlobal"/>
-                        </TabViewItem>
+                <NavigationViewItem Content="Unidades de Medida" Tag="unidades-medida">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8EF;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
 
-                        <TabViewItem x:Name="TabScopesGlobal" Header="Scopes" IsClosable="False">
-                            <Frame x:Name="FrameScopesGlobal"/>
-                        </TabViewItem>
+                <NavigationViewItem Content="Tipos de Producto" Tag="tipos-producto">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE74C;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
 
-                        <TabViewItem x:Name="TabArquitecturaGlobal" Header="Arquitectura Seguridad" IsClosable="False">
-                            <Frame x:Name="FrameArquitecturaGlobal"/>
-                        </TabViewItem>
+                <NavigationViewItem Content="Series Documentales" Tag="series-documento">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE7C3;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
 
-                    </TabView>
-                </TabViewItem>
+                <!-- ── Sistema ──────────────────────────────────────────── -->
+                <NavigationViewItemHeader Content="SISTEMA"/>
 
-            </TabView>
+                <NavigationViewItem Content="Workflow" Tag="workflow">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8AB;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
 
-        </Border>
+                <NavigationViewItem Content="Auditoría" Tag="auditoria">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE9D9;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem Content="Seguridad" Tag="seguridad">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE72E;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+            </NavigationView.MenuItems>
+
+            <!-- Área de contenido derecha — carga la página seleccionada -->
+            <Frame x:Name="NavContentFrame"/>
+
+        </NavigationView>
 
         <!-- ═══════════════════════════════════════════════════════════════════
              MODO TIENDA  (configuración específica de la sucursal activa)
              Visible cuando el parámetro de navegación es "Tienda".
+             Mantiene layout de tabs horizontal para tabs de sucursal.
              ═══════════════════════════════════════════════════════════════════ -->
 
-        <!--
-            Visual Container Hierarchy (Module Layer - Tienda):
-            Border wrapper con padding y fondo sutil para separación física clara
-            del Workspace Layer. Evita efecto "tabs ensimados" y establece boundary visual.
-        -->
         <Border Padding="16,12,16,16"
                 Background="{ThemeResource LayerFillColorDefaultBrush}"
-                Visibility="Collapsed">
+                Visibility="Collapsed"
+                x:Name="TiendaContainer">
 
             <TabView x:Name="TabsTienda"
                      TabWidthMode="SizeToContent"

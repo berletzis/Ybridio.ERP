@@ -10,6 +10,8 @@ public class OrdenCompra : AuditableEntity
     public long Id { get; set; }
     public int EmpresaId { get; set; }
     public int ProveedorId { get; set; }
+    /// <summary>Folio documental (ej: "OC-000001"). Null en registros anteriores a SerieDocumento.</summary>
+    public string? Folio { get; set; }
     public DateTime Fecha { get; set; }
     public decimal Total { get; set; }
     public EstatusOrdenCompra Estatus { get; set; }

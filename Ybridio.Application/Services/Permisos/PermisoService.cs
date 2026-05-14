@@ -1,7 +1,5 @@
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Ybridio.Infrastructure.Persistence;
-using Ybridio.Infrastructure.Persistence.Identity;
 
 namespace Ybridio.Application.Services.Permisos;
 
@@ -13,26 +11,25 @@ namespace Ybridio.Application.Services.Permisos;
 /// Un denegado explícito (override = false) siempre tiene prioridad absoluta.
 /// </summary>
 /// <remarks>
-/// Usa IDbContextFactory para crear un contexto aislado por evaluación.
-/// En WinUI (sin HTTP scope), Scoped actúa como Singleton en el contenedor raíz;
-/// todos los servicios comparten la misma instancia de ErpDbContext. El factory
-/// crea contextos de vida corta por llamada, evitando la excepción
-/// "A second operation was started on this context instance" cuando múltiples
-/// servicios disparan queries concurrentes al abrir un módulo.
+/// Usa <see cref="IDbContextFactory{TContext}"/> para crear un contexto aislado por evaluación.
+/// TODOS los queries — incluidos los de roles — van por el contexto factory, nunca por el contexto
+/// scoped compartido. Esto evita "A second operation was started on this context instance" cuando
+/// múltiples evaluaciones de permisos ocurren concurrentemente (navegación rápida, Document Surfaces,
+/// Workspace Tabs, Runtime Diagnostic Panel). ADR-026.
+///
+/// PROHIBIDO: inyectar UserManager aquí — su UserStore usa el DbContext scoped compartido y
+/// causaría la misma excepción de concurrencia que este diseño busca evitar.
 /// </remarks>
 public sealed class PermisoService : IPermisoService
 {
     private readonly IDbContextFactory<ErpDbContext> _contextFactory;
-    private readonly UserManager<ApplicationUser>    _userManager;
     private readonly IPermissionCache                _cache;
 
     public PermisoService(
         IDbContextFactory<ErpDbContext> contextFactory,
-        UserManager<ApplicationUser>    userManager,
         IPermissionCache                cache)
     {
         _contextFactory = contextFactory;
-        _userManager    = userManager;
         _cache          = cache;
     }
 
@@ -43,9 +40,10 @@ public sealed class PermisoService : IPermisoService
         if (string.IsNullOrWhiteSpace(clave))
             return false;
 
+        // Contexto aislado — independiente del DbContext scoped compartido
         await using var ctx = await _contextFactory.CreateDbContextAsync(ct);
 
-        // 1. Override explícito del usuario (bool? — null = hereda)
+        // ── NIVEL 1: override explícito del usuario ───────────────────────────
         var overrideUsuario = await ctx.UsuariosPermisos
             .AsNoTracking()
             .Where(up => up.UsuarioId == usuarioId
@@ -55,9 +53,9 @@ public sealed class PermisoService : IPermisoService
             .FirstOrDefaultAsync(ct);
 
         if (overrideUsuario.HasValue)
-            return overrideUsuario.Value;   // true = permitido, false = denegado explícito
+            return overrideUsuario.Value;
 
-        // 2. Permisos de perfiles asignados al usuario
+        // ── NIVEL 2: perfiles asignados al usuario ────────────────────────────
         var tienePermisoPerfil = await ctx.UsuariosPerfiles
             .AsNoTracking()
             .Where(up => up.UsuarioId == usuarioId && up.Perfil.Activo && !up.Perfil.Borrado)
@@ -67,34 +65,34 @@ public sealed class PermisoService : IPermisoService
         if (tienePermisoPerfil)
             return true;
 
-        // 3. Herencia desde roles del usuario
-        var usuario = await _userManager.FindByIdAsync(usuarioId.ToString());
-        if (usuario is null) return false;
+        // ── NIVEL 3: herencia desde roles del usuario ─────────────────────────
+        // Query directo en ctx (NO UserManager — su store usa el DbContext scoped compartido)
+        var rolesDelUsuario = await ctx.UserRoles
+            .AsNoTracking()
+            .Where(ur => ur.UserId == usuarioId)
+            .Join(ctx.Roles, ur => ur.RoleId, r => r.Id, (_, r) => r.Name!)
+            .ToListAsync(ct);
 
-        var rolesUsuario = await _userManager.GetRolesAsync(usuario);
-        if (rolesUsuario.Count == 0) return false;
+        if (rolesDelUsuario.Count == 0)
+            return false;
 
-        var permitidoPorRol = await ctx.RolesPermisos
+        return await ctx.RolesPermisos
             .AsNoTracking()
             .Where(rp => rp.Permiso.Clave == clave
                       && !rp.Permiso.Borrado
                       && rp.Permitido)
             .Join(
-                ctx.Roles
-                    .Where(r => rolesUsuario.Contains(r.Name!)),
+                ctx.Roles.Where(r => rolesDelUsuario.Contains(r.Name!)),
                 rp => rp.RolId,
-                r => r.Id,
+                r  => r.Id,
                 (rp, _) => rp.Id)
             .AnyAsync(ct);
-
-        return permitidoPorRol;
     }
 
     /// <inheritdoc/>
     public async Task<IReadOnlySet<string>> ObtenerPermisosEfectivosAsync(
         Guid usuarioId, CancellationToken ct = default)
     {
-        // Intentar desde caché
         var cached = await _cache.GetPermisosAsync(usuarioId, ct);
         if (cached.Count > 0)
             return new HashSet<string>(cached, StringComparer.OrdinalIgnoreCase);
@@ -133,31 +131,29 @@ public sealed class PermisoService : IPermisoService
                 resultado.Add(clave);
 
         // ── NIVEL 3: herencia de roles ────────────────────────────────────────
-        var usuario = await _userManager.FindByIdAsync(usuarioId.ToString());
-        if (usuario is not null)
+        // Query directo en ctx (NO UserManager — evita colisión con DbContext scoped)
+        var rolesDelUsuario = await ctx.UserRoles
+            .AsNoTracking()
+            .Where(ur => ur.UserId == usuarioId)
+            .Join(ctx.Roles, ur => ur.RoleId, r => r.Id, (_, r) => r.Name!)
+            .ToListAsync(ct);
+
+        if (rolesDelUsuario.Count > 0)
         {
-            var rolesUsuario = await _userManager.GetRolesAsync(usuario);
+            var permisosDeRol = await ctx.RolesPermisos
+                .AsNoTracking()
+                .Where(rp => rp.Permitido && !rp.Permiso.Borrado)
+                .Join(
+                    ctx.Roles.Where(r => rolesDelUsuario.Contains(r.Name!)),
+                    rp => rp.RolId,
+                    r  => r.Id,
+                    (rp, _) => rp.Permiso.Clave)
+                .Distinct()
+                .ToListAsync(ct);
 
-            if (rolesUsuario.Count > 0)
-            {
-                // Usar ctx.Roles (ApplicationRole) NO ctx.Set<IdentityRole<Guid>>()
-                // ErpDbContext registra ApplicationRole, no el tipo genérico base de Identity.
-                var permisosDeRol = await ctx.RolesPermisos
-                    .AsNoTracking()
-                    .Where(rp => rp.Permitido && !rp.Permiso.Borrado)
-                    .Join(
-                        ctx.Roles
-                            .Where(r => rolesUsuario.Contains(r.Name!)),
-                        rp => rp.RolId,
-                        r => r.Id,
-                        (rp, _) => rp.Permiso.Clave)
-                    .Distinct()
-                    .ToListAsync(ct);
-
-                foreach (var clave in permisosDeRol)
-                    if (!denegados.Contains(clave))
-                        resultado.Add(clave);
-            }
+            foreach (var clave in permisosDeRol)
+                if (!denegados.Contains(clave))
+                    resultado.Add(clave);
         }
 
         await _cache.SetPermisosAsync(usuarioId, resultado.ToList(), ct);

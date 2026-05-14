@@ -27,6 +27,9 @@ public class Pedido : AuditableEntity
     /// <summary>Cotización de origen, si el pedido fue generado desde una cotización aprobada.</summary>
     public long? CotizacionId  { get; set; }
 
+    /// <summary>Folio documental (ej: "PED-000001"). Null en registros anteriores a SerieDocumento.</summary>
+    public string? Folio { get; set; }
+
     public EstatusPedido Estatus              { get; set; } = EstatusPedido.Nuevo;
     public DateTime      Fecha                { get; set; }
     public DateTime?     FechaEntregaCompromiso { get; set; }

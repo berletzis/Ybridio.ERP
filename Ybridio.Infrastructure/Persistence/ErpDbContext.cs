@@ -52,6 +52,9 @@ public class ErpDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
     public DbSet<CategoriaProducto> CategoriasProducto => Set<CategoriaProducto>();
     public DbSet<TipoProducto>      TiposProducto     => Set<TipoProducto>();
     public DbSet<TipoImpuesto>      TiposImpuesto     => Set<TipoImpuesto>();
+    public DbSet<ParametroGlobal>   ParametrosGlobal  => Set<ParametroGlobal>();
+    public DbSet<OtroCargo>         OtrosCargos       => Set<OtroCargo>();
+    public DbSet<SerieDocumento>    SeriesDocumento   => Set<SerieDocumento>();
 
     // ── compras ───────────────────────────────────────────────────────────────
     public DbSet<OrdenCompra>          OrdenesCompra          => Set<OrdenCompra>();
@@ -104,6 +107,7 @@ public class ErpDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
     public DbSet<Factura>                Facturas                 => Set<Factura>();
     public DbSet<Cotizacion>             Cotizaciones             => Set<Cotizacion>();
     public DbSet<CotizacionDetalle>      CotizacionesDetalle      => Set<CotizacionDetalle>();
+    public DbSet<CotizacionCargo>        CotizacionesCargos       => Set<CotizacionCargo>();
     public DbSet<Pedido>                 Pedidos                  => Set<Pedido>();
     public DbSet<PedidoDetalle>          PedidosDetalle           => Set<PedidoDetalle>();
     public DbSet<OrdenTrabajo>           OrdenesTrabajo           => Set<OrdenTrabajo>();

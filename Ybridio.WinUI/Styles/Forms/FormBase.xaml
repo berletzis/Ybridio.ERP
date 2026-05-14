@@ -17,6 +17,14 @@
     <Thickness x:Key="ErpFormHeaderPadding">20,16,20,12</Thickness>
     <Thickness x:Key="ErpFormFooterPadding">20,8,20,16</Thickness>
 
+    <!--
+        Ancho estándar de campos de fecha en documentos comerciales ERP (ADR-043 compacto).
+        185px: suficiente para mostrar mes + día + año sin recorte en cualquier locale,
+        con apariencia más compacta e institucional que 220px.
+        Usar en TODOS los DatePicker de documentos comerciales (Cotización, Pedido, Venta…).
+    -->
+    <x:Double x:Key="ErpDateFieldWidth">185</x:Double>
+
     <!-- ── Header ───────────────────────────────────────────────────────── -->
 
     <!--

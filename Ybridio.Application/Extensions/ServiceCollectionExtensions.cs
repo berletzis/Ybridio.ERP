@@ -2,6 +2,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Ybridio.Application.Services.Auth;
 using Ybridio.Application.Services.Autorizacion;
 using Ybridio.Application.Services.Caja;
+using Ybridio.Application.Services.Catalogos;
+using Ybridio.Application.Services.Configuracion;
+using Ybridio.Application.Services.Folios;
 using Ybridio.Application.Services.Directorio;
 using Ybridio.Application.Services.Venta;
 using Ybridio.Application.Services.Finanzas;
@@ -59,6 +62,18 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISecurityScopeResolver, SecurityScopeResolver>();
         services.AddScoped<ISecurityContextService, SecurityContextService>();
         services.AddScoped<IErpAuthorizationService, ErpAuthorizationService>();
+
+        // ── Configuración Global + Catálogos editables ───────────────────────────
+        services.AddScoped<IParametroGlobalService, ParametroGlobalService>();
+        services.AddScoped<IOtroCargoService, OtroCargoService>();
+        services.AddScoped<ITipoImpuestoService, TipoImpuestoService>();
+        services.AddScoped<IUnidadMedidaService, UnidadMedidaService>();
+        services.AddScoped<ITipoProductoService, TipoProductoService>();
+        services.AddScoped<ISerieDocumentoService, SerieDocumentoService>();
+        services.AddScoped<IConfiguracionFiscalService, ConfiguracionFiscalService>();
+
+        // ── Motor de folios documentales (IDbContextFactory → aislado de scoped context) ──
+        services.AddScoped<IFolioGeneratorService, FolioGeneratorService>();
 
         // ── Caché de permisos: MemoryPermissionCache (TTL 10 min) ─────────────
         // Singleton para que el caché persista entre scopes; thread-safe con ConcurrentDictionary.

@@ -1,5 +1,7 @@
 // ── Ybridio.Application/DTOs/Catalogos/ProductoDto.cs — REEMPLAZAR COMPLETO ──
 
+using Ybridio.Domain.Catalogos;
+
 namespace Ybridio.Application.DTOs.Catalogos;
 
 /// <summary>DTO de lectura completo para Producto.</summary>
@@ -112,33 +114,67 @@ public sealed record UpsertCategoriaProductoDto(
     string? Descripcion,
     bool Activo = true);
 
-/// <summary>DTO de lectura para TipoProducto.</summary>
+/// <summary>
+/// DTO de lectura para TipoProducto — clasificación comercial de productos.
+/// Product Type Classification Pattern: Clave es el identificador operacional (PROD, SERV, REF…).
+/// Los Servicios son Productos clasificados con TipoProducto.Clave = "SERV" (no tabla separada).
+/// </summary>
 public sealed record TipoProductoDto(
-    int Id,
-    int EmpresaId,
-    string Nombre,
+    int     Id,
+    int     EmpresaId,
+    string  Nombre,
     string? Descripcion,
-    bool Activo);
+    bool    Activo,
+    string  Clave       = "",
+    int     OrdenVisual = 0);
 
 /// <summary>DTO para crear/actualizar TipoProducto.</summary>
 public sealed record UpsertTipoProductoDto(
-    string Nombre,
+    string  Nombre,
     string? Descripcion,
-    bool Activo = true);
+    bool    Activo      = true,
+    string  Clave       = "",
+    int     OrdenVisual = 0);
 
-/// <summary>DTO de lectura para TipoImpuesto.</summary>
+/// <summary>
+/// DTO de lectura para TipoImpuesto — catálogo fiscal institucional.
+/// Única fuente de verdad fiscal (Commercial Tax Pattern / Single Source of Truth Fiscal Rule).
+/// </summary>
 public sealed record TipoImpuestoDto(
-    int Id,
-    int EmpresaId,
-    string Nombre,
-    decimal Porcentaje,
-    bool Activo);
+    int          Id,
+    int          EmpresaId,
+    string       Nombre,
+    decimal      Porcentaje,
+    bool         Activo,
+    string       Codigo      = "",
+    TipoGravamen Gravamen    = TipoGravamen.IVA,
+    bool         EsExento    = false,
+    int          OrdenVisual = 0,
+    string?      Descripcion = null)
+{
+    /// <summary>Tasa decimal (0..1) para CommercialDocumentCalculator. = Porcentaje / 100.</summary>
+    public decimal Tasa => Porcentaje / 100m;
+
+    /// <summary>Nombre corto del tipo de gravamen para display en grids.</summary>
+    public string GravamenNombre => Gravamen switch
+    {
+        TipoGravamen.IVA          => "IVA",
+        TipoGravamen.IEPS         => "IEPS",
+        TipoGravamen.ISRRetencion => "ISR Ret.",
+        TipoGravamen.Exento       => "Exento",
+        _                         => "Otro",
+    };
+}
 
 /// <summary>DTO para crear/actualizar TipoImpuesto.</summary>
 public sealed record UpsertTipoImpuestoDto(
-    string Nombre,
-    decimal Porcentaje,
-    bool Activo = true);
+    string       Nombre,
+    decimal      Porcentaje,
+    bool         Activo      = true,
+    string       Codigo      = "",
+    TipoGravamen Gravamen    = TipoGravamen.IVA,
+    int          OrdenVisual = 0,
+    string?      Descripcion = null);
 
 /// <summary>
 /// Proyección de categoría con conteo de productos asociados.

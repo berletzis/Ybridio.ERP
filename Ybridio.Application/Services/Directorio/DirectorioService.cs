@@ -84,4 +84,58 @@ public sealed class DirectorioService : IDirectorioService
             .Take(100)
             .ToList();
     }
+
+    /// <inheritdoc/>
+    public async Task<DirectorioSelectorDto?> ObtenerDtoParaSelectorAsync(
+        int relacionComercialId, CancellationToken ct = default)
+    {
+        var relacion = await _context.RelacionesComerciales
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Include(r => r.Persona)
+            .Include(r => r.EmpresaComercial)
+            .FirstOrDefaultAsync(r => r.Id == relacionComercialId, ct);
+
+        if (relacion is null)
+            return null;
+
+        // Resolver correctamente el tipo de entidad y mapear con datos completos.
+        // REGLA: PersonaId tiene precedencia; si ambos son null la relación está corrupta.
+
+        if (relacion.Persona is not null)
+        {
+            var p = relacion.Persona;
+            return new DirectorioSelectorDto
+            {
+                EntityType         = DirectorioEntityType.Persona,
+                PersonaId          = p.Id,
+                EmpresaComercialId = null,
+                DisplayName        = p.Apellidos is { Length: > 0 }
+                    ? $"{p.Nombre} {p.Apellidos}"
+                    : p.Nombre,
+                RFC      = p.RFC,
+                Email    = p.Email,
+                Telefono = p.Telefono,
+            };
+        }
+
+        if (relacion.EmpresaComercial is not null)
+        {
+            var e = relacion.EmpresaComercial;
+            return new DirectorioSelectorDto
+            {
+                EntityType         = DirectorioEntityType.Empresa,
+                PersonaId          = null,
+                EmpresaComercialId = e.Id,
+                DisplayName        = e.NombreComercial is { Length: > 0 }
+                    ? e.NombreComercial
+                    : e.RazonSocial,
+                RFC      = e.RFC,
+                Email    = e.Email,
+                Telefono = e.Telefono,
+            };
+        }
+
+        return null; // Relación sin entidad vinculada (datos inconsistentes)
+    }
 }

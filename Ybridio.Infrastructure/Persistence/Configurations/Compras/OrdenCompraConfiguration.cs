@@ -13,6 +13,12 @@ internal sealed class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenC
         builder.HasKey(e => e.Id);
         builder.Property(e => e.Id).UseIdentityColumn();
 
+        builder.Property(e => e.Folio).HasMaxLength(50);
+        builder.HasIndex(e => new { e.EmpresaId, e.Folio })
+            .HasFilter("[Folio] IS NOT NULL")
+            .IsUnique()
+            .HasDatabaseName("UQ_OrdenCompra_EmpresaFolio");
+
         builder.Property(e => e.Total).IsRequired().HasColumnType("decimal(18,6)");
         builder.Property(e => e.Estatus).IsRequired();
         builder.Property(e => e.Fecha).IsRequired();

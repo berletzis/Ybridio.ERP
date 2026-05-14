@@ -1,20 +1,27 @@
 namespace Ybridio.Domain.Common;
 
 /// <summary>
-/// Constantes fiscales institucionales.
-/// Centraliza la tasa estándar de IVA para evitar valores dispersos en el código.
-/// Preparada para evolución futura (tasas diferenciales, configuración por empresa).
+/// Constantes fiscales de fallback institucional.
+///
+/// REGLA (Single Source of Truth Fiscal Rule):
+/// La fuente de verdad fiscal es <c>catalogos.TipoImpuesto</c> — gestionada vía
+/// <c>IConfiguracionFiscalService</c> y <c>ParametroGlobal</c>.
+///
+/// Esta clase SOLO aplica como:
+/// 1. Valor de fallback cuando no hay TipoImpuesto configurado en la empresa.
+/// 2. Referencia estática en migraciones o contextos sin sesión activa.
+///
+/// En código operacional de Application y WinUI SIEMPRE usar:
+///   IConfiguracionFiscalService.ObtenerTasaIvaProductoAsync()
+///
+/// NUNCA hardcodear 0.16 directamente.
 /// </summary>
-/// <remarks>
-/// ADR-040 — Operational Commercial Document Standard:
-/// Toda lógica de impuestos simple debe referenciar estas constantes,
-/// NO hardcodear 0.16 o 16 directamente.
-/// </remarks>
 public static class FiscalConstants
 {
     /// <summary>
-    /// Tasa estándar de IVA institucional (16%).
-    /// Aplica a productos con <c>IvaAplicable = true</c>.
+    /// Tasa estándar de IVA de fallback (16%).
+    /// SOLO usar cuando no hay TipoImpuesto configurado en IConfiguracionFiscalService.
+    /// En operación normal, la tasa debe venir de: TipoImpuesto.Tasa (= Porcentaje / 100).
     /// </summary>
     public const decimal TasaIvaEstandar = 0.16m;
 }

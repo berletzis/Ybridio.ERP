@@ -5,28 +5,34 @@ using Microsoft.UI.Xaml.Navigation;
 using Ybridio.WinUI.Views.Config;
 using XamlApp = Microsoft.UI.Xaml.Application;
 using AuditoriaViewPage = Ybridio.WinUI.Views.Config.AuditoriaPage;
-using ArqSegViewPage    = Ybridio.WinUI.Views.Config.ArquitecturaSegPage;
 
 namespace Ybridio.WinUI.Views.Configuracion;
 
 /// <summary>
-/// Página contenedora del módulo de Configuración.
-/// Muestra el modo Global (Empresa, Tiendas, Seguridad) o el modo Tienda
-/// (configuración específica por sucursal) según el parámetro de navegación:
-/// "Global" → TabsGlobal visible | "Tienda" → TabsTienda visible.
+/// Página contenedora del módulo de Configuración Global.
+///
+/// Modo Global (parámetro "Global" o null):
+///   NavigationView vertical institucional (Visual Studio Settings style).
+///   Secciones: Empresa · Sucursales · Parámetros · Impuestos · Otros Cargos ·
+///              Unidades de Medida · Tipos de Producto · Workflow · Auditoría · Seguridad
+///
+/// Modo Tienda (parámetro "Tienda"):
+///   TabView horizontal para configuración de la sucursal activa.
 /// </summary>
 public sealed partial class ConfiguracionPage : Page
 {
-    // ── Lazy-load flags — Global ─────────────────────────────────────────────
+    // ── Lazy-load flags — Global NavView ─────────────────────────────────────
     private bool _empresaLoaded;
-    private bool _tiendasGlobalLoaded;
+    private bool _sucursalesLoaded;
+    private bool _parametrosLoaded;
+    private bool _impuestosLoaded;
+    private bool _otrosCargosLoaded;
+    private bool _unidadesMedidaLoaded;
+    private bool _tiposProductoLoaded;
+    private bool _seriesDocumentoLoaded;
+    private bool _workflowLoaded;
     private bool _auditoriaLoaded;
-    private bool _usuariosGlobalLoaded;
-    private bool _rolesGlobalLoaded;
-    private bool _perfilesGlobalLoaded;
-    private bool _permisosGlobalLoaded;
-    private bool _scopesGlobalLoaded;
-    private bool _arquitecturaGlobalLoaded;
+    private bool _seguridadLoaded;
 
     // ── Lazy-load flags — Tienda ─────────────────────────────────────────────
     private bool _usuariosTiendaLoaded;
@@ -41,15 +47,13 @@ public sealed partial class ConfiguracionPage : Page
     public ConfiguracionPage() => InitializeComponent();
 
     /// <summary>
-    /// Establece el modo de visualización de la página desde el WorkspaceService.
-    /// Llamar inmediatamente después de instanciar la página, antes de añadirla al workspace.
+    /// Permite cambiar el modo desde el WorkspaceService (antes de añadir la página al árbol visual).
     /// </summary>
-    /// <param name="mode">"Global" muestra configuración global; "Tienda" muestra configuración de sucursal.</param>
     public void SetMode(string mode)
     {
         bool esTienda = mode == "Tienda";
-        TabsGlobal.Visibility = esTienda ? Visibility.Collapsed : Visibility.Visible;
-        TabsTienda.Visibility = esTienda ? Visibility.Visible   : Visibility.Collapsed;
+        NavGlobal.Visibility       = esTienda ? Visibility.Collapsed : Visibility.Visible;
+        TiendaContainer.Visibility = esTienda ? Visibility.Visible   : Visibility.Collapsed;
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -58,61 +62,70 @@ public sealed partial class ConfiguracionPage : Page
 
         bool esTienda = e.Parameter is string p && p == "Tienda";
 
-        TabsGlobal.Visibility = esTienda ? Visibility.Collapsed : Visibility.Visible;
-        TabsTienda.Visibility = esTienda ? Visibility.Visible   : Visibility.Collapsed;
+        NavGlobal.Visibility       = esTienda ? Visibility.Collapsed : Visibility.Visible;
+        TiendaContainer.Visibility = esTienda ? Visibility.Visible   : Visibility.Collapsed;
 
         if (esTienda)
+        {
             LoadTiendaTab(TabsTienda.SelectedItem as TabViewItem);
+        }
         else
-            LoadGlobalTab(TabsGlobal.SelectedItem as TabViewItem);
+        {
+            // Seleccionar Empresa por defecto al abrir
+            if (NavGlobal.SelectedItem is null)
+                NavGlobal.SelectedItem = NavGlobal.MenuItems[1]; // primer item real (post-header)
+        }
     }
 
-    // ── Handlers de selección ────────────────────────────────────────────────
+    // ── NavigationView Global — SelectionChanged ──────────────────────────────
 
-    private void GlobalTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        => LoadGlobalTab(TabsGlobal.SelectedItem as TabViewItem);
+    private void NavGlobal_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
+    {
+        if (args.SelectedItem is not NavigationViewItem item) return;
+        var tag = item.Tag?.ToString();
 
-    private void SeguridadTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        => LoadSeguridadTab(TabsSeguridad.SelectedItem as TabViewItem);
+        switch (tag)
+        {
+            case "empresa":
+                LoadNavFrame(ref _empresaLoaded, typeof(EmpresaPage));
+                break;
+            case "sucursales":
+                LoadNavFrame(ref _sucursalesLoaded, typeof(SucursalesConfigPage));
+                break;
+            case "parametros":
+                LoadNavFrame(ref _parametrosLoaded, typeof(ParametrosPage));
+                break;
+            case "impuestos":
+                LoadNavFrame(ref _impuestosLoaded, typeof(ImpuestosPage));
+                break;
+            case "otros-cargos":
+                LoadNavFrame(ref _otrosCargosLoaded, typeof(OtrosCargosPage));
+                break;
+            case "unidades-medida":
+                LoadNavFrame(ref _unidadesMedidaLoaded, typeof(UnidadesMedidaPage));
+                break;
+            case "tipos-producto":
+                LoadNavFrame(ref _tiposProductoLoaded, typeof(TiposProductoPage));
+                break;
+            case "series-documento":
+                LoadNavFrame(ref _seriesDocumentoLoaded, typeof(SeriesDocumentoPage));
+                break;
+            case "workflow":
+                LoadNavFrame(ref _workflowLoaded, typeof(WorkflowPage));
+                break;
+            case "auditoria":
+                LoadNavFrame(ref _auditoriaLoaded, typeof(AuditoriaViewPage));
+                break;
+            case "seguridad":
+                LoadNavFrame(ref _seguridadLoaded, typeof(SeguridadGlobalPage));
+                break;
+        }
+    }
+
+    // ── Handlers Tienda ──────────────────────────────────────────────────────
 
     private void TiendaTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
         => LoadTiendaTab(TabsTienda.SelectedItem as TabViewItem);
-
-    // ── Carga de tabs — Global ───────────────────────────────────────────────
-
-    private void LoadGlobalTab(TabViewItem? tab)
-    {
-        if (tab is null) return;
-
-        if (tab == TabGlobalEmpresa)
-            LoadFrame(ref _empresaLoaded, FrameEmpresa, typeof(EmpresaPage));
-        else if (tab == TabGlobalTiendas)
-            LoadFrame(ref _tiendasGlobalLoaded, FrameTiendasGlobal, typeof(SucursalesConfigPage));
-        else if (tab == TabGlobalAuditoria)
-            LoadFrame(ref _auditoriaLoaded, FrameAuditoria, typeof(AuditoriaViewPage));
-        else if (tab == TabGlobalSeguridad)
-            LoadSeguridadTab(TabsSeguridad.SelectedItem as TabViewItem);
-    }
-
-    private void LoadSeguridadTab(TabViewItem? tab)
-    {
-        if (tab is null) return;
-
-        if (tab == TabUsuariosGlobal)
-            LoadFrame(ref _usuariosGlobalLoaded, FrameUsuariosGlobal, typeof(UsuariosPage));
-        else if (tab == TabRolesGlobal)
-            LoadFrame(ref _rolesGlobalLoaded, FrameRolesGlobal, typeof(RolesPage));
-        else if (tab == TabPerfilesGlobal)
-            LoadFrame(ref _perfilesGlobalLoaded, FramePerfilesGlobal, typeof(PerfilesPage));
-        else if (tab == TabPermisosGlobal)
-            LoadFrame(ref _permisosGlobalLoaded, FramePermisosGlobal, typeof(PermisosPage));
-        else if (tab == TabScopesGlobal)
-            LoadFrame(ref _scopesGlobalLoaded, FrameScopesGlobal, typeof(ScopesPage));
-        else if (tab == TabArquitecturaGlobal)
-            LoadFrame(ref _arquitecturaGlobalLoaded, FrameArquitecturaGlobal, typeof(ArqSegViewPage));
-    }
-
-    // ── Carga de tabs — Tienda ───────────────────────────────────────────────
 
     private void LoadTiendaTab(TabViewItem? tab)
     {
@@ -138,7 +151,15 @@ public sealed partial class ConfiguracionPage : Page
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    /// <summary>Navega el Frame al tipo de página indicado, solo la primera vez.</summary>
+    /// <summary>Navega el NavContentFrame al tipo de página indicado, solo la primera vez.</summary>
+    private void LoadNavFrame(ref bool flag, Type pageType)
+    {
+        // Siempre navegar para recargar (sin lazy-load en NavigationView, para reaccionar a cambio de sección)
+        NavContentFrame.Navigate(pageType);
+        flag = true;
+    }
+
+    /// <summary>Navega un Frame a un tipo de página, solo la primera vez (Tienda mode).</summary>
     private static void LoadFrame(ref bool flag, Frame frame, Type pageType)
     {
         if (flag) return;

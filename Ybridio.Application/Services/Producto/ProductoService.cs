@@ -475,21 +475,25 @@ public sealed class ProductoService : IProductoService
 
     public async Task<IReadOnlyList<TipoProductoDto>> ListarTiposProductoAsync(
         int empresaId, CancellationToken ct = default) =>
-        await _context.TiposProducto
+        (await _context.TiposProducto
             .AsNoTracking()
             .Where(t => t.EmpresaId == empresaId && t.Activo)
-            .OrderBy(t => t.Nombre)
-            .Select(t => new TipoProductoDto(t.Id, t.EmpresaId, t.Nombre, t.Descripcion, t.Activo))
-            .ToListAsync(ct);
+            .OrderBy(t => t.OrdenVisual).ThenBy(t => t.Nombre)
+            .ToListAsync(ct))
+            .Select(t => new TipoProductoDto(t.Id, t.EmpresaId, t.Nombre, t.Descripcion, t.Activo, t.Clave, t.OrdenVisual))
+            .ToList();
 
     public async Task<IReadOnlyList<TipoImpuestoDto>> ListarTiposImpuestoAsync(
         int empresaId, CancellationToken ct = default) =>
-        await _context.TiposImpuesto
+        (await _context.TiposImpuesto
             .AsNoTracking()
             .Where(t => t.EmpresaId == empresaId && t.Activo)
-            .OrderBy(t => t.Nombre)
-            .Select(t => new TipoImpuestoDto(t.Id, t.EmpresaId, t.Nombre, t.Porcentaje, t.Activo))
-            .ToListAsync(ct);
+            .OrderBy(t => t.OrdenVisual).ThenBy(t => t.Nombre)
+            .ToListAsync(ct))
+            .Select(t => new TipoImpuestoDto(
+                t.Id, t.EmpresaId, t.Nombre, t.Porcentaje, t.Activo,
+                t.Codigo, t.TipoGravamen, t.EsExento, t.OrdenVisual, t.Descripcion))
+            .ToList();
 
     // ── Mapeo interno ─────────────────────────────────────────────────────────
 

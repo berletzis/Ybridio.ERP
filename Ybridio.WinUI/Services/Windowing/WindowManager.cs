@@ -200,6 +200,26 @@ public sealed class WindowManager : IWindowManager
         }
     }
 
+    /// <inheritdoc/>
+    public bool TryActivateWindow(string documentKey)
+    {
+        // Single Document Session Rule: busca en el registro de ventanas cualquier entrada
+        // cuya key interna termine con _{documentKey}.
+        // La key interna tiene formato "TipoVentana_{documentKey}" (ej: "DetachedDocumentWindow_detached:cotizacion:123").
+        var suffix = $"_{documentKey}";
+        foreach (var (key, descriptor) in _windows)
+        {
+            if (key.EndsWith(suffix, StringComparison.Ordinal))
+            {
+                _logger.LogDebug("[WindowManager] TryActivateWindow: sesión activa encontrada para {DocumentKey}", documentKey);
+                BringDescriptorToFront(descriptor);
+                return true;
+            }
+        }
+        _logger.LogDebug("[WindowManager] TryActivateWindow: sin sesión activa para {DocumentKey}", documentKey);
+        return false;
+    }
+
     // ── Helpers privados ─────────────────────────────────────────────────────
 
     /// <summary>

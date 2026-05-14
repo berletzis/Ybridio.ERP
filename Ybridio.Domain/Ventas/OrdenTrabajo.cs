@@ -34,6 +34,9 @@ public class OrdenTrabajo : AuditableEntity
     /// <summary>Pedido de origen si la OT fue generada desde un pedido.</summary>
     public long? PedidoId     { get; set; }
 
+    /// <summary>Folio documental (ej: "OT-000001"). Null en registros anteriores a SerieDocumento.</summary>
+    public string? Folio { get; set; }
+
     public EstatusOrdenTrabajo Estatus        { get; set; } = EstatusOrdenTrabajo.Nueva;
     public DateTime            Fecha          { get; set; }
     public DateTime?           FechaCompromiso { get; set; }

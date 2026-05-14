@@ -13,6 +13,12 @@ internal sealed class VentaConfiguration : IEntityTypeConfiguration<Venta>
         builder.HasKey(e => e.Id);
         builder.Property(e => e.Id).UseIdentityColumn();
 
+        builder.Property(e => e.Folio).HasMaxLength(50);
+        builder.HasIndex(e => new { e.EmpresaId, e.Folio })
+            .HasFilter("[Folio] IS NOT NULL")
+            .IsUnique()
+            .HasDatabaseName("UQ_Venta_EmpresaFolio");
+
         builder.Property(e => e.Fecha).IsRequired();
         builder.Property(e => e.Total).HasColumnType("decimal(18,2)");
 

@@ -135,9 +135,17 @@ public sealed partial class RelacionComercialSelectorControl : UserControl
     }
 
     /// <summary>
-    /// Actualiza la UI cuando cambia la entidad seleccionada.
-    /// Sin selección → muestra SearchPanel, colapsa ChipPanel.
-    /// Con selección  → colapsa SearchPanel, muestra ChipPanel (sin texto en TextBox).
+    /// Actualiza la UI según el estado de selección.
+    ///
+    /// ESTADO A (sin selección):
+    ///   InputBorder visible — TextBox de búsqueda activo.
+    ///   EntityChipPanel colapsado.
+    ///
+    /// ESTADO B (con selección):
+    ///   InputBorder colapsado — TextBox completamente oculto, sin texto residual.
+    ///   EntityChipPanel visible — chip compacto con nombre + badge + botón limpiar.
+    ///
+    /// La entidad NUNCA se renderiza dentro del InputBorder/TextBox.
     /// </summary>
     private void ActualizarUI(DirectorioSelectorDto? entidad)
     {
@@ -145,29 +153,25 @@ public sealed partial class RelacionComercialSelectorControl : UserControl
 
         if (entidad is null)
         {
-            // Mostrar el buscador vacío; NO hay texto residual ni caret
-            _isSelecting         = true;
-            TxtBusqueda.Text     = string.Empty;
-            _isSelecting         = false;
+            // Estado A: buscador limpio
+            _isSelecting     = true;
+            TxtBusqueda.Text = string.Empty;
+            _isSelecting     = false;
 
-            SearchPanel.Visibility  = Visibility.Visible;
-            ChipPanel.Visibility    = Visibility.Collapsed;
-            BtnLimpiar.Visibility   = Visibility.Collapsed;
+            InputBorder.Visibility    = Visibility.Visible;
+            EntityChipPanel.Visibility = Visibility.Collapsed;
 
-            // Quitar foco del TextBox para evitar caret visible incorrecto
             Focus(FocusState.Programmatic);
         }
         else
         {
-            // Colapsar el buscador; mostrar solo el chip con la entidad
-            SearchPanel.Visibility  = Visibility.Collapsed;
-            ChipPanel.Visibility    = Visibility.Visible;
-            BtnLimpiar.Visibility   = Visibility.Visible;
-
-            // El TextBox permanece vacío — sin ghost text
+            // Estado B: ocultar input, mostrar chip compacto debajo
             _isSelecting     = true;
-            TxtBusqueda.Text = string.Empty;
+            TxtBusqueda.Text = string.Empty;   // limpiar sin disparar TextChanged
             _isSelecting     = false;
+
+            InputBorder.Visibility    = Visibility.Collapsed;
+            EntityChipPanel.Visibility = Visibility.Visible;
 
             MostrarChip(entidad);
         }
@@ -278,9 +282,8 @@ public sealed partial class RelacionComercialSelectorControl : UserControl
     private void BtnLimpiar_Click(object sender, RoutedEventArgs e)
     {
         LimpiarSeleccion();
-        // Mostrar el buscador y colocar el foco para que el usuario pueda buscar de nuevo
-        SearchPanel.Visibility = Visibility.Visible;
-        TxtBusqueda.Focus(FocusState.Keyboard);
+        // Restaurar foco en el buscador para que el usuario pueda buscar de nuevo
+        DispatcherQueue.TryEnqueue(() => TxtBusqueda.Focus(FocusState.Keyboard));
     }
 
     // ── Debounce + Búsqueda ──────────────────────────────────────────────────
@@ -372,33 +375,25 @@ public sealed partial class RelacionComercialSelectorControl : UserControl
         _isSelecting        = true;
         EntidadSeleccionada = null;
         _isSelecting        = false;
-        ChipPanel.Visibility  = Visibility.Collapsed;
-        SearchPanel.Visibility = Visibility.Visible;
-        BtnLimpiar.Visibility = Visibility.Collapsed;
+        // Restaurar Estado A
+        InputBorder.Visibility     = Visibility.Visible;
+        EntityChipPanel.Visibility = Visibility.Collapsed;
     }
 
-    // ── Chip de entidad seleccionada (inline, sin Row-1 duplicado) ───────────
+    // ── Chip del seleccionado ─────────────────────────────────────────────────
 
     /// <summary>
-    /// Rellena el ChipPanel con los datos de la entidad seleccionada.
-    /// Usa tokens de color institucionales (OgBadge*) del ResourceDictionary.
+    /// Rellena el EntityChipPanel con los datos de la entidad seleccionada.
+    /// Muestra: glyph + nombre + badge institucional.
+    /// El email y teléfono se muestran en el bloque de metadatos de la página — NO aquí,
+    /// para evitar duplicar información que ya renderiza el contenedor padre.
     /// </summary>
     private void MostrarChip(DirectorioSelectorDto entidad)
     {
         ChipGlyph.Glyph  = entidad.Glyph;
         ChipNombre.Text  = entidad.DisplayName;
 
-        if (!string.IsNullOrWhiteSpace(entidad.InfoSecundaria))
-        {
-            ChipInfo.Text       = entidad.InfoSecundaria;
-            ChipInfo.Visibility = Visibility.Visible;
-        }
-        else
-        {
-            ChipInfo.Visibility = Visibility.Collapsed;
-        }
-
-        // Aplicar badge con tokens institucionales Og* del ResourceDictionary
+        // Badge con tokens institucionales Og* del ResourceDictionary
         var (label, bgKey, borderKey, fgKey) = entidad.TipoVisual switch
         {
             "Empresa"        => ("Empresa",        "OgBadgeEmpresaBg",  "OgBadgeEmpresaBorder", "OgBadgeEmpresaFg"),

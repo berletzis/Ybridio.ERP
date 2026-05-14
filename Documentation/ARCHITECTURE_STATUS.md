@@ -1,8 +1,8 @@
 # Architecture Status — Ybridio ERP
 
-> Última actualización: 2026-05-12 → **ADR-041: Operational Editable Document Lines Pattern** (líneas con INPC, edición inline cantidad, recálculo importe en tiempo real, Single Source of Truth cálculo)  
-> Build: ✅ 0 errores | BD: YBRIDIO-26 | Docs relacionados: `DECISIONS.md` · `ROADMAP.md` · `KNOWN_ISSUES.md` · `CLAUDE_RULES.md`  
-> Fix crítico reciente: ADR-041 Editable Document Lines; ADR-040 Operational Commercial Document Standard; ADR-039 Shared Document Session; ADR-038 Directorio SoT + GetOrCreate; ADR-037 Selector Institucional
+> Última actualización: 2026-05-13 (sesión completa — ver `SESSION_2026-05-13_CONFIG_CATALOGOS_COTIZACIONES.md`)
+> Build: ✅ 0 errores | BD: YBRIDIO-26 | Docs: `DECISIONS.md` · `KNOWN_ISSUES.md` · `CLAUDE_RULES.md`
+> Implementado hoy: Configuración Global (NavigationView), SerieDocumento+Folios, Commercial Tax Pattern, TipoProducto+Clave, CotizacionCargo (OtrosCargos), Single Document Scroll Pattern, 5 bug fixes críticos
 
 ## Estado general
 
@@ -43,6 +43,18 @@
 | **Operational Grid Standard v2** (Column Density System: Primary Expandable/Compact Semantic/Financial Compact; Financial Formatting Semantics: DecimalToCurrencyConverter, OgCurrencyTextStyle — ADR-035; piloto: Cotizaciones ✓ Clientes ✓) | — | — | — | ✅ |
 | **RelacionComercial Entity Selector** (Control institucional reusable ADR-037/ADR-038; búsqueda incremental + debounce + cancellation; selector migrado a Directorio directo — Persona+EmpresaComercial; GetOrCreate pattern al guardar; migrado: Cotizaciones ✓ Pedidos ✓ Ventas ✓ OT ✓) | — | — | ✅ | ✅ |
 | **Shared Document Session Pattern** (ADR-039: Detach rehostea la misma instancia de página/ViewModel; preserva runtime state completo; no auto-save; no recreación; implementado en Cotizaciones) | — | — | — | ✅ |
+| **Commercial Discount Pattern** (ADR-042: descuento línea + global, CommercialDocumentCalculator SoT, Two-Phase Apply, Global Lifecycle; piloto: Cotizaciones ✓) | ✅ | ✅ | ✅ | ✅ |
+| **Commercial Document Workflow Pattern** (Borrador→Aprobada→Convertida; Enviar=acción operacional; Convertida badge verde; CommandBar reagrupado) | ✅ | — | ✅ | ✅ |
+| **Selector DTO Hydration Rule** (ObtenerDtoParaSelectorAsync; EntityType/Email/Teléfono correctos al editar; EntityChipPanel vs InputBorder separados) | — | — | ✅ | ✅ |
+| **Single Document Session Rule** (TryActivateWindow; _currentInlineDocumentId; 3 checks antes de abrir; piloto: Cotizaciones ✓) | — | — | — | ✅ |
+| **Operational Date Display Pattern** (CalendarDatePicker + OperationalDateConverter "8 Junio 2026"; piloto: Cotizaciones ✓) | — | — | — | ✅ |
+| **Configuración Global — NavigationView vertical** (VS Settings style; 10 secciones; ParametroGlobal + OtroCargo + SerieDocumento; Singleton Operational Surface — EmpresaPage) | ✅ | ✅ | ✅ | ✅ |
+| **Shared Sequence/Folio Pattern** (SerieDocumento + IFolioGeneratorService atómico; Document Identity Rule; folios en Cotizacion/Pedido/Venta/OT/OC) | ✅ | ✅ | ✅ | ✅ |
+| **Commercial Tax Pattern** (TipoImpuesto enriquecido; IConfiguracionFiscalService; ParametrosClave; FiscalConstants como fallback; tasa configurada en CotizacionDocumentoViewModel) | ✅ | ✅ | ✅ | ✅ |
+| **Product Type Classification Pattern** (TipoProducto.Clave operacional; Servicios = Producto con Clave="SERV") | ✅ | ✅ | ✅ | ✅ |
+| **Commercial Charges Pattern** (CotizacionCargo; sección documental separada; impacta IVA y Total; Single Document Scroll Pattern) | ✅ | ✅ | ✅ | ✅ |
+| **Single Document Scroll Pattern** (ScrollViewer documental único; ListViews con scroll desactivado; crecimiento dinámico de grids) | — | — | — | ✅ |
+| **Global Document Runtime Ownership Pattern** (DocumentoId en ViewModel; window key con ID real; DocumentSaved actualiza inline tracking) | — | — | — | ✅ |
 
 ---
 
@@ -1176,6 +1188,42 @@ Usuario presiona Guardar
 ### Estado
 
 ✅ **IMPLEMENTADO Y BUILD EXITOSO** — Selector funcional sin `RelacionComercial` preexistente. GetOrCreate transparente al guardar. Scripts de normalización obsoletos.
+
+---
+
+## Commercial Discount Pattern (implementado 2026-05-12 — ADR-042)
+
+### Objetivo
+
+Descuentos comerciales operacionales para Cotizaciones (piloto), reutilizables en Pedidos, OC, Ventas y Facturación:
+
+- ✅ **Descuento por línea** — `Desc. %` editable inline en el grid (NumberBox)
+- ✅ **Descuento global** — bloque institucional en formulario de encabezado; aplica a todas las líneas
+- ✅ **Regla no acumulable** — confirmación antes de sobrescribir descuentos individuales con el global
+- ✅ **CommercialDocumentCalculator** — Single Source of Truth para toda la aritmética comercial
+- ✅ **Fix cliente en modo edición** — chip del selector restaurado via `DirectorioSelectorDto` sintético
+- ✅ **DatePicker fix** — `HorizontalAlignment="Stretch"` garantiza visibilidad del año completo
+- ✅ **Columna Existencia removida** — simplificación operacional (existencia ya visible vía diálogo de búsqueda)
+- ✅ **Totales enriquecidos** — SubtotalBruto + DescuentoTotal (condicionales) + Subtotal + IVA + Total
+
+### CommercialDocumentCalculator (`Ybridio.Application/Common`)
+
+```csharp
+// CalcularImporteLinea(cantidad, precioUnitario, descuentoPct) → decimal
+// CalcularDescuentoLinea(cantidad, precioUnitario, descuentoPct) → decimal
+// CalcularImpuestos(lineas, tasaIva) → decimal
+// CalcularTotal(subtotal, impuestos) → decimal
+```
+
+Reutilizar en todos los documentos comerciales futuros. NUNCA reimplementar la fórmula.
+
+### DB Change requerido
+
+Ejecutar en YBRIDIO-26:
+```
+Documentation/Scripts/AddDescuentoPct_CotizacionDetalle.sql
+```
+Agrega `DescuentoPct DECIMAL(5,2) NOT NULL DEFAULT 0` a `ventas.CotizacionDetalle`. Idempotente.
 
 ---
 
