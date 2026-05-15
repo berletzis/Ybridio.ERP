@@ -30,13 +30,19 @@ public class Pedido : AuditableEntity
     /// <summary>Folio documental (ej: "PED-000001"). Null en registros anteriores a SerieDocumento.</summary>
     public string? Folio { get; set; }
 
-    public EstatusPedido Estatus              { get; set; } = EstatusPedido.Nuevo;
+    public EstatusPedido Estatus              { get; set; } = EstatusPedido.Borrador;
     public DateTime      Fecha                { get; set; }
     public DateTime?     FechaEntregaCompromiso { get; set; }
 
     /// <summary>
+    /// Subtotal = SUM(detalle.Importe neto). Null en registros anteriores a ADR-WorkflowV1.
+    /// Reservado para distinción subtotal/total cuando se agreguen cargos al pedido.
+    /// </summary>
+    public decimal? Subtotal     { get; set; }
+
+    /// <summary>
     /// Total del pedido.
-    /// Fórmula: SUM(detalle.Importe). Persistido para acceso rápido en reportes.
+    /// Fórmula: SUM(detalle.Importe) + SUM(cargos). Persistido para acceso rápido en reportes.
     /// </summary>
     public decimal Total         { get; set; }
     public string? Observaciones  { get; set; }
@@ -47,4 +53,6 @@ public class Pedido : AuditableEntity
     public RelacionComercial?   RelacionComercial   { get; set; }
     public Cotizacion?          Cotizacion          { get; set; }
     public ICollection<PedidoDetalle> Detalles      { get; set; } = [];
+    /// <summary>Cargos accesorios del pedido (Flete, Maniobras, Seguro, etc.) — Commercial Charges Pattern.</summary>
+    public ICollection<PedidoCargo>   Cargos        { get; set; } = [];
 }

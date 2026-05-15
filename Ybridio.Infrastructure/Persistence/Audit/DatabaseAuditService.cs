@@ -143,13 +143,12 @@ public sealed class DatabaseAuditService : IDatabaseAuditService
         var results = new List<SchemaAuditEntry>();
         using var cmd = conn.CreateCommand();
 
-        // Verificar que schema migmap existe
+        // migmap eliminado 2026-05-14 — schema nunca usado (13 tablas vacías)
         cmd.CommandText = "SELECT COUNT(*) FROM sys.schemas WHERE name = 'migmap'";
         if ((int)(await cmd.ExecuteScalarAsync(ct) ?? 0) == 0)
         {
-            results.Add(new SchemaAuditEntry(AuditSeverity.Warning, "Registros huérfanos",
-                "Schema migmap no existe. No se ejecutó el script de migración.",
-                "Ejecutar D:\\Downloads\\migracion_catalogos.sql primero."));
+            results.Add(new SchemaAuditEntry(AuditSeverity.Info, "Migmap",
+                "Schema migmap no existe — eliminado correctamente (era infraestructura vacía).", null));
             return results;
         }
 
@@ -244,9 +243,12 @@ public sealed class DatabaseAuditService : IDatabaseAuditService
         while (await r.ReadAsync(ct))
         {
             depsCount++;
-            results.Add(new SchemaAuditEntry(AuditSeverity.Critical, "Dependencias dbo",
+            // FK a dbo → Warning, no Critical.
+            // Es el estado ESPERADO post-migración en un ERP que usa scripts manuales.
+            // Solo es Critical si hay datos con referencias rotas (validado en WorkflowAuditService).
+            results.Add(new SchemaAuditEntry(AuditSeverity.Warning, "Dependencias dbo",
                 $"FK residual: {r.GetString(0)} → dbo.{r.GetString(2)} (constraint: {r.GetString(1)})",
-                "Actualizar la FK para referenciar la tabla equivalente en catalogos.* o eliminarla."));
+                "Estado post-migración esperado. Actualizar FK a catalogos.* cuando sea operacionalmente seguro."));
         }
         await r.CloseAsync();
 
@@ -289,13 +291,12 @@ public sealed class DatabaseAuditService : IDatabaseAuditService
         using var existCmd = conn.CreateCommand();
         using var countCmd = conn.CreateCommand();
 
-        // Verificar schema migmap
+        // migmap eliminado 2026-05-14 — schema no existe, validación N/A
         existCmd.CommandText = "SELECT COUNT(*) FROM sys.schemas WHERE name = 'migmap'";
         if ((int)(await existCmd.ExecuteScalarAsync(ct) ?? 0) == 0)
         {
-            results.Add(new SchemaAuditEntry(AuditSeverity.Warning, "Sin migrar",
-                "Schema migmap no existe. No se puede verificar el estado de migración.",
-                "Ejecutar D:\\Downloads\\migracion_catalogos.sql primero."));
+            results.Add(new SchemaAuditEntry(AuditSeverity.Info, "Migmap",
+                "Schema migmap no existe — eliminado correctamente.", null));
             return results;
         }
 

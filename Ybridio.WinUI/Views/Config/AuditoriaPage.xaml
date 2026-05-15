@@ -11,109 +11,227 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>   <!-- CommandBar -->
-            <RowDefinition Height="Auto"/>   <!-- Banner de resumen -->
+            <RowDefinition Height="Auto"/>   <!-- Banner de resumen + métricas por módulo -->
+            <RowDefinition Height="Auto"/>   <!-- Panel ejecutivo módulos -->
             <RowDefinition Height="*"/>      <!-- Grid de hallazgos -->
+            <RowDefinition Height="Auto"/>   <!-- StatusBar -->
             <RowDefinition Height="Auto"/>   <!-- StatusBar -->
         </Grid.RowDefinitions>
 
         <!-- ── CommandBar ───────────────────────────────────────────────── -->
-        <CommandBar Grid.Row="0"
-                    DefaultLabelPosition="Right"
-                    HorizontalAlignment="Left"
-                    Margin="8,0,0,0">
+        <Border Grid.Row="0" Background="{ThemeResource LayerFillColorDefaultBrush}"
+                BorderBrush="#E5E5E5" BorderThickness="0,0,0,1">
+            <CommandBar DefaultLabelPosition="Right" HorizontalAlignment="Left"
+                        Background="Transparent" Margin="4,0,0,0">
 
-            <AppBarButton Label="Auditoría de Esquema"
-                          Command="{x:Bind ViewModel.EjecutarAuditoriaCommand}"
-                          ToolTipService.ToolTip="Compara modelo EF vs estructura real de la BD">
-                <AppBarButton.Icon><FontIcon Glyph="&#xE8D4;"/></AppBarButton.Icon>
-            </AppBarButton>
+                <AppBarButton Label="Esquema EF"
+                              Command="{x:Bind ViewModel.EjecutarAuditoriaCommand}"
+                              ToolTipService.ToolTip="Compara modelo EF vs estructura real de la BD (tablas, columnas, FK)">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE8D4;"/></AppBarButton.Icon>
+                </AppBarButton>
 
-            <AppBarButton Label="Auditoría de Datos"
-                          Command="{x:Bind ViewModel.EjecutarAuditoriaDatosCommand}"
-                          ToolTipService.ToolTip="Valida integridad de datos post-migración dbo → catalogos">
-                <AppBarButton.Icon><FontIcon Glyph="&#xE9D9;"/></AppBarButton.Icon>
-            </AppBarButton>
+                <AppBarButton Label="Datos Catálogos"
+                              Command="{x:Bind ViewModel.EjecutarAuditoriaDatosCommand}"
+                              ToolTipService.ToolTip="Valida integridad de datos: duplicados, FK catálogos, dependencias dbo">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE9D9;"/></AppBarButton.Icon>
+                </AppBarButton>
 
-            <AppBarButton Label="Exportar JSON"
-                          Command="{x:Bind ViewModel.ExportarJsonCommand}">
-                <AppBarButton.Icon><FontIcon Glyph="&#xE74E;"/></AppBarButton.Icon>
-            </AppBarButton>
+                <AppBarButton Label="Workflow Comercial"
+                              Command="{x:Bind ViewModel.EjecutarAuditoriaWorkflowCommand}"
+                              ToolTipService.ToolTip="Valida lifecycle documental, snapshots, datos legacy y scripts pendientes">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE73E;"/></AppBarButton.Icon>
+                </AppBarButton>
 
-            <AppBarSeparator/>
+                <AppBarButton Label="Integridad Comercial"
+                              Command="{x:Bind ViewModel.EjecutarAuditoriaComercialCommand}"
+                              ToolTipService.ToolTip="Valida cadena COT→PED→VTA, totales financieros, pagos, aging, CxC">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE8C8;"/></AppBarButton.Icon>
+                </AppBarButton>
 
-            <!-- Filtro con MenuFlyout -->
-            <AppBarButton Label="{x:Bind ViewModel.FiltroActivoLabel, Mode=OneWay}">
-                <AppBarButton.Icon><FontIcon Glyph="&#xE71C;"/></AppBarButton.Icon>
-                <AppBarButton.Flyout>
-                    <MenuFlyout Placement="Bottom">
-                        <MenuFlyoutItem Text="Todos"
-                                        Command="{x:Bind ViewModel.FiltrarCommand}"
-                                        CommandParameter=""/>
-                        <MenuFlyoutSeparator/>
-                        <MenuFlyoutItem Text="Solo Críticos"
-                                        Command="{x:Bind ViewModel.FiltrarCommand}"
-                                        CommandParameter="Critical"/>
-                        <MenuFlyoutItem Text="Solo Errores"
-                                        Command="{x:Bind ViewModel.FiltrarCommand}"
-                                        CommandParameter="Error"/>
-                        <MenuFlyoutItem Text="Solo Advertencias"
-                                        Command="{x:Bind ViewModel.FiltrarCommand}"
-                                        CommandParameter="Warning"/>
-                        <MenuFlyoutItem Text="Solo Info"
-                                        Command="{x:Bind ViewModel.FiltrarCommand}"
-                                        CommandParameter="Info"/>
-                    </MenuFlyout>
-                </AppBarButton.Flyout>
-            </AppBarButton>
+                <AppBarSeparator/>
 
-        </CommandBar>
+                <!-- Filtro por módulo -->
+                <AppBarButton Label="{x:Bind ViewModel.ModuloFiltroLabel, Mode=OneWay}">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE81E;"/></AppBarButton.Icon>
+                    <AppBarButton.Flyout>
+                        <MenuFlyout x:Name="ModuloFlyout" Placement="Bottom">
+                            <MenuFlyoutItem Text="Todos los módulos"
+                                            Command="{x:Bind ViewModel.FiltrarModuloCommand}"
+                                            CommandParameter=""/>
+                            <MenuFlyoutSeparator/>
+                            <MenuFlyoutItem Text="Cotizaciones"
+                                            Command="{x:Bind ViewModel.FiltrarModuloCommand}"
+                                            CommandParameter="Cotizaciones"/>
+                            <MenuFlyoutItem Text="Pedidos"
+                                            Command="{x:Bind ViewModel.FiltrarModuloCommand}"
+                                            CommandParameter="Pedidos"/>
+                            <MenuFlyoutItem Text="Ventas"
+                                            Command="{x:Bind ViewModel.FiltrarModuloCommand}"
+                                            CommandParameter="Ventas"/>
+                            <MenuFlyoutItem Text="Pagos"
+                                            Command="{x:Bind ViewModel.FiltrarModuloCommand}"
+                                            CommandParameter="Pagos"/>
+                            <MenuFlyoutItem Text="CxC"
+                                            Command="{x:Bind ViewModel.FiltrarModuloCommand}"
+                                            CommandParameter="CxC"/>
+                            <MenuFlyoutItem Text="General"
+                                            Command="{x:Bind ViewModel.FiltrarModuloCommand}"
+                                            CommandParameter="General"/>
+                        </MenuFlyout>
+                    </AppBarButton.Flyout>
+                </AppBarButton>
 
-        <!-- ── Resumen de resultados ─────────────────────────────────────── -->
-        <Border Grid.Row="1"
-                Margin="20,8,20,0"
-                Padding="16,10,16,10"
-                Background="#FAFAFA"
-                BorderBrush="#E5E5E5"
-                BorderThickness="1"
-                CornerRadius="4">
-            <StackPanel Orientation="Horizontal" Spacing="24" VerticalAlignment="Center">
+                <AppBarSeparator/>
 
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <FontIcon Glyph="&#xE783;" FontSize="14" Foreground="#D72626"/>
-                    <TextBlock FontWeight="SemiBold" Foreground="#D72626">
-                        <Run Text="{x:Bind ViewModel.TotalCritical, Mode=OneWay}"/>
-                        <Run Text=" crítico(s)"/>
-                    </TextBlock>
-                </StackPanel>
+                <AppBarButton Label="Exportar JSON"
+                              Command="{x:Bind ViewModel.ExportarJsonCommand}">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE74E;"/></AppBarButton.Icon>
+                </AppBarButton>
 
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <FontIcon Glyph="&#xE7BA;" FontSize="14" Foreground="#C86400"/>
-                    <TextBlock FontWeight="SemiBold" Foreground="#C86400">
-                        <Run Text="{x:Bind ViewModel.TotalErrors, Mode=OneWay}"/>
-                        <Run Text=" error(es)"/>
-                    </TextBlock>
-                </StackPanel>
+                <AppBarSeparator/>
 
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <FontIcon Glyph="&#xE7C1;" FontSize="14" Foreground="#AF7D00"/>
-                    <TextBlock Foreground="#AF7D00">
-                        <Run Text="{x:Bind ViewModel.TotalWarnings, Mode=OneWay}"/>
-                        <Run Text=" advertencia(s)"/>
-                    </TextBlock>
-                </StackPanel>
+                <AppBarButton Label="{x:Bind ViewModel.FiltroActivoLabel, Mode=OneWay}">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE71C;"/></AppBarButton.Icon>
+                    <AppBarButton.Flyout>
+                        <MenuFlyout Placement="Bottom">
+                            <MenuFlyoutItem Text="Todos"
+                                            Command="{x:Bind ViewModel.FiltrarCommand}"
+                                            CommandParameter=""/>
+                            <MenuFlyoutSeparator/>
+                            <MenuFlyoutItem Text="Solo Críticos"
+                                            Command="{x:Bind ViewModel.FiltrarCommand}"
+                                            CommandParameter="Critical"/>
+                            <MenuFlyoutItem Text="Solo Errores"
+                                            Command="{x:Bind ViewModel.FiltrarCommand}"
+                                            CommandParameter="Error"/>
+                            <MenuFlyoutItem Text="Solo Advertencias"
+                                            Command="{x:Bind ViewModel.FiltrarCommand}"
+                                            CommandParameter="Warning"/>
+                            <MenuFlyoutSeparator/>
+                            <MenuFlyoutItem Text="Solo Legacy"
+                                            Command="{x:Bind ViewModel.FiltrarCommand}"
+                                            CommandParameter="LegacyData"/>
+                            <MenuFlyoutItem Text="Solo Migr. Pendientes"
+                                            Command="{x:Bind ViewModel.FiltrarCommand}"
+                                            CommandParameter="MigrationPending"/>
+                            <MenuFlyoutSeparator/>
+                            <MenuFlyoutItem Text="Solo Info"
+                                            Command="{x:Bind ViewModel.FiltrarCommand}"
+                                            CommandParameter="Info"/>
+                        </MenuFlyout>
+                    </AppBarButton.Flyout>
+                </AppBarButton>
 
-                <Border Width="1" Height="20"
-                        Background="{ThemeResource DividerStrokeColorDefaultBrush}"/>
-
-                <TextBlock Text="{x:Bind ViewModel.ResumenEstado, Mode=OneWay}"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                           VerticalAlignment="Center"/>
-
-            </StackPanel>
+            </CommandBar>
         </Border>
 
+        <!-- ── Resumen de resultados ─────────────────────────────────────── -->
+        <Border Grid.Row="1" Margin="20,8,20,0" Padding="14,10" Background="#FAFAFA"
+                BorderBrush="#E5E5E5" BorderThickness="1" CornerRadius="4">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Contadores por severidad -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="20" VerticalAlignment="Center">
+
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <FontIcon Glyph="&#xE783;" FontSize="13" Foreground="#D72626"/>
+                        <TextBlock FontWeight="SemiBold" FontSize="13" Foreground="#D72626">
+                            <Run Text="{x:Bind ViewModel.TotalCritical, Mode=OneWay}"/>
+                            <Run Text=" crítico(s)"/>
+                        </TextBlock>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <FontIcon Glyph="&#xE7BA;" FontSize="13" Foreground="#C86400"/>
+                        <TextBlock FontSize="13" Foreground="#C86400">
+                            <Run Text="{x:Bind ViewModel.TotalErrors, Mode=OneWay}"/>
+                            <Run Text=" error(es)"/>
+                        </TextBlock>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <FontIcon Glyph="&#xE7C1;" FontSize="13" Foreground="#AF7D00"/>
+                        <TextBlock FontSize="13" Foreground="#AF7D00">
+                            <Run Text="{x:Bind ViewModel.TotalWarnings, Mode=OneWay}"/>
+                            <Run Text=" warn"/>
+                        </TextBlock>
+                    </StackPanel>
+
+                    <Border Width="1" Height="18" Background="{ThemeResource DividerStrokeColorDefaultBrush}"/>
+
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <FontIcon Glyph="&#xE8D4;" FontSize="13" Foreground="#006497"/>
+                        <TextBlock FontSize="13" Foreground="#006497">
+                            <Run Text="{x:Bind ViewModel.TotalLegacy, Mode=OneWay}"/>
+                            <Run Text=" legacy"/>
+                        </TextBlock>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <FontIcon Glyph="&#xE8A1;" FontSize="13" Foreground="#821080"/>
+                        <TextBlock FontSize="13" Foreground="#821080">
+                            <Run Text="{x:Bind ViewModel.TotalMigrationPending, Mode=OneWay}"/>
+                            <Run Text=" migr.pend."/>
+                        </TextBlock>
+                    </StackPanel>
+
+                    <Border Width="1" Height="18" Background="{ThemeResource DividerStrokeColorDefaultBrush}"/>
+                </StackPanel>
+
+                <!-- Resumen de estado -->
+                <TextBlock Grid.Column="1"
+                           Text="{x:Bind ViewModel.ResumenEstado, Mode=OneWay}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           VerticalAlignment="Center" Margin="16,0,0,0"
+                           FontSize="13"/>
+            </Grid>
+        </Border>
+
+        <!-- ── Panel ejecutivo por módulo (chips) ──────────────────────────── -->
+        <ScrollViewer Grid.Row="2" Margin="20,4,20,0" HorizontalScrollMode="Auto"
+                      HorizontalScrollBarVisibility="Hidden" VerticalScrollMode="Disabled">
+            <ItemsControl ItemsSource="{x:Bind ViewModel.ModuleMetrics, Mode=OneWay}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" Spacing="6"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ModuleMetric">
+                        <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
+                                BorderBrush="#E5E5E5" BorderThickness="1" CornerRadius="4"
+                                Padding="10,6">
+                            <StackPanel Spacing="2" MinWidth="80">
+                                <TextBlock Text="{x:Bind Module}"
+                                           FontWeight="SemiBold" FontSize="11"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="#D72626">
+                                        <Run Text="{x:Bind Critical}"/>
+                                        <Run Text="crit"/>
+                                    </TextBlock>
+                                    <TextBlock FontSize="12" Foreground="#C86400">
+                                        <Run Text="{x:Bind Errors}"/>
+                                        <Run Text="err"/>
+                                    </TextBlock>
+                                    <TextBlock FontSize="11" Foreground="{ThemeResource TextFillColorTertiaryBrush}">
+                                        <Run Text="{x:Bind Total}"/>
+                                        <Run Text="tot"/>
+                                    </TextBlock>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
         <!-- ── Grid de hallazgos ─────────────────────────────────────────── -->
-        <Border Grid.Row="2"
+        <Border Grid.Row="3"
                 Margin="20,8,20,0"
                 Background="White"
                 BorderBrush="#E5E5E5"
@@ -132,14 +250,16 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="8"/>
                                     <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="100"/>
                                     <ColumnDefinition Width="110"/>
                                     <ColumnDefinition Width="2*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="1" Text="Severidad"  Style="{StaticResource ErpGridHeaderTextStyle}"/>
-                                <TextBlock Grid.Column="2" Text="Categoría"  Style="{StaticResource ErpGridHeaderTextStyle}"/>
-                                <TextBlock Grid.Column="3" Text="Mensaje"    Style="{StaticResource ErpGridHeaderTextStyle}"/>
-                                <TextBlock Grid.Column="4" Text="Sugerencia" Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                <TextBlock Grid.Column="2" Text="Módulo"     Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                <TextBlock Grid.Column="3" Text="Categoría"  Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                <TextBlock Grid.Column="4" Text="Mensaje"    Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                <TextBlock Grid.Column="5" Text="Sugerencia" Style="{StaticResource ErpGridHeaderTextStyle}"/>
                             </Grid>
                         </Border>
                     </ListView.Header>
@@ -150,6 +270,7 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="8"/>
                                     <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="100"/>
                                     <ColumnDefinition Width="110"/>
                                     <ColumnDefinition Width="2*"/>
                                     <ColumnDefinition Width="*"/>
@@ -163,14 +284,21 @@
                                            FontSize="11"
                                            VerticalAlignment="Center"/>
 
-                                <!-- Categoría -->
+                                <!-- Módulo -->
                                 <TextBlock Grid.Column="2"
+                                           Text="{x:Bind Module}"
+                                           Style="{StaticResource ErpCellSecondaryStyle}"
+                                           FontSize="11"
+                                           VerticalAlignment="Center"/>
+
+                                <!-- Categoría -->
+                                <TextBlock Grid.Column="3"
                                            Text="{x:Bind Category}"
                                            Style="{StaticResource ErpCellSecondaryStyle}"
                                            VerticalAlignment="Center"/>
 
                                 <!-- Mensaje (con tooltip para texto largo) -->
-                                <TextBlock Grid.Column="3"
+                                <TextBlock Grid.Column="4"
                                            Text="{x:Bind Message}"
                                            Style="{StaticResource ErpCellPrimaryStyle}"
                                            TextTrimming="CharacterEllipsis"
@@ -178,7 +306,7 @@
                                            ToolTipService.ToolTip="{x:Bind Message}"/>
 
                                 <!-- Sugerencia (con tooltip) -->
-                                <TextBlock Grid.Column="4"
+                                <TextBlock Grid.Column="5"
                                            Text="{x:Bind Suggestion}"
                                            Style="{StaticResource ErpCellSecondaryStyle}"
                                            TextTrimming="CharacterEllipsis"
@@ -209,7 +337,7 @@
         </Border>
 
         <!-- ── StatusBar ─────────────────────────────────────────────────── -->
-        <Border Grid.Row="3"
+        <Border Grid.Row="4"
                 Style="{StaticResource ErpGridStatusBarStyle}"
                 Margin="20,0,20,16">
             <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">

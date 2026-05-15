@@ -5,7 +5,7 @@ namespace Ybridio.Application.Services.Venta;
 
 /// <summary>
 /// Contrato para el flujo de venta documental (diferente al POS).
-/// Ciclo: Borrador → Confirmada (descuenta inventario, genera CxC si crédito) → Cancelada.
+/// Ciclo: Borrador → PendientePago → Pagada → Facturada → Entregada → Cerrada | Cancelada.
 /// </summary>
 public interface IVentaDocumentalService
 {
@@ -65,8 +65,17 @@ public interface IVentaDocumentalService
         Guid                  usuarioId,
         CancellationToken     ct = default);
 
-    /// <summary>Cancela la venta (solo Borrador). Valida venta.cancelar.</summary>
+    /// <summary>
+    /// Cancela la venta. Permitido desde cualquier estado excepto Cerrada o ya Cancelada.
+    /// Valida venta.cancelar.
+    /// </summary>
     Task<ServiceResult> CancelarAsync(long ventaId, Guid usuarioId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Cierra formalmente la venta cuando saldo = 0 y entrega completa.
+    /// Transiciona a <see cref="Ybridio.Domain.Ventas.EstatusVenta.Cerrada"/>. Valida venta.confirmar.
+    /// </summary>
+    Task<ServiceResult> CerrarAsync(long ventaId, Guid usuarioId, CancellationToken ct = default);
 
     /// <summary>
     /// Agrega una línea de detalle a una venta en Borrador. Recalcula Subtotal y Total.

@@ -75,6 +75,21 @@ public sealed partial class VentasPage : Page
         }
     }
 
+    /// <summary>
+    /// Activa el tab Pedidos y abre el Pedido como Document Surface inline.
+    /// Invocado desde la conversión Cotización→Pedido para mostrar el documento
+    /// en el mismo contexto operacional que al abrirlo desde el grid.
+    /// </summary>
+    public void AbrirPedidoDesdeConversion(Ybridio.Application.DTOs.Ventas.PedidoDto pedido)
+    {
+        // Seleccionar tab Pedidos — dispara LoadTab sincrónico vía SelectionChanged
+        VentasTabs.SelectedItem = TabPedidos;
+
+        // Después de LoadTab, FramePedidos.Content es PedidosPage
+        if (FramePedidos.Content is PedidosPage pedidosPage)
+            pedidosPage.AbrirPedidoDesdeConversion(pedido);
+    }
+
     private Frame? GetFrameForTab(TabViewItem tab)
     {
         if (tab == TabClientes)        return FrameClientes;

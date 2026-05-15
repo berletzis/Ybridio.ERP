@@ -2,7 +2,128 @@
 
 > Este documento registra las decisiones técnicas importantes tomadas durante el desarrollo de Ybridio ERP,
 > incluyendo la alternativa descartada y la razón de la elección.  
-> Última actualización: 2026-05-13 (sesión extensa — ver `SESSION_2026-05-13_CONFIG_CATALOGOS_COTIZACIONES.md`)
+> Última actualización: 2026-05-15 (ver `SESSION_2026-05-15_PEDIDOS_COMMERCIAL_SURFACE_BUGFIXES.md`)
+
+---
+
+## ADR-064 — Apertura Inline de Documentos Generados por Conversión
+
+**Contexto**: Al convertir COT→PED, el Pedido abría en WorkspaceTab flotante en lugar del módulo PedidosPage, causando visual inconsistente (fondo transparente, layout diferente al abrir desde grid).
+
+**Decisión**: Los documentos generados por conversión se abren INLINE en su módulo destino usando visual tree traversal. `EncontrarAncestro<VentasPage>()` localiza el módulo contenedor, que activa el tab correcto y delega a la página destino. Fallback a WorkspaceTab si VentasPage no está en el árbol.
+
+---
+
+## ADR-063 — AsNoTracking obligatorio en conversiones con EF Scoped Context
+
+**Contexto**: `ConvertirAPedidoAsync` cargaba `CotizacionDetalle` con tracking normal. El `ErpDbContext` Scoped contenía versiones pre-descuento de las líneas (del history de edit operations). Al hacer `Include`, EF retornaba valores stale del identity map en lugar del DB.
+
+**Decisión**: Cargar SIEMPRE detalles y cargos con `.AsNoTracking()` en conversiones. Solo la cabecera del documento origen se carga con tracking (para actualizar Estatus).
+
+---
+
+## ADR-062 — EF Core HasDefaultValue prohibido cuando valor = C# default
+
+**Contexto**: `HasDefaultValue(0m)` en `PedidoDetalle.DescuentoPct` y `CotizacionDetalle.DescuentoPct` causaba que EF Core usara `ValueGenerated.OnAdd`, potencialmente omitiendo la columna del INSERT cuando el valor era el sentinel (0m para decimal).
+
+**Decisión**: NO usar `HasDefaultValue` cuando el valor equals el C# type default. Sin `HasDefaultValue`, EF usa `ValueGenerated.Never` implícito y siempre incluye el campo. Los DEFAULT constraints del DB se gestionan solo en scripts SQL.
+
+---
+
+## ADR-061 — Page.Loaded Guard para NumberBox ValueChanged handlers
+
+**Contexto**: En WinUI 3, cuando un DataTemplate renderiza un NumberBox con x:Bind Mode=TwoWay, dispara `ValueChanged` con OldValue=NaN durante la inicialización. Si el handler persiste a BD (delete+readd), corrompe datos con valores incorrectos.
+
+**Decisión**: Flag `_listaParaEdicion = false` activado por `Page.Loaded` en TODAS las páginas con NumberBox DataTemplate que persisten a BD. Cualquier `ValueChanged` antes de `Loaded` es inicialización — no acción del usuario. Guard `if (!_listaParaEdicion) return` en todos los handlers afectados.
+
+---
+
+## ADR-060 — Session Closure Governance Policy
+
+**Contexto:** El proyecto acumulaba deuda documental: código evolucionaba pero DECISIONS.md, CLAUDE_RULES.md y KNOWN_ISSUES.md quedaban desincronizados. El módulo de Auditoría Estructural generaba falsos positivos porque desconocía los cambios recientes.
+
+**Decisión:** Política formal en `CLAUDE.md` bajo el nombre "Session Closure Governance Policy". Se activa con el trigger `Ejecutar Session Closure Review` o `Actualizar artefactos institucionales`.
+
+**Proceso obligatorio:**
+1. Análisis de impacto en 5 dimensiones: arquitectónico, workflow, runtime, auditoría, legacy
+2. Actualización de 5 artefactos: ARCHITECTURE_STATUS.md, DECISIONS.md, KNOWN_ISSUES.md, CLAUDE_RULES.md, SESSION_*.md
+3. Sección obligatoria "Impacto en Auditoría Estructural" cuando hay cambios de columnas/enums/lifecycle
+
+**Restricciones críticas:**
+- PROHIBIDO reparar findings automáticamente sin análisis
+- PROHIBIDO reclasificar severidades sin justificación documentada
+- PROHIBIDO asumir corrupción cuando puede ser estado legacy válido
+
+**Objetivo:** Evitar *Architecture Drift* — que el código evolucione pero la documentación no.
+
+---
+
+## ADR-059 — Commercial Integrity Audit Pattern
+
+**Contexto:** La auditoría de datos se enfocaba en catálogos legacy (migmap, dbo). El workflow comercial COT→PED→VTA→PAGO→CIERRE carecía de validación de consistencia financiera y coherencia entre documentos.
+
+**Decisión:** Nuevo `ICommercialIntegrityAuditService` / `CommercialIntegrityAuditService` con 7 validadores:
+- A: Cadena de conversión (Pedido→COT en estado Convertida, drift Total)
+- B: Consistencia de totales financieros (Total encabezado = SUM detalles)
+- C: Integridad de pagos (PagoVenta.Monto > 0, TotalPagado = SUM pagos)
+- D: Aging operacional (documentos estancados con umbrales por tipo)
+- E: Referencias cruzadas de productos en detalles
+- F: Coherencia crédito/CxC
+- G: Audit trail readiness
+
+**Regla Module:** Todos los findings usan la propiedad `SchemaAuditEntry.Module` para grouping.
+**UI:** Panel ejecutivo de chips por módulo. Filtro por módulo en CommandBar. Columna Módulo en grid.
+
+---
+
+## ADR-058 — ERP Structural Integrity Engine (Reclasificación Auditoría)
+
+**Contexto:** El módulo de Auditoría generaba ~60 Critical por FK faltantes en BD (EF vs scripts manuales) y FK dbo legacy. Desconocía el workflow comercial, datos legacy válidos y migraciones manuales.
+
+**Decisión:** Evolución de 3 capas:
+
+1. **Nuevas severidades** en `AuditSeverity`:
+   - `LegacyData = 4` — dato histórico válido, no requiere acción urgente
+   - `MigrationPending = 5` — script manual no ejecutado
+
+2. **Reclasificación `SchemaAuditService`:**
+   - FK faltante en BD → `MigrationPending` (era `Critical`)
+   - Columna faltante → `MigrationPending` con nombre de script conocido
+   - Tablas dbo/migmap conocidas → `LegacyData` (era `Warning`)
+   - Tipo incompatible → mantiene `Critical`
+
+3. **Nuevo `WorkflowAuditService`:** 8 validadores — lifecycle COT/PED/VTA, snapshots, scripts pendientes, folios.
+
+**`SchemaAuditEntry.Module`:** Propiedad opcional para agrupar findings por módulo de negocio.
+
+**Resultado:** 0 Critical reales en YBRIDIO-26 (era ~60 falsos positivos).
+
+---
+
+## ADR-057 — Workflow Comercial — Estados + Folios + Bloqueo + Cierre
+
+**Contexto:** Workflow comercial (COT→PED→VTA) tenía estados incompletos, folios ausentes en Pedido y Venta, y sin bloqueo operacional por estado.
+
+**Decisiones:**
+
+**EstatusPedido** (valores DB sin cambio para compatibilidad):
+- `Borrador=0` (era Nuevo), `Autorizado=1` (era Confirmado), `EnProceso=2`, `Finalizado=3` (era Completado), `Parcial=4` (nuevo), `Cancelado=9`
+
+**EstatusVenta** (valores DB sin cambio):
+- `Borrador=0`, `PendientePago=1` (era Confirmada), `Pagada=2`, `Facturada=3`, `Entregada=4`, `Cerrada=5`, `Cancelada=9`
+
+**Folio en Pedido y Venta:** `PedidoService.CrearAsync` y `VentaDocumentalService.CrearAsync` invocan `IFolioGeneratorService` (Document Identity Rule: folio propio por tipo de documento).
+
+**Auto-transición Pagada:** `RegistrarPagoAsync` transiciona automáticamente `PendientePago → Pagada` cuando `TotalPagado >= Total`.
+
+**CerrarVenta:** Nuevo `CerrarAsync` en `IVentaDocumentalService`. Valida saldo=0 antes de transicionar a `Cerrada`.
+
+**Bloqueo por estado:**
+- Cotización Aprobada: congela líneas/precios/descuentos/impuestos
+- Pedido Finalizado/Cancelado: bloquea edición
+- Venta Cerrada/Cancelada: bloquea todas las operaciones
+
+**Status capsules:** Colores dinámicos por estado vía converters `EstatusPedidoBadgeConverters` y `EstatusVentaBadgeConverters`. CommandBar con `IsEnabled` por workflow guard.
 
 ---
 

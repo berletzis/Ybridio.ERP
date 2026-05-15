@@ -71,17 +71,19 @@
                             <Grid Padding="{StaticResource ErpHeaderPadding}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="8"/>
-                                    <ColumnDefinition Width="70"/>
-                                    <ColumnDefinition Width="3*"/>
+                                    <ColumnDefinition Width="100"/>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="100"/>
                                     <ColumnDefinition Width="100"/>
                                     <ColumnDefinition Width="110"/>
                                     <ColumnDefinition Width="120"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="1" Text="#"       Style="{StaticResource ErpGridHeaderTextStyle}"/>
-                                <TextBlock Grid.Column="2" Text="Cliente" Style="{StaticResource ErpGridHeaderTextStyle}"/>
-                                <TextBlock Grid.Column="3" Text="Fecha"   Style="{StaticResource ErpGridHeaderTextStyle}"/>
-                                <TextBlock Grid.Column="4" Text="Estado"  Style="{StaticResource ErpGridHeaderTextStyle}"/>
-                                <TextBlock Grid.Column="5" Text="Total"   Style="{StaticResource ErpGridHeaderTextStyle}" TextAlignment="Right"/>
+                                <TextBlock Grid.Column="1" Text="Folio"        Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                <TextBlock Grid.Column="2" Text="Cliente"      Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                <TextBlock Grid.Column="3" Text="Cot. Origen"  Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                <TextBlock Grid.Column="4" Text="Fecha"        Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                <TextBlock Grid.Column="5" Text="Estado"       Style="{StaticResource ErpGridHeaderTextStyle}"/>
+                                <TextBlock Grid.Column="6" Text="Total"        Style="{StaticResource ErpGridHeaderTextStyle}" TextAlignment="Right"/>
                             </Grid>
                         </Border>
                     </ListView.Header>
@@ -90,21 +92,25 @@
                             <Grid Height="{StaticResource ErpRowHeight}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="8"/>
-                                    <ColumnDefinition Width="70"/>
-                                    <ColumnDefinition Width="3*"/>
+                                    <ColumnDefinition Width="100"/>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="100"/>
                                     <ColumnDefinition Width="100"/>
                                     <ColumnDefinition Width="110"/>
                                     <ColumnDefinition Width="120"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="1" Text="{x:Bind Id}"
-                                           Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{x:Bind Folio}"
+                                           Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"
+                                           FontWeight="SemiBold"/>
                                 <TextBlock Grid.Column="2" Text="{x:Bind NombreCliente}"
                                            Style="{StaticResource ErpCellPrimaryStyle}" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="3" Text="{x:Bind Fecha}"
+                                <TextBlock Grid.Column="3" Text="{x:Bind FolioCotizacionOrigen}"
                                            Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="4" Text="{x:Bind EstatusTexto}"
+                                <TextBlock Grid.Column="4" Text="{x:Bind Fecha}"
                                            Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="5" Text="{x:Bind Total}"
+                                <TextBlock Grid.Column="5" Text="{x:Bind EstatusTexto}"
+                                           Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="6" Text="{x:Bind Total}"
                                            Style="{StaticResource ErpCellPrimaryStyle}" VerticalAlignment="Center"
                                            TextAlignment="Right"/>
                             </Grid>
@@ -129,7 +135,10 @@
                           Content="{x:Bind ViewModel.DocumentSurfaceContent, Mode=OneWay}"
                           Visibility="{x:Bind ViewModel.IsDocumentSurfaceVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
-        <Border Grid.Row="3" Style="{StaticResource ErpGridStatusBarStyle}" Margin="20,0,20,16">
+        <!-- Status bar oculta cuando el Document Surface está activo (ADR-031) -->
+        <Border x:Name="StatusBarPedidos"
+                Grid.Row="3" Style="{StaticResource ErpGridStatusBarStyle}" Margin="20,0,20,16"
+                Visibility="{x:Bind ViewModel.IsDocumentSurfaceVisible, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}">
             <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
                 <TextBlock Style="{StaticResource ErpGridStatusTextStyle}">
                     <Run Text="{x:Bind ViewModel.Pedidos.Count, Mode=OneWay}"/>

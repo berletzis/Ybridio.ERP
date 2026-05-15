@@ -51,6 +51,7 @@ public sealed partial class VentaDocumentoViewModel : ObservableObject
     [ObservableProperty] private DateTime     _fecha          = DateTime.Today;
     [ObservableProperty] private string?      _observaciones;
     [ObservableProperty] private EstatusVenta _estatusVenta   = EstatusVenta.Borrador;
+    [ObservableProperty] private string?      _folio;
 
     // ── Totales ────────────────────────────────────────────────────────────────
     [ObservableProperty] private decimal _total;
@@ -71,22 +72,37 @@ public sealed partial class VentaDocumentoViewModel : ObservableObject
     public ObservableCollection<PagoVentaDto>         Pagos    { get; } = [];
 
     // ── Propiedades derivadas ──────────────────────────────────────────────────
-    public string TituloDocumento   => IsNuevo ? "Nueva Venta" : $"Venta #{_documento?.Id}";
+    /// <summary>Título del documento: usa el folio cuando existe, o el ID como fallback.</summary>
+    public string TituloDocumento => IsNuevo
+        ? "Nueva Venta"
+        : !string.IsNullOrEmpty(Folio) ? $"Venta {Folio}" : $"Venta #{_documento?.Id}";
 
     public string EstatusTexto => EstatusVenta switch
     {
-        EstatusVenta.Borrador   => "Borrador",
-        EstatusVenta.Confirmada => "Confirmada",
-        EstatusVenta.Cancelada  => "Cancelada",
-        _                       => EstatusVenta.ToString()
+        EstatusVenta.Borrador      => "Borrador",
+        EstatusVenta.PendientePago => "Pendiente de Pago",
+        EstatusVenta.Pagada        => "Pagada",
+        EstatusVenta.Facturada     => "Facturada",
+        EstatusVenta.Entregada     => "Entregada",
+        EstatusVenta.Cerrada       => "Cerrada",
+        EstatusVenta.Cancelada     => "Cancelada",
+        _                          => EstatusVenta.ToString()
     };
 
     public bool EsContado          => TipoPagoVenta == TipoPago.Contado;
     public bool EsCredito          => TipoPagoVenta == TipoPago.Credito;
+
+    // ── Workflow guards ────────────────────────────────────────────────────────
+    /// <summary>Solo editable en Borrador (antes de confirmación).</summary>
     public bool PuedeEditar        => EstatusVenta == EstatusVenta.Borrador;
+    /// <summary>Se confirma cuando está en Borrador, tiene detalles, y ya fue guardada.</summary>
     public bool PuedeConfirmar     => EstatusVenta == EstatusVenta.Borrador && !IsNuevo && Detalles.Count > 0;
-    public bool PuedeRegistrarPago => EstatusVenta == EstatusVenta.Confirmada && !IsNuevo;
-    public bool PuedeCancelar      => EstatusVenta == EstatusVenta.Borrador && !IsNuevo;
+    /// <summary>Se puede registrar pago desde PendientePago o Pagada (abono parcial adicional).</summary>
+    public bool PuedeRegistrarPago => EstatusVenta is EstatusVenta.PendientePago or EstatusVenta.Pagada && !IsNuevo;
+    /// <summary>Se puede cerrar cuando saldo = 0 (Pagada o superior).</summary>
+    public bool PuedeCerrar        => !IsNuevo && EstatusVenta is EstatusVenta.Pagada or EstatusVenta.Facturada or EstatusVenta.Entregada && SaldoPendiente <= 0;
+    /// <summary>Se puede cancelar mientras no esté Cerrada ni ya Cancelada.</summary>
+    public bool PuedeCancelar      => !IsNuevo && EstatusVenta is not (EstatusVenta.Cerrada or EstatusVenta.Cancelada);
 
     /// <summary>ID de empresa del contexto de sesión, expuesto para binding en el selector control.</summary>
     public int EmpresaId => _session.EmpresaId;
@@ -152,13 +168,14 @@ public sealed partial class VentaDocumentoViewModel : ObservableObject
         if (venta is not null)
         {
             NombreCliente  = venta.NombreCliente;
-            RelacionComercialId      = venta.RelacionComercialId;
+            RelacionComercialId = venta.RelacionComercialId;
             TipoPagoVenta  = venta.TipoPago;
             Fecha          = venta.Fecha;
             Observaciones  = venta.Observaciones;
             EstatusVenta   = venta.Estatus;
             Total          = venta.Total;
             TotalPagado    = venta.TotalPagado;
+            Folio          = venta.Folio;
 
             Detalles.Clear();
             foreach (var d in venta.Detalles)
@@ -210,7 +227,8 @@ public sealed partial class VentaDocumentoViewModel : ObservableObject
 
                 var r = await _service.CrearAsync(dto, _session.Usuario.Id, ct);
                 if (!r.Success) { ErrorMessage = r.Error ?? "No se pudo crear."; return; }
-                SuccessMessage = $"Venta #{r.Value!.Id} creada.";
+                var idDisplay = !string.IsNullOrEmpty(r.Value!.Folio) ? r.Value.Folio : $"#{r.Value.Id}";
+                SuccessMessage = $"Venta {idDisplay} creada.";
                 Initialize(r.Value);
             }
             else
@@ -309,15 +327,30 @@ public sealed partial class VentaDocumentoViewModel : ObservableObject
     }
 
     /// <summary>Cancela la venta activa.</summary>
-    /// <returns>True si se canceló correctamente.</returns>
     public async Task<bool> CancelarVentaAsync(CancellationToken ct = default)
     {
         if (_documento is null || _session.Usuario is null) return false;
         var r = await _service.CancelarAsync(_documento.Id, _session.Usuario.Id, ct);
         if (!r.Success) { ErrorMessage = r.Error ?? "No se pudo cancelar."; return false; }
-        EstatusVenta  = EstatusVenta.Cancelada;
+        EstatusVenta   = EstatusVenta.Cancelada;
         SuccessMessage = "Venta cancelada."; RefrescarPermisosUI();
         return true;
+    }
+
+    /// <summary>Cierra formalmente la venta cuando saldo = 0.</summary>
+    public async Task<bool> CerrarVentaAsync(CancellationToken ct = default)
+    {
+        if (_documento is null || _session.Usuario is null) return false;
+        IsBusy = true; ErrorMessage = SuccessMessage = string.Empty;
+        try
+        {
+            var r = await _service.CerrarAsync(_documento.Id, _session.Usuario.Id, ct);
+            if (!r.Success) { ErrorMessage = r.Error ?? "No se pudo cerrar la venta."; return false; }
+            EstatusVenta   = EstatusVenta.Cerrada;
+            SuccessMessage = "Venta cerrada."; RefrescarPermisosUI();
+            return true;
+        }
+        finally { IsBusy = false; }
     }
 
     /// <summary>ID del documento guardado. Null si es nuevo.</summary>
@@ -344,10 +377,12 @@ public sealed partial class VentaDocumentoViewModel : ObservableObject
         OnPropertyChanged(nameof(PuedeConfirmar));
         OnPropertyChanged(nameof(PuedeRegistrarPago));
         OnPropertyChanged(nameof(PuedeCancelar));
+        OnPropertyChanged(nameof(PuedeCerrar));
         OnPropertyChanged(nameof(EstatusTexto));
         OnPropertyChanged(nameof(EsContado));
         OnPropertyChanged(nameof(EsCredito));
         OnPropertyChanged(nameof(TituloDocumento));
+        OnPropertyChanged(nameof(SaldoPendiente));
         ConfirmarCommand.NotifyCanExecuteChanged();
         EliminarDetalleCommand.NotifyCanExecuteChanged();
     }

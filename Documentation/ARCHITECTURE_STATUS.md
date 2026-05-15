@@ -1,8 +1,8 @@
 # Architecture Status — Ybridio ERP
 
-> Última actualización: 2026-05-13 (sesión completa — ver `SESSION_2026-05-13_CONFIG_CATALOGOS_COTIZACIONES.md`)
-> Build: ✅ 0 errores | BD: YBRIDIO-26 | Docs: `DECISIONS.md` · `KNOWN_ISSUES.md` · `CLAUDE_RULES.md`
-> Implementado hoy: Configuración Global (NavigationView), SerieDocumento+Folios, Commercial Tax Pattern, TipoProducto+Clave, CotizacionCargo (OtrosCargos), Single Document Scroll Pattern, 5 bug fixes críticos
+> Última actualización: 2026-05-15 (ver `SESSION_2026-05-15_PEDIDOS_COMMERCIAL_SURFACE_BUGFIXES.md`)
+> Build: ✅ 0 errores | BD: YBRIDIO-26 ✅ datos descuentos corregidos | Docs: `DECISIONS.md` · `KNOWN_ISSUES.md` · `CLAUDE_RULES.md`
+> Implementado hoy: PedidoDocumentoPage commercial surface completo; bug descuentos COT→PED resuelto (3 capas); conversión abre inline en PedidosPage; transparencia CommandBar eliminada
 
 ## Estado general
 
@@ -55,6 +55,11 @@
 | **Commercial Charges Pattern** (CotizacionCargo; sección documental separada; impacta IVA y Total; Single Document Scroll Pattern) | ✅ | ✅ | ✅ | ✅ |
 | **Single Document Scroll Pattern** (ScrollViewer documental único; ListViews con scroll desactivado; crecimiento dinámico de grids) | — | — | — | ✅ |
 | **Global Document Runtime Ownership Pattern** (DocumentoId en ViewModel; window key con ID real; DocumentSaved actualiza inline tracking) | — | — | — | ✅ |
+| **Workflow Comercial Estabilización** (EstatusPedido+Venta completos; folios en Pedido+Venta; CerrarVenta; bloqueo por estado; status capsules; CommandBar IsEnabled; fix nombre producto) | ✅ | ✅ | ✅ | ✅ |
+| **PedidoCargo Commercial Charges** (PedidoCargo entity+config+BD; AgregarCargoAsync/EliminarCargoAsync; conversión preserva cargos COT→PED) | ✅ | ✅ | ✅ | ✅ |
+| **PedidoDocumentoPage — Commercial Surface completa** (equivalente a Cotizaciones: CommercialDocumentCalculator, Cargos, DescuentoGlobal, Totales, StatusBar inline, Detach, Workflow Menu, HidratarCliente) | — | — | ✅ | ✅ |
+| **Conversión COT→PED inline** (VentasPage.AbrirPedidoDesdeConversion; visual tree traversal; PedidosPage inline igual que grid) | — | — | — | ✅ |
+| **Bugfix Descuentos COT→PED** (AsNoTracking conversión; CommercialDocumentCalculator en AgregarDetalleAsync; Page.Loaded guard; HasDefaultValue eliminado EF config) | ✅ | — | ✅ | ✅ |
 
 ---
 

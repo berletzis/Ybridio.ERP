@@ -24,6 +24,21 @@ public sealed partial class PedidosPage : Page, ILiveContextReporter
         ViewModel      = App.Services.GetRequiredService<PedidosViewModel>();
         _pedidoService = App.Services.GetRequiredService<IPedidoService>();
         InitializeComponent();
+
+        // Guard extra: sincronizar visibilidad del status bar con el surface documental.
+        // El x:Bind en XAML ya lo hace pero este suscriptor garantiza que no haya timing issues.
+        ViewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(PedidosViewModel.IsDocumentSurfaceVisible))
+                ActualizarVisibilidadStatusBar();
+        };
+    }
+
+    private void ActualizarVisibilidadStatusBar()
+    {
+        StatusBarPedidos.Visibility = ViewModel.IsDocumentSurfaceVisible
+            ? Visibility.Collapsed
+            : Visibility.Visible;
     }
 
     protected override async void OnNavigatedTo(NavigationEventArgs e)
@@ -41,11 +56,24 @@ public sealed partial class PedidosPage : Page, ILiveContextReporter
 
     public void ReportLiveContext() => ViewModel.ReportLiveContext();
 
+    /// <summary>
+    /// Abre un Pedido como Document Surface inline, invocado desde la conversión de Cotización.
+    /// Mismo comportamiento que abrir desde el grid — EsInlineMode = true.
+    /// </summary>
+    public void AbrirPedidoDesdeConversion(Ybridio.Application.DTOs.Ventas.PedidoDto pedido)
+    {
+        var page = new PedidoDocumentoPage(pedido);
+        page.VolverALista = () => _ = ViewModel.CerrarDocumentSurfaceAsync();
+        page.EsInlineMode = true;
+        ViewModel.AbrirEditarPedido(page);
+    }
+
     private void BtnNuevo_Click(object sender, RoutedEventArgs e)
     {
         // ADR-031: nuevo documento se abre inline como Document Surface, NO como workspace tab
-        var page = new PedidoDocumentoPage(null);
-        page.OnCerrar = async () => await ViewModel.CerrarDocumentSurfaceAsync();
+        var page = new PedidoDocumentoPage((Ybridio.Application.DTOs.Ventas.PedidoDto?)null);
+        page.VolverALista  = () => _ = ViewModel.CerrarDocumentSurfaceAsync();
+        page.EsInlineMode  = true;
         ViewModel.AbrirNuevoPedido(page);
     }
 
@@ -75,7 +103,8 @@ public sealed partial class PedidosPage : Page, ILiveContextReporter
             }
             // ADR-031: documento se carga como surface inline, SIN workspace tab
             var page = new PedidoDocumentoPage(result.Value);
-            page.OnCerrar = async () => await ViewModel.CerrarDocumentSurfaceAsync();
+            page.VolverALista = () => _ = ViewModel.CerrarDocumentSurfaceAsync();
+            page.EsInlineMode = true;
             ViewModel.AbrirEditarPedido(page);
         }
         finally

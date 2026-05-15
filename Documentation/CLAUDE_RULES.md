@@ -3,7 +3,178 @@
 > Estas reglas aplican para TODOS los requerimientos futuros del proyecto.  
 > Claude Code debe leer y respetar este documento ANTES de implementar cualquier cambio.  
 > Estas reglas son **permanentes** y forman parte oficial de la arquitectura del ERP.  
-> Última actualización: 2026-05-13 (ADR-050→ADR-056: Config Global, Folios, Tax Pattern, Charges, Scroll, Ownership)
+> Última actualización: 2026-05-15 (ADR-061→ADR-064: PedidoCargo, Commercial Surface Pedidos, Page.Loaded guard, Inline Conversion)
+
+---
+
+## 0b-ext6. Workflow Comercial — Estados, Folios y Bloqueo (ADR-057)
+
+### Estados oficiales (NUNCA usar valores int hardcodeados)
+
+```csharp
+// EstatusCotizacion: Borrador=0, Aprobada=2, Convertida=3, Cancelada=9
+// EstatusPedido:     Borrador=0, Autorizado=1, EnProceso=2, Finalizado=3, Parcial=4, Cancelado=9
+// EstatusVenta:      Borrador=0, PendientePago=1, Pagada=2, Facturada=3, Entregada=4, Cerrada=5, Cancelada=9
+```
+
+### Reglas obligatorias — Folios
+
+- `PedidoService.CrearAsync` → SIEMPRE genera folio via `IFolioGeneratorService`
+- `VentaDocumentalService.CrearAsync` → SIEMPRE genera folio via `IFolioGeneratorService`
+- `CotizacionService.ConvertirAPedidoAsync` → genera folio NUEVO para el Pedido (Document Identity Rule: nunca reutilizar)
+
+### Reglas obligatorias — Bloqueo por estado
+
+| Documento | Estado terminal | Estado que congela líneas |
+|---|---|---|
+| Cotización | Convertida, Cancelada | Aprobada |
+| Pedido | Finalizado, Cancelado | — |
+| Venta | Cerrada, Cancelada | PendientePago+ |
+
+### Auto-transición Pagada
+
+```csharp
+// RegistrarPagoAsync — si TotalPagado >= Total y estado == PendientePago:
+venta.Estatus = EstatusVenta.Pagada;  // auto-transición
+```
+
+### CerrarAsync — contrato
+
+```csharp
+// Solo desde: Pagada | Facturada | Entregada
+// Requiere: SaldoPendiente == 0
+// Resultado: EstatusVenta.Cerrada (estado terminal correcto)
+```
+
+---
+
+## 0b-ext7. ERP Structural Integrity Engine — Auditoría (ADR-058)
+
+### Severidades del auditor (NUNCA interpretar como errores hardcodeados)
+
+| Severidad | Significado | Acción |
+|---|---|---|
+| `Critical` | Corrupción real: folio dup, total imposible, FK a inexistente | Intervención inmediata |
+| `Error` | Inconsistencia recuperable | Revisar en iteración próxima |
+| `Warning` | Divergencia tolerable (FK dbo legacy, tablas no mapeadas) | Monitorear |
+| `LegacyData` | Dato histórico VÁLIDO (doc sin folio pre-SerieDocumento) | No requiere acción |
+| `MigrationPending` | Script manual no ejecutado aún | Ejecutar script |
+| `Info` | Estado correcto o contextual | — |
+
+### Regla: contexto antes de severidad
+
+```
+ANTES de clasificar Critical: verificar si puede ser LegacyData o MigrationPending.
+FK faltante en BD NO es Critical por sí sola — es MigrationPending.
+Total nulo en Borrador NO es corrupción — puede ser Borrador válido.
+```
+
+### Tres servicios de auditoría
+
+```
+ISchemaAuditService          → estructura EF vs BD (tablas, columnas, FK)
+IDatabaseAuditService        → catálogos, migmap, dbo legacy
+IWorkflowAuditService        → lifecycle COT/PED/VTA, snapshots, scripts, folios
+ICommercialIntegrityAuditService → cadena conversión, totales, pagos, aging, CxC
+```
+
+### Propiedad Module en SchemaAuditEntry
+
+```csharp
+// SIEMPRE asignar Module en findings de servicios comerciales
+new SchemaAuditEntry(AuditSeverity.Warning, "Cadena Conversión",
+    "mensaje...", "sugerencia...", Module: "Cotizaciones")
+// Módulos válidos: Cotizaciones, Pedidos, Ventas, Pagos, CxC, General
+```
+
+---
+
+## 0b-ext8. Page.Loaded Guard — WinUI 3 NumberBox DataTemplate (ADR-061)
+
+**OBLIGATORIO en TODA Page con NumberBox en DataTemplate que persiste a BD.**
+
+### El problema
+En WinUI 3, cuando un DataTemplate renderiza un `NumberBox` con `x:Bind Value=..., Mode=TwoWay`, dispara `ValueChanged` con `OldValue=NaN, NewValue=<valor_actual>` durante la inicialización. Si el handler llama a operaciones de BD (delete+readd de líneas), corrompe los datos aunque la cantidad/descuento no haya cambiado realmente.
+
+### Patrón obligatorio
+
+```csharp
+// En el constructor, ANTES de InitializeComponent():
+_listaParaEdicion = false;
+Loaded += (_, _) => _listaParaEdicion = true;
+
+// En TODOS los ValueChanged handlers que modifican BD:
+private async void NumberBox_Cantidad_ValueChanged(NumberBox sender, ...)
+{
+    if (!_listaParaEdicion) return;  // ← bloquea todos los eventos de inicialización
+    ...
+}
+```
+
+`Page.Loaded` es el único evento en WinUI 3 que garantiza que el árbol visual está completamente renderizado y todos los bindings iniciales han disparado. Cualquier `ValueChanged` ANTES de `Loaded` es inicialización — NO acción del usuario.
+
+**PROHIBIDO**: Usar `OldValue == NaN` como guard — WinUI 3 no garantiza NaN como valor inicial en todos los contextos.
+
+---
+
+## 0b-ext9. EF Core — HasDefaultValue gotcha (ADR-062)
+
+**PROHIBIDO usar `HasDefaultValue(valor)` cuando el valor coincide con el C# default del tipo.**
+
+```csharp
+// ❌ PROHIBIDO: HasDefaultValue(0m) para decimal, HasDefaultValue(true) para bool
+// EF Core usa ValueGenerated.OnAdd → puede omitir la columna en INSERT si el valor = sentinel
+builder.Property(e => e.DescuentoPct).HasDefaultValue(0m);  // decimal default = 0m → OMITIDO
+
+// ✅ CORRECTO: Sin HasDefaultValue — EF usa ValueGenerated.Never implícito
+builder.Property(e => e.DescuentoPct).IsRequired().HasColumnType("decimal(5,2)");
+// La BD ya tiene DEFAULT 0 del script SQL — EF no necesita gestionarlo
+```
+
+**Regla**: Si el DB ya tiene el constraint DEFAULT via script SQL, NO agregar `HasDefaultValue` en la configuración EF. Sin él, EF siempre incluye el campo en INSERT/UPDATE.
+
+---
+
+## 0b-ext10. Conversión COT→PED — AsNoTracking obligatorio (ADR-063)
+
+**SIEMPRE cargar detalles y cargos con `AsNoTracking()` en `ConvertirAPedidoAsync`.**
+
+```csharp
+// ❌ PROHIBIDO: Include con tracking — puede retornar valores stale del identity map
+var c = await _context.Cotizaciones.Include(x => x.Detalles).FirstOrDefaultAsync(...);
+
+// ✅ CORRECTO: Cargar solo cabecera tracked (para update Estatus), detalles AsNoTracking
+var c = await _context.Cotizaciones.FirstOrDefaultAsync(x => x.Id == cotizacionId, ct);
+var detallesDb = await _context.CotizacionesDetalle.AsNoTracking()
+    .Where(d => d.CotizacionId == cotizacionId).ToListAsync(ct);
+```
+
+**Razón**: El `ErpDbContext` es Scoped y puede haber procesado operaciones de edición previas (delete+readd de líneas para aplicar descuentos). El identity map puede tener versiones pre-descuento. `AsNoTracking` fuerza lectura fresca del DB.
+
+---
+
+## 0b-ext11. Apertura de documentos generados — Inline vs WorkspaceTab (ADR-064)
+
+**Un documento generado por conversión DEBE abrirse en el módulo destino como Document Surface inline.**
+
+```csharp
+// ❌ PROHIBIDO: Abrir en WorkspaceTab (diferente contexto visual, transparencia, layout incorrecto)
+_ = _workspace.OpenOrActivateDocumentTabAsync(key: ..., pageFactory: dto => new PedidoDocumentoPage(dto!), ...);
+
+// ✅ CORRECTO: Visual tree traversal al módulo destino + apertura inline
+var ventasPage = EncontrarAncestro<VentasPage>(this);
+ventasPage?.AbrirPedidoDesdeConversion(dto);
+
+// Implementación en módulo destino:
+public void AbrirPedidoDesdeConversion(PedidoDto pedido)
+{
+    VentasTabs.SelectedItem = TabPedidos;  // activa tab + lazy-load página
+    if (FramePedidos.Content is PedidosPage p)
+        p.AbrirPedidoDesdeConversion(pedido);
+}
+```
+
+**Patrón**: `EncontrarAncestro<T>` usando `VisualTreeHelper.GetParent` sube el árbol visual hasta encontrar el módulo contenedor.
 
 ---
 

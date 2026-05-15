@@ -52,4 +52,16 @@ public interface IPedidoService
     /// </summary>
     Task<ServiceResult<OrdenTrabajoDto>> GenerarOrdenTrabajoAsync(
         long pedidoId, string descripcionTrabajo, Guid usuarioId, CancellationToken ct = default);
+
+    // ── Cargos — Commercial Charges Pattern ──────────────────────────────────
+
+    /// <summary>
+    /// Agrega un cargo accesorio al pedido (Flete, Maniobras, Seguro, etc.).
+    /// Recalcula Total del pedido. Valida pedido.editar.
+    /// </summary>
+    Task<ServiceResult<PedidoCargoDto>> AgregarCargoAsync(
+        long pedidoId, CrearPedidoCargoDto dto, Guid usuarioId, CancellationToken ct = default);
+
+    /// <summary>Elimina un cargo accesorio del pedido y recalcula el Total. Valida pedido.editar.</summary>
+    Task<ServiceResult> EliminarCargoAsync(long cargoId, Guid usuarioId, CancellationToken ct = default);
 }

@@ -311,9 +311,9 @@
                          IsAddTabButtonVisible="False"
                          TabWidthMode="SizeToContent"
                          Visibility="Collapsed"
-                         Margin="0,12,0,0"
+                         Margin="0,0,0,0"
                          Padding="0,60,0,0"
-                         Background="{ThemeResource LayerOnMicaBaseAltFillColorDefaultBrush}"
+                         Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
                          TabCloseRequested="WorkspaceTabView_TabCloseRequested"
                          SelectionChanged="WorkspaceTabView_SelectionChanged">
                     <TabView.Resources>

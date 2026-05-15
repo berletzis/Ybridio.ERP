@@ -1,6 +1,6 @@
 # KNOWN_ISSUES.md — Problemas Conocidos y Limitaciones
 
-> Última actualización: 2026-05-13 (sesión extensa — ver `SESSION_2026-05-13_CONFIG_CATALOGOS_COTIZACIONES.md`)
+> Última actualización: 2026-05-15 (ver `SESSION_2026-05-15_PEDIDOS_COMMERCIAL_SURFACE_BUGFIXES.md`)
 > Formato: `[SEVERIDAD] Descripción — Workaround / Plan`
 
 ---
@@ -11,6 +11,40 @@
 - **HIGH** — impacto significativo en UX o seguridad; resolver en siguiente iteración
 - **MEDIUM** — limitación funcional; resolver en fase 2
 - **LOW** — cosmético o técnico menor; backlog
+
+---
+
+### [RESUELTO] KI-036 — Descuentos no preservados al convertir Cotización → Pedido
+
+**Módulo**: Ventas — `CotizacionService.ConvertirAPedidoAsync`, `PedidoService.AgregarDetalleAsync`, `PedidoDocumentoPage`
+
+**Problema**: `PedidoDetalle.DescuentoPct` siempre quedaba en 0 al convertir, aunque la cotización tuviera descuentos. Causa raíz: cadena de 3 bugs independientes (EF change tracker stale + `AgregarDetalleAsync` sin `CommercialDocumentCalculator` + WinUI 3 DataTemplate `ValueChanged` durante render inicial).
+
+**Solución**: (1) `AsNoTracking()` para detalles/cargos en conversión. (2) `CommercialDocumentCalculator` en `AgregarDetalleAsync` y `CrearAsync`. (3) `_listaParaEdicion` guard via `Page.Loaded` en todos los NumberBox handlers. (4) `HasDefaultValue` eliminado de `PedidoDetalleConfiguration` y `CotizacionDetalleConfiguration`. **Estado**: ✅ **RESUELTO 2026-05-15** — ver `BUGFIX_DESCUENTOS_PEDIDO_CONVERSION.md`
+
+---
+
+### [RESUELTO] KI-035 — Conversión COT→PED abría WorkspaceTab (visual incorrecto)
+
+**Módulo**: Ventas — `CotizacionDocumentoPage.AbrirPedidoEnWorkspace`
+
+**Problema**: Al convertir, el Pedido abría en WorkspaceTab flotante en lugar de inline en PedidosPage, causando transparencia y layout incorrecto.
+
+**Solución**: Visual tree traversal `EncontrarAncestro<VentasPage>()` → `VentasPage.AbrirPedidoDesdeConversion()` → `PedidosPage.AbrirPedidoDesdeConversion()`. El Pedido ahora abre idéntico a cuando se abre desde el grid. **Estado**: ✅ **RESUELTO 2026-05-15**
+
+---
+
+### [RESUELTO] KI-034 — Script BD AddWorkflowColumns_V1.sql pendiente de ejecutar
+
+**Módulo**: Infrastructure — `ventas.PedidoDetalle`, `ventas.Pedido`
+
+**Problema**: Las nuevas columnas `DescuentoPct` y `IvaAplicable` en `PedidoDetalle`, y `Subtotal` en `Pedido` existen en las entidades EF Core y las configuraciones, pero no en la base de datos YBRIDIO-26 hasta ejecutar el script.
+
+**Workaround**: La aplicación compila y el runtime funciona para registros existentes. Crear nuevos pedidos puede fallar si EF intenta persistir las columnas antes de ejecutar el script.
+
+**Plan**: Ejecutar inmediatamente `Documentation/Scripts/AddWorkflowColumns_V1.sql` en YBRIDIO-26.
+
+**Estado**: ✅ **RESUELTO 2026-05-14** — columnas aplicadas directamente vía SqlClient desde Claude Code.
 
 ---
 

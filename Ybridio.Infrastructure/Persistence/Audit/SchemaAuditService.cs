@@ -6,17 +6,11 @@ namespace Ybridio.Infrastructure.Persistence.Audit;
 
 /// <summary>
 /// Implementación de <see cref="ISchemaAuditService"/> para SQL Server.
-/// Obtiene el modelo esperado de <see cref="ErpDbContext.Model"/> y el esquema real
-/// de INFORMATION_SCHEMA, luego compara ambos e informa divergencias.
+/// Compara el modelo EF Core (fuente de verdad) con la estructura real de la BD
+/// y clasifica hallazgos usando semántica ERP:
+/// Critical (corrupción real), Error (inconsistencia), Warning (divergencia tolerable),
+/// MigrationPending (script no ejecutado), LegacyData (dato histórico esperado).
 /// </summary>
-/// <remarks>
-/// Registro sugerido en DI (solo para ambientes de desarrollo):
-/// <code>
-/// #if DEBUG
-///   services.AddScoped&lt;ISchemaAuditService, SchemaAuditService&gt;();
-/// #endif
-/// </code>
-/// </remarks>
 public sealed class SchemaAuditService : ISchemaAuditService
 {
     private readonly ErpDbContext _db;
@@ -26,6 +20,37 @@ public sealed class SchemaAuditService : ISchemaAuditService
     {
         "__EFMigrationsHistory",
         "sysdiagrams"
+    };
+
+    /// <summary>
+    /// Tablas en BD no mapeadas en EF que son parte del esquema ERP válido (scripts manuales, legacy).
+    /// Reportadas como Info, no Warning.
+    /// </summary>
+    private static readonly HashSet<string> KnownUnmappedTables = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // Tablas legacy dbo conservadas por compatibilidad
+        "dbo.tipodeproducto", "dbo.unidaddemedida", "dbo.categoria",
+        "dbo.catsat_impuesto", "dbo.catsat_moneda", "dbo.catsat_formapago",
+        "dbo.metododepago", "dbo.pais", "dbo.estado",
+        // migmap eliminado 2026-05-14 (13 tablas vacías, schema nunca usado)
+        // Tablas catalogos legacy (referencia/lookup) no mapeadas en EF actual
+        "catalogos.tipodocumento", "catalogos.pais",       "catalogos.moneda",
+        "catalogos.metodopago",    "catalogos.formapago",  "catalogos.estatusgeneral",
+        "catalogos.estado",        "catalogos.ciudad"
+    };
+
+    /// <summary>
+    /// Columnas que faltan en la BD pero son parte de scripts manuales conocidos.
+    /// Key: "schema.tabla.columna" → nombre del script.
+    /// </summary>
+    private static readonly Dictionary<string, string> KnownPendingScriptColumns
+        = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["ventas.pedidodetalle.descuentopct"]  = "AddWorkflowColumns_V1.sql",
+        ["ventas.pedidodetalle.ivaaplicable"]  = "AddWorkflowColumns_V1.sql",
+        ["ventas.pedido.subtotal"]             = "AddWorkflowColumns_V1.sql",
+        ["ventas.cotizaciondetalle.descuentopct"] = "AddDescuentoPct_CotizacionDetalle.sql",
+        ["ventas.cotizaciondetalle.ivaaplicable"] = "EvolveProductoTipoAndCotizacion_V1.sql",
     };
 
     public SchemaAuditService(ErpDbContext db) => _db = db;
@@ -182,13 +207,24 @@ public sealed class SchemaAuditService : ISchemaAuditService
         {
             var tableName = dbKey.Split('.').Last();
             if (SystemTables.Contains(tableName)) continue;
-            if (!efKeys.Contains(dbKey))
+            if (efKeys.Contains(dbKey)) continue;
+
+            var parts = dbKey.Split('.', 2);
+
+            if (KnownUnmappedTables.Contains(dbKey))
             {
-                var parts = dbKey.Split('.', 2);
+                // Tabla conocida — legacy/migmap válida, solo informativa
+                findings.Add(new SchemaAuditEntry(
+                    AuditSeverity.LegacyData, "Tablas",
+                    $"[{parts[0]}].[{parts[1]}] — tabla legacy/migmap válida, no mapeada en EF por diseño.",
+                    null));
+            }
+            else
+            {
                 findings.Add(new SchemaAuditEntry(
                     AuditSeverity.Warning, "Tablas",
-                    $"[{parts[0]}].[{parts[1]}] existe en la base de datos pero no tiene entidad en el modelo EF.",
-                    "Verificar si es una tabla legacy o huérfana. Considerar agregarla al modelo o eliminarla."));
+                    $"[{parts[0]}].[{parts[1]}] existe en la BD pero no tiene entidad en el modelo EF.",
+                    "Verificar si es una tabla legacy o huérfana. Considerar mapearla o eliminarla."));
             }
         }
     }
@@ -217,11 +253,22 @@ public sealed class SchemaAuditService : ISchemaAuditService
 
                 if (!dbCols.TryGetValue(colName, out var dbBaseType))
                 {
-                    // Columna en EF no existe en BD
-                    findings.Add(new SchemaAuditEntry(
-                        AuditSeverity.Error, "Columnas",
-                        $"[{schema}].[{tableName}].[{colName}] existe en el modelo EF pero NO en la base de datos.",
-                        "Generar una migración para agregar la columna."));
+                    // Determinar si es un script manual conocido o migración EF pendiente
+                    var colKey = $"{schema}.{tableName}.{colName}".ToLowerInvariant();
+                    if (KnownPendingScriptColumns.TryGetValue(colKey, out var scriptName))
+                    {
+                        findings.Add(new SchemaAuditEntry(
+                            AuditSeverity.MigrationPending, "Columnas",
+                            $"[{schema}].[{tableName}].[{colName}] no existe en BD — script pendiente: {scriptName}",
+                            $"Ejecutar Documentation/Scripts/{scriptName} en la base de datos."));
+                    }
+                    else
+                    {
+                        findings.Add(new SchemaAuditEntry(
+                            AuditSeverity.MigrationPending, "Columnas",
+                            $"[{schema}].[{tableName}].[{colName}] existe en el modelo EF pero NO en la base de datos.",
+                            "Generar migración EF o ejecutar script SQL manual para agregar la columna."));
+                    }
                 }
                 else
                 {
@@ -271,11 +318,13 @@ public sealed class SchemaAuditService : ISchemaAuditService
                     var depSchema = entityType.GetSchema() ?? "dbo";
                     var refTable  = fk.PrincipalEntityType.GetTableName();
 
-                    // FK faltante = Critical: puede permitir registros huérfanos e inconsistencias de datos
+                    // FK faltante = MigrationPending: el modelo EF define la FK pero no se aplicó migración.
+                    // NO es Critical por sí sola — en este proyecto las FK se aplican vía scripts manuales.
+                    // Solo es Critical si hay datos reales con referencias rotas (detectado en WorkflowAuditService).
                     findings.Add(new SchemaAuditEntry(
-                        AuditSeverity.Critical, "Relaciones",
-                        $"FK '{constraintName}' ({depSchema}.{depTable} → {refTable}) existe en el modelo EF pero NO en la base de datos.",
-                        "Generar una migración para agregar la restricción de clave foránea."));
+                        AuditSeverity.MigrationPending, "Relaciones",
+                        $"FK '{constraintName}' ({depSchema}.{depTable} → {refTable}) definida en EF pero ausente en BD.",
+                        "Verificar si la FK se aplica vía script manual o generar migración EF."));
                 }
             }
         }
@@ -337,7 +386,7 @@ public sealed class SchemaAuditService : ISchemaAuditService
     {
         if (string.Equals(efBase, dbBase, StringComparison.OrdinalIgnoreCase)) return true;
 
-        // Alias conocidos de SQL Server
+        // Alias y compatibilidades conocidas de SQL Server
         return (efBase, dbBase.ToLowerInvariant()) switch
         {
             ("rowversion",  "timestamp")  => true,
@@ -346,6 +395,11 @@ public sealed class SchemaAuditService : ISchemaAuditService
             ("decimal",     "numeric")    => true,
             ("nvarchar",    "sysname")    => true,  // sysname es alias de nvarchar(128)
             ("int",         "int")        => true,
+            // datetime2 vs datetime: SQL Server convierte automáticamente sin pérdida de datos.
+            // EF Core mapea DateTime → datetime2 por defecto, pero columnas creadas con scripts
+            // manuales usan datetime. Totalmente compatible en runtime — no es corrupción.
+            ("datetime2",   "datetime")   => true,
+            ("datetime",    "datetime2")  => true,
             _ => false
         };
     }

@@ -16,7 +16,9 @@ public sealed record VentaDocumentalResumenDto(
     /// <summary>SaldoPendiente = Total - TotalPagado. Runtime, no almacenado.</summary>
     decimal       SaldoPendiente,
     long?         PedidoId,
-    string?       Observaciones);
+    string?       Observaciones,
+    /// <summary>Folio documental (ej: "VTA-000001"). Null en registros anteriores a SerieDocumento.</summary>
+    string?       Folio = null);
 
 /// <summary>DTO completo de venta documental con detalles y pagos.</summary>
 public sealed record VentaDocumentalDto(
@@ -37,7 +39,9 @@ public sealed record VentaDocumentalDto(
     long?                             PedidoId,
     string?                           Observaciones,
     IReadOnlyList<DetalleLineaDto>    Detalles,
-    IReadOnlyList<PagoVentaDto>       Pagos);
+    IReadOnlyList<PagoVentaDto>       Pagos,
+    /// <summary>Folio documental (ej: "VTA-000001"). Null en registros anteriores a SerieDocumento.</summary>
+    string?                           Folio = null);
 
 /// <summary>DTO para crear una venta documental nueva.</summary>
 public sealed record CrearVentaDocumentalDto(

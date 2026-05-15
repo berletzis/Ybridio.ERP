@@ -110,6 +110,7 @@ public class ErpDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
     public DbSet<CotizacionCargo>        CotizacionesCargos       => Set<CotizacionCargo>();
     public DbSet<Pedido>                 Pedidos                  => Set<Pedido>();
     public DbSet<PedidoDetalle>          PedidosDetalle           => Set<PedidoDetalle>();
+    public DbSet<PedidoCargo>            PedidosCargos            => Set<PedidoCargo>();
     public DbSet<OrdenTrabajo>           OrdenesTrabajo           => Set<OrdenTrabajo>();
     public DbSet<OrdenTrabajoMaterial>   OrdenTrabajoMateriales   => Set<OrdenTrabajoMaterial>();
 

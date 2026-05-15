@@ -2,22 +2,25 @@ namespace Ybridio.Domain.Ventas;
 
 /// <summary>
 /// Estados del ciclo de vida de un pedido (compromiso operacional con el cliente).
-/// Flujo esperado: Nuevo → Confirmado → EnProceso → Completado | Cancelado.
-/// Un pedido Completado puede originar una Venta o una OrdenTrabajo.
+/// Flujo: Borrador → Autorizado → EnProceso → Parcial | Finalizado | Cancelado.
+/// Un pedido Finalizado puede originar una Venta o una OrdenTrabajo.
 /// </summary>
 public enum EstatusPedido
 {
-    /// <summary>Pedido recién creado, pendiente de confirmar.</summary>
-    Nuevo      = 0,
+    /// <summary>Pedido recién creado o en edición, pendiente de autorizar.</summary>
+    Borrador   = 0,
 
-    /// <summary>Confirmado internamente, listo para procesarse.</summary>
-    Confirmado = 1,
+    /// <summary>Autorizado internamente, listo para procesarse.</summary>
+    Autorizado = 1,
 
     /// <summary>En proceso de preparación, despacho o servicio.</summary>
     EnProceso  = 2,
 
-    /// <summary>Cumplido. Listo para entrega o facturación.</summary>
-    Completado = 3,
+    /// <summary>Cumplimiento parcial: al menos una línea entregada pero no todas.</summary>
+    Parcial    = 4,
+
+    /// <summary>Cumplido completamente. Listo para entrega o facturación.</summary>
+    Finalizado = 3,
 
     /// <summary>Cancelado. Estado terminal.</summary>
     Cancelado  = 9,

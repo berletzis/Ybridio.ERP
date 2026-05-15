@@ -22,6 +22,7 @@ public class PedidoConfiguration : IEntityTypeConfiguration<Pedido>
         builder.Property(e => e.NombreCliente).IsRequired().HasMaxLength(200);
         builder.Property(e => e.Fecha).IsRequired();
         builder.Property(e => e.FechaEntregaCompromiso);
+        builder.Property(e => e.Subtotal).HasColumnType("decimal(18,2)");
         builder.Property(e => e.Total).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
         builder.Property(e => e.Observaciones).HasMaxLength(500);
 

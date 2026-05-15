@@ -251,15 +251,55 @@ public sealed partial class CotizacionDocumentoPage : Page
         await dialog.ShowAsync();
     }
 
-    private void AbrirPedidoEnWorkspace(PedidoDto pedido)
+    /// <summary>
+    /// Abre el Pedido generado desde conversión de forma INLINE en PedidosPage.
+    /// Navega al tab Pedidos en VentasPage y muestra el documento como Document Surface,
+    /// idéntico a como se ve al abrir cualquier Pedido desde el grid (EsInlineMode=true).
+    ///
+    /// Algoritmo:
+    /// 1. Cargar DTO completo (AsNoTracking — datos frescos con Sku, Cargos, DescuentoPct)
+    /// 2. Encontrar VentasPage en el árbol visual (esta page vive dentro de ella)
+    /// 3. VentasPage.AbrirPedidoDesdeConversion → activa tab Pedidos → PedidosPage inline
+    /// 4. Fallback a WorkspaceTab si no se encuentra VentasPage en el árbol
+    /// </summary>
+    private async void AbrirPedidoEnWorkspace(PedidoDto pedido)
     {
+        var svc = App.Services.GetRequiredService<IPedidoService>();
+        var result = await svc.ObtenerConDetallesAsync(pedido.Id);
+        var dto = result.Success ? result.Value! : pedido;
+
+        // Intentar abrir inline en VentasPage → PedidosPage (experiencia preferida)
+        var ventasPage = EncontrarAncestro<VentasPage>(this);
+        if (ventasPage != null)
+        {
+            ventasPage.AbrirPedidoDesdeConversion(dto);
+            return;
+        }
+
+        // Fallback: WorkspaceTab (si la página no está en el árbol visual de VentasPage)
+        var titulo = !string.IsNullOrEmpty(dto.Folio) ? $"Pedido {dto.Folio}" : $"Pedido #{dto.Id}";
         _ = _workspace.OpenOrActivateDocumentTabAsync(
-            key:         $"pedido-{pedido.Id}",
-            title:       $"Pedido #{pedido.Id}",
+            key:         $"pedido-{dto.Id}",
+            title:       titulo,
             icon:        "",
-            dataLoader:  () => System.Threading.Tasks.Task.FromResult<PedidoDto?>(pedido),
-            pageFactory: dto => new PedidoDocumentoPage(dto!),
+            dataLoader:  () => System.Threading.Tasks.Task.FromResult<PedidoDto?>(dto),
+            pageFactory: d => new PedidoDocumentoPage(d!),
             isClosable:  true);
+    }
+
+    /// <summary>
+    /// Sube el árbol visual buscando un ancestro del tipo T.
+    /// Estándar WinUI 3 para comunicación entre páginas sin romper encapsulamiento.
+    /// </summary>
+    private static T? EncontrarAncestro<T>(Microsoft.UI.Xaml.DependencyObject? elemento)
+        where T : Microsoft.UI.Xaml.DependencyObject
+    {
+        while (elemento != null)
+        {
+            if (elemento is T resultado) return resultado;
+            elemento = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(elemento);
+        }
+        return null;
     }
 
     // ── Handlers: selector de cliente (ADR-038) ────────────────────────────
@@ -375,6 +415,7 @@ public sealed partial class CotizacionDocumentoPage : Page
         if (double.IsNaN(args.NewValue)) return;
         if (args.NewValue == args.OldValue) return;
         if (sender.Tag is not DetalleLineaEditable linea) return;
+        if (ViewModel.IsBusy) return;   // Guard defensivo: ADR-043 defensa en profundidad
 
         var nuevaCantidad = (decimal)args.NewValue;
 
@@ -659,7 +700,10 @@ public sealed partial class CotizacionDocumentoPage : Page
     // ── Otros Cargos — Commercial Charges Pattern ─────────────────────────────
 
     private void BtnAgregarCargo_Click(object sender, RoutedEventArgs e)
-        => _ = ViewModel.AgregarCargoAsync();
+    {
+        if (ViewModel.IsBusy) return;   // guard: evita doble-click / re-entrada
+        _ = ViewModel.AgregarCargoAsync();
+    }
 
     private void BtnEliminarCargo_Click(object sender, RoutedEventArgs e)
     {
@@ -727,7 +771,18 @@ public sealed partial class CotizacionDocumentoPage : Page
             Content             = panel
         };
 
-        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return null;
+        // WinUI 3: solo un ContentDialog activo a la vez — ADR-026 expected lifecycle
+        ContentDialogResult result;
+        try
+        {
+            result = await dialog.ShowAsync();
+        }
+        catch (System.Runtime.InteropServices.COMException)
+        {
+            return null;   // otro diálogo ya estaba abierto; ignorar silenciosamente
+        }
+
+        if (result != ContentDialogResult.Primary) return null;
         if (string.IsNullOrWhiteSpace(txtDescripcion.Text))
         {
             ViewModel.ErrorMessage = "La descripción del cargo es requerida.";

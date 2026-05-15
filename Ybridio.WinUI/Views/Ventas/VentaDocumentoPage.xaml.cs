@@ -156,15 +156,37 @@ public sealed partial class VentaDocumentoPage : Page
         }
     }
 
+    private async void BtnCerrarVenta_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (!ViewModel.PuedeCerrar) { ViewModel.ErrorMessage = "La venta no cumple las condiciones para cerrarse (saldo pendiente)."; return; }
+            var dialog = new ContentDialog
+            {
+                Title = "Cerrar venta",
+                Content = "¿Confirmar cierre formal de la venta? Esta acción no se puede deshacer.",
+                PrimaryButtonText = "Cerrar", SecondaryButtonText = "Cancelar",
+                DefaultButton = ContentDialogButton.Secondary, XamlRoot = XamlRoot
+            };
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+                await ViewModel.CerrarVentaAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            // ADR-026: expected lifecycle cancellation.
+        }
+    }
+
     private async void BtnCancelarVenta_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            if (!ViewModel.PuedeCancelar) { ViewModel.ErrorMessage = "Esta venta no se puede cancelar."; return; }
+            if (!ViewModel.PuedeCancelar) { ViewModel.ErrorMessage = "Esta venta no se puede cancelar en su estado actual."; return; }
             var dialog = new ContentDialog
             {
-                Title = "Confirmar cancelacion", Content = "Cancelar esta venta?",
-                PrimaryButtonText = "Si", SecondaryButtonText = "No",
+                Title = "Confirmar cancelación",
+                Content = "¿Cancelar esta venta? Esta acción no se puede deshacer.",
+                PrimaryButtonText = "Sí, cancelar", SecondaryButtonText = "No",
                 DefaultButton = ContentDialogButton.Secondary, XamlRoot = XamlRoot
             };
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)

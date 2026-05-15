@@ -198,7 +198,11 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
     [ObservableProperty] private decimal totalArticulos;
 
     // ── UI helpers ───────────────────────────────────────────────────────────
-    public string TituloDocumento => IsNuevo ? "Nueva Cotización" : $"Cotización #{_documento?.Id}";
+    public string TituloDocumento => IsNuevo
+        ? "Nueva Cotización"
+        : !string.IsNullOrEmpty(_documento?.Folio)
+            ? $"Cotización {_documento.Folio}"
+            : $"Cotización #{_documento?.Id}";
     /// <summary>
     /// Texto del badge de estado comercial — Commercial Document Workflow Pattern.
     /// "Enviada" (legacy) se muestra como "Aprobada" en el nuevo modelo.
@@ -464,8 +468,18 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
                     if (rc.Success) cargo.Id = rc.Value!.Id;
                 }
 
-                SuccessMessage = $"Cotización #{r.Value.Id} creada.";
-                Initialize(r.Value);   // Rehidrata ViewModel con el DTO guardado (incluye Id)
+                // Recargar desde BD en lugar de usar r.Value directamente:
+                // r.Value viene de CrearAsync ANTES de persistir los cargos y SIN cargar
+                // navegaciones Producto → Sku = null y Cargos = vacío en Initialize().
+                // ObtenerConDetallesAsync tiene Include(Detalles.ThenInclude(Producto)) y
+                // Include(Cargos), garantizando snapshot correcto post-guardado.
+                var reloaded = await _service.ObtenerConDetallesAsync(r.Value!.Id, ct);
+                var dtoFinal = reloaded.Success ? reloaded.Value! : r.Value;
+
+                SuccessMessage = !string.IsNullOrEmpty(dtoFinal.Folio)
+                    ? $"Cotización {dtoFinal.Folio} creada."
+                    : $"Cotización #{dtoFinal.Id} creada.";
+                Initialize(dtoFinal);
                 IsDirty = false;
 
                 DocumentSaved?.Invoke();
@@ -536,7 +550,8 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
     /// </summary>
     public async Task ActualizarCantidadAsync(DetalleLineaEditable linea, decimal nuevaCantidad)
     {
-        if (nuevaCantidad < 0) return; // Negativo: ignorar silenciosamente
+        if (nuevaCantidad < 0) return;    // Negativo: ignorar silenciosamente
+        if (IsBusy)            return;    // Guard ADR-043: serializar; rechaza re-entrada concurrente
 
         if (nuevaCantidad == 0)
         {

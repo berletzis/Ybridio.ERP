@@ -13,9 +13,13 @@ public sealed record PedidoResumenDto(
     DateTime      Fecha,
     DateTime?     FechaEntregaCompromiso,
     decimal       Total,
-    string?       Observaciones);
+    string?       Observaciones,
+    /// <summary>Folio documental del pedido (ej: "PED-000001"). Null en registros anteriores a SerieDocumento.</summary>
+    string?       Folio = null,
+    /// <summary>Folio de la cotización que originó este pedido (ej: "COT-000034"). Null si el pedido fue creado directamente.</summary>
+    string?       FolioCotizacionOrigen = null);
 
-/// <summary>DTO completo de pedido con detalles.</summary>
+/// <summary>DTO completo de pedido con detalles y cargos.</summary>
 public sealed record PedidoDto(
     long                          Id,
     int                           EmpresaId,
@@ -29,7 +33,28 @@ public sealed record PedidoDto(
     DateTime?                     FechaEntregaCompromiso,
     decimal                       Total,
     string?                       Observaciones,
-    IReadOnlyList<DetalleLineaDto> Detalles);
+    IReadOnlyList<DetalleLineaDto> Detalles,
+    /// <summary>Folio documental (ej: "PED-000001"). Null en registros anteriores a SerieDocumento.</summary>
+    string?                        Folio  = null,
+    /// <summary>Cargos accesorios del pedido (Flete, Maniobras, Seguro, etc.) — Commercial Charges Pattern.</summary>
+    IReadOnlyList<PedidoCargoDto>? Cargos = null,
+    /// <summary>Subtotal = SUM(detalles.Importe neto). Null en registros legacy sin columna Subtotal.</summary>
+    decimal?                       Subtotal = null);
+
+/// <summary>DTO de lectura de un cargo accesorio de pedido.</summary>
+public sealed record PedidoCargoDto(
+    long    Id,
+    string  Descripcion,
+    decimal Importe,
+    bool    AplicaIva,
+    int     Orden);
+
+/// <summary>DTO para agregar un cargo accesorio a un pedido.</summary>
+public sealed record CrearPedidoCargoDto(
+    string  Descripcion,
+    decimal Importe,
+    bool    AplicaIva,
+    int     Orden = 0);
 
 /// <summary>DTO para actualizar el encabezado de un pedido existente.</summary>
 public sealed record ActualizarPedidoDto(

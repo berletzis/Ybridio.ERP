@@ -176,6 +176,8 @@ public partial class App : Microsoft.UI.Xaml.Application
         // ── Infraestructura técnica ───────────────────────────────────────────
         services.AddTransient<ISchemaAuditService, SchemaAuditService>();
         services.AddTransient<IDatabaseAuditService, DatabaseAuditService>();
+        services.AddTransient<IWorkflowAuditService, WorkflowAuditService>();
+        services.AddTransient<ICommercialIntegrityAuditService, CommercialIntegrityAuditService>();
 
         return services.BuildServiceProvider();
     }

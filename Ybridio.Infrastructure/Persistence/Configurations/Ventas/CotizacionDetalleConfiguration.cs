@@ -15,9 +15,10 @@ public class CotizacionDetalleConfiguration : IEntityTypeConfiguration<Cotizacio
         builder.Property(e => e.Descripcion).IsRequired().HasMaxLength(300);
         builder.Property(e => e.Cantidad).IsRequired().HasColumnType("decimal(18,6)");
         builder.Property(e => e.PrecioUnitario).IsRequired().HasColumnType("decimal(18,2)");
-        builder.Property(e => e.DescuentoPct).IsRequired().HasColumnType("decimal(5,2)").HasDefaultValue(0m);
+        // SIN HasDefaultValue: EF Core siempre incluye en INSERT (ValueGenerated.Never implícito)
+        builder.Property(e => e.DescuentoPct).IsRequired().HasColumnType("decimal(5,2)");
         builder.Property(e => e.Importe).IsRequired().HasColumnType("decimal(18,2)");
-        builder.Property(e => e.IvaAplicable).IsRequired().HasDefaultValue(true);
+        builder.Property(e => e.IvaAplicable).IsRequired();
 
         builder.HasOne(e => e.Cotizacion).WithMany(c => c.Detalles).HasForeignKey(e => e.CotizacionId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(e => e.Producto).WithMany().HasForeignKey(e => e.ProductoId).IsRequired(false).OnDelete(DeleteBehavior.SetNull);

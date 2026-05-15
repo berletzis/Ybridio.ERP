@@ -2,6 +2,123 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Documentación obligatoria — leer ANTES de cualquier implementación
+
+Al iniciar cada sesión o antes de proponer/implementar cualquier cambio, leer en este orden:
+
+1. `Documentation/CLAUDE_RULES.md` — reglas maestras de arquitectura (ADRs, patrones, anti-patterns)
+2. `Documentation/ARCHITECTURE_STATUS.md` — estado actual de módulos, capas y decisiones vigentes
+3. `Documentation/SESSION_*.md` más reciente — qué se hizo en la última sesión y próximos pasos
+4. `Documentation/KNOWN_ISSUES.md` — problemas conocidos activos que no deben reproducirse
+
+Estos archivos son la fuente de verdad operacional del proyecto. `CLAUDE.md` es el resumen estructural; los detalles vivos están en `Documentation/`.
+
+---
+
+## Session Closure Governance Policy
+
+### Trigger
+
+Cuando el usuario solicite:
+
+- `Ejecutar Session Closure Review`
+- `Actualizar artefactos institucionales`
+
+Claude Code DEBE ejecutar el proceso completo descrito a continuación.
+
+---
+
+### Proceso obligatorio
+
+#### 1. Análisis de impacto
+
+Antes de actualizar cualquier artefacto, analizar:
+
+| Dimensión | Preguntas a responder |
+|---|---|
+| **Arquitectónico** | ¿Se agregaron entidades, servicios, capas, patrones? ¿Algún ADR fue implícitamente creado? |
+| **Workflow** | ¿Cambió el lifecycle de algún documento (COT/PED/VTA/OT)? ¿Nuevos estados? ¿Nuevas transiciones? |
+| **Runtime** | ¿Nuevas dependencias DI? ¿Cambios de lifetime? ¿Riesgo de concurrencia o cancelación? |
+| **Auditoría estructural** | ¿Se agregaron columnas, tablas, enums, FK? ¿El auditor generará falsos positivos con los cambios? |
+| **Legacy** | ¿Los registros existentes son compatibles con los cambios? ¿Se necesita script de backfill? |
+
+---
+
+#### 2. Artefactos obligatorios a evaluar y actualizar
+
+| Artefacto | Actualizar cuando... |
+|---|---|
+| `Documentation/ARCHITECTURE_STATUS.md` | Se implemente cualquier módulo, patrón o ADR nuevo |
+| `Documentation/DECISIONS.md` | Se tome una decisión arquitectónica (nuevo ADR) |
+| `Documentation/KNOWN_ISSUES.md` | Se resuelva un KI existente o se detecte uno nuevo |
+| `Documentation/CLAUDE_RULES.md` | Se formalice un nuevo patrón, anti-pattern o regla de arquitectura |
+| `Documentation/SESSION_*.md` | Siempre — registrar qué se hizo, estado actual y próximos pasos |
+
+---
+
+#### 3. Sección obligatoria: Impacto en Auditoría Estructural
+
+Si la sesión incluye cualquiera de los siguientes cambios:
+
+- Nuevas columnas en tablas existentes
+- Nuevas tablas o schemas
+- Cambios en enums de workflow (EstatusCotizacion, EstatusPedido, EstatusVenta)
+- Cambios en lifecycle o conversiones documentales
+- Cambios en snapshots (NombreCliente, Descripcion, Importe en detalles)
+- Nuevos scripts SQL manuales
+- Cambios en persistencia de totales o pagos
+
+Claude Code DEBE incluir en el SESSION_*.md la sección:
+
+```
+## Impacto en Auditoría Estructural
+
+### Nuevas validaciones requeridas
+- (lista de validadores a agregar o actualizar en WorkflowAuditService / CommercialIntegrityAuditService)
+
+### Validaciones obsoletas o que generan falsos positivos
+- (validadores que deben desactivarse, reclasificarse o actualizarse)
+
+### Riesgo de falsos positivos
+- (qué generará Critical/Error incorrectos en SchemaAuditService tras los cambios)
+
+### Impacto legacy
+- (registros existentes que tendrán valores null/default, esperados como LegacyData)
+
+### Migraciones requeridas
+- (scripts SQL necesarios, columnas faltantes, constraints pendientes)
+
+### Recalibración de severidades
+- (si algún finding existente debe subir/bajar de severidad por el nuevo contexto)
+```
+
+---
+
+#### 4. Restricciones críticas (PROHIBIDO en Session Closure)
+
+- ❌ Reparar findings de auditoría automáticamente sin análisis previo
+- ❌ Reclasificar severidades sin justificación arquitectónica documentada
+- ❌ Modificar datos legacy sin validación explícita del usuario
+- ❌ Asumir corrupción de datos cuando puede ser estado legacy válido
+- ❌ Actualizar CLAUDE_RULES.md con reglas que contradicen ADRs existentes
+- ❌ Cerrar KI sin confirmar que el fix funciona en runtime
+
+---
+
+#### 5. Objetivo institucional
+
+El Session Closure Review garantiza que al terminar cada sesión significativa:
+
+1. El código, la arquitectura, el runtime y el workflow estén sincronizados
+2. Los ADRs reflejen las decisiones reales tomadas (no solo las planeadas)
+3. El módulo de Auditoría Estructural pueda ejecutarse sin falsos positivos
+4. Los KI estén actualizados con issues reales y resueltos marcados correctamente
+5. La siguiente sesión pueda empezar con contexto completo y sin deuda documental
+
+**Frase clave a evitar:** *Architecture Drift* — cuando el código evoluciona pero la documentación no.
+
+---
+
 ## Build & Run
 
 ```powershell

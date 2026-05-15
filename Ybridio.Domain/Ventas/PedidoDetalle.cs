@@ -7,7 +7,8 @@ namespace Ybridio.Domain.Ventas;
 /// Soporta productos del catálogo y servicios/ítems ad-hoc sin registro de producto.
 /// </summary>
 /// <remarks>
-/// Fórmula Importe: Cantidad × PrecioUnitario. Persistido para trazabilidad histórica.
+/// Fórmula Importe: Cantidad × PrecioUnitario × (1 − DescuentoPct/100). Persistido para trazabilidad histórica.
+/// En conversiones COT→PED, el Importe ya viene neto (snapshot del precio acordado).
 /// </remarks>
 public class PedidoDetalle
 {
@@ -17,7 +18,11 @@ public class PedidoDetalle
     public string  Descripcion    { get; set; } = string.Empty;
     public decimal Cantidad       { get; set; }
     public decimal PrecioUnitario { get; set; }
-    /// <summary>Importe = Cantidad × PrecioUnitario. Persistido.</summary>
+    /// <summary>Descuento porcentual por línea (0-100). Preservado desde cotización origen si aplica.</summary>
+    public decimal DescuentoPct   { get; set; }
+    /// <summary>Indica si esta línea aplica IVA. Preservado desde cotización origen si aplica.</summary>
+    public bool    IvaAplicable   { get; set; } = true;
+    /// <summary>Importe neto = Cantidad × PrecioUnitario × (1 − DescuentoPct/100). Persistido.</summary>
     public decimal Importe        { get; set; }
 
     // Navegación

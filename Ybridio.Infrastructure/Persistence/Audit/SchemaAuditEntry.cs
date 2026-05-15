@@ -2,32 +2,66 @@ using System.Text.Json;
 
 namespace Ybridio.Infrastructure.Persistence.Audit;
 
-/// <summary>Nivel de severidad de un hallazgo de auditoría de esquema.</summary>
+/// <summary>
+/// Nivel de severidad de un hallazgo de auditoría estructural.
+/// El sistema de auditoría distingue corrupción real de estado legacy esperado y migraciones pendientes.
+/// </summary>
 public enum AuditSeverity
 {
-    /// <summary>Inconsistencia crítica que puede causar corrupción de datos o fallas en runtime (FK faltante, tipo incompatible).</summary>
+    // ── Problemas reales ────────────────────────────────────────────────────
+    /// <summary>
+    /// Corrupción estructural real: folio duplicado, FK a entidad inexistente,
+    /// total imposible, snapshot corrupto, documento en estado ilegal.
+    /// Requiere intervención inmediata.
+    /// </summary>
     Critical = 0,
-    /// <summary>Elemento ausente que puede causar errores funcionales (tabla o columna faltante en la BD).</summary>
+
+    /// <summary>
+    /// Inconsistencia recuperable: tipo de columna incompatible, duplicado funcional,
+    /// campo requerido nulo en documento activo.
+    /// </summary>
     Error = 1,
-    /// <summary>Elemento no rastreado o potencialmente obsoleto (tabla o columna huérfana en la BD).</summary>
+
+    /// <summary>
+    /// Divergencia tolerable: tabla en BD sin entidad EF, columna huérfana,
+    /// FK legacy apuntando a dbo (estado post-migración esperado).
+    /// </summary>
     Warning = 2,
+
     /// <summary>Estado correcto o información de contexto sin impacto funcional.</summary>
-    Info = 3
+    Info = 3,
+
+    // ── Categorías semánticas ───────────────────────────────────────────────
+    /// <summary>
+    /// Dato histórico válido generado antes del workflow/arquitectura actual.
+    /// Esperado y aceptable — documentos sin folio pre-SerieDocumento, subtotales null legacy.
+    /// No requiere acción urgente.
+    /// </summary>
+    LegacyData = 4,
+
+    /// <summary>
+    /// Migración o script manual pendiente de ejecutar.
+    /// La columna/tabla/constraint existe en el modelo EF pero no en la BD.
+    /// Funcionalidad incompleta hasta que se ejecute el script correspondiente.
+    /// </summary>
+    MigrationPending = 5,
 }
 
 /// <summary>
-/// Hallazgo individual de la auditoría de esquema.
+/// Hallazgo individual de la auditoría ERP.
 /// Inmutable por diseño — el servicio lo crea, la UI lo lee.
 /// </summary>
 /// <param name="Severity">Nivel de severidad.</param>
-/// <param name="Category">Categoría del hallazgo (Migraciones, Tablas, Columnas, Tipos, Relaciones).</param>
+/// <param name="Category">Categoría técnica del hallazgo (Migraciones, Tablas, Columnas, Lifecycle, Financiero, etc.).</param>
 /// <param name="Message">Descripción detallada del problema detectado.</param>
 /// <param name="Suggestion">Acción sugerida para corregir el problema (opcional).</param>
+/// <param name="Module">Módulo de negocio al que pertenece el hallazgo (Cotizaciones, Pedidos, Ventas, Catálogos, Esquema, etc.). Null para hallazgos transversales.</param>
 public sealed record SchemaAuditEntry(
     AuditSeverity Severity,
     string        Category,
     string        Message,
-    string?       Suggestion = null);
+    string?       Suggestion = null,
+    string?       Module     = null);
 
 /// <summary>
 /// Reporte agregado producido por <see cref="ISchemaAuditService.RunAsync"/>.
@@ -41,20 +75,29 @@ public sealed class SchemaAuditReport
     /// <summary>Lista completa de hallazgos, ordenada de mayor a menor severidad.</summary>
     public IReadOnlyList<SchemaAuditEntry> Entries { get; }
 
-    /// <summary>Número de hallazgos de nivel <see cref="AuditSeverity.Critical"/>.</summary>
-    public int CriticalCount => Entries.Count(e => e.Severity == AuditSeverity.Critical);
+    /// <summary>Número de hallazgos <see cref="AuditSeverity.Critical"/> — corrupción real.</summary>
+    public int CriticalCount        => Entries.Count(e => e.Severity == AuditSeverity.Critical);
 
-    /// <summary>Número de hallazgos de nivel <see cref="AuditSeverity.Error"/>.</summary>
-    public int ErrorCount    => Entries.Count(e => e.Severity == AuditSeverity.Error);
+    /// <summary>Número de hallazgos <see cref="AuditSeverity.Error"/> — inconsistencia recuperable.</summary>
+    public int ErrorCount           => Entries.Count(e => e.Severity == AuditSeverity.Error);
 
-    /// <summary>Número de hallazgos de nivel <see cref="AuditSeverity.Warning"/>.</summary>
-    public int WarningCount  => Entries.Count(e => e.Severity == AuditSeverity.Warning);
+    /// <summary>Número de hallazgos <see cref="AuditSeverity.Warning"/> — divergencia tolerable.</summary>
+    public int WarningCount         => Entries.Count(e => e.Severity == AuditSeverity.Warning);
 
-    /// <summary>Verdadero si existe al menos un hallazgo Critical. Puede usarse para bloquear operaciones sensibles.</summary>
+    /// <summary>Número de hallazgos <see cref="AuditSeverity.LegacyData"/> — datos históricos válidos.</summary>
+    public int LegacyDataCount      => Entries.Count(e => e.Severity == AuditSeverity.LegacyData);
+
+    /// <summary>Número de hallazgos <see cref="AuditSeverity.MigrationPending"/> — scripts pendientes.</summary>
+    public int MigrationPendingCount => Entries.Count(e => e.Severity == AuditSeverity.MigrationPending);
+
+    /// <summary>Verdadero si existe al menos un hallazgo Critical.</summary>
     public bool HasCriticalErrors => CriticalCount > 0;
 
     /// <summary>Verdadero si existe al menos un hallazgo Critical o Error.</summary>
     public bool HasErrors => CriticalCount > 0 || ErrorCount > 0;
+
+    /// <summary>Verdadero si existen scripts manuales pendientes de ejecutar.</summary>
+    public bool HasPendingMigrations => MigrationPendingCount > 0;
 
     internal SchemaAuditReport(DateTime executedAt, IReadOnlyList<SchemaAuditEntry> entries)
     {
@@ -63,24 +106,47 @@ public sealed class SchemaAuditReport
     }
 
     /// <summary>
+    /// Desglose de hallazgos por módulo de negocio.
+    /// Clave: nombre del módulo (o "Sin módulo" si Module es null).
+    /// Valor: conteo de hallazgos con severidad Critical o Error para ese módulo.
+    /// </summary>
+    public IReadOnlyDictionary<string, int> GetModuleBreakdown()
+        => Entries
+            .Where(e => e.Severity is AuditSeverity.Critical or AuditSeverity.Error)
+            .GroupBy(e => e.Module ?? "General")
+            .ToDictionary(g => g.Key, g => g.Count());
+
+    /// <summary>
+    /// Todos los módulos presentes en este reporte (con y sin errores).
+    /// </summary>
+    public IReadOnlyList<string> GetModules()
+        => Entries
+            .Select(e => e.Module ?? "General")
+            .Distinct()
+            .OrderBy(m => m)
+            .ToList();
+
+    /// <summary>
     /// Imprime el reporte en consola con colores: rojo=Critical, naranja=Error, amarillo=Warning, cyan=Info.
     /// Uso principal: scripts de arranque en modo DEBUG.
     /// </summary>
     public void PrintToConsole()
     {
         Console.WriteLine();
-        Console.WriteLine($"══ AUDITORÍA DE ESQUEMA  {ExecutedAt:yyyy-MM-dd HH:mm:ss} UTC ══");
-        Console.WriteLine($"   Críticos: {CriticalCount}   Errores: {ErrorCount}   Advertencias: {WarningCount}   Total: {Entries.Count}");
+        Console.WriteLine($"══ AUDITORÍA ERP  {ExecutedAt:yyyy-MM-dd HH:mm:ss} UTC ══");
+        Console.WriteLine($"   Críticos: {CriticalCount}   Errores: {ErrorCount}   Advertencias: {WarningCount}   Legacy: {LegacyDataCount}   Migr.Pend.: {MigrationPendingCount}   Total: {Entries.Count}");
         Console.WriteLine();
 
         foreach (var entry in Entries)
         {
             var (prefix, color) = entry.Severity switch
             {
-                AuditSeverity.Critical => ("[CRITICAL]", ConsoleColor.Red),
-                AuditSeverity.Error    => ("[ERROR]   ", ConsoleColor.DarkYellow),
-                AuditSeverity.Warning  => ("[WARN]    ", ConsoleColor.Yellow),
-                _                      => ("[INFO]    ", ConsoleColor.Cyan)
+                AuditSeverity.Critical         => ("[CRITICAL]  ", ConsoleColor.Red),
+                AuditSeverity.Error            => ("[ERROR]     ", ConsoleColor.DarkYellow),
+                AuditSeverity.Warning          => ("[WARN]      ", ConsoleColor.Yellow),
+                AuditSeverity.LegacyData       => ("[LEGACY]    ", ConsoleColor.DarkCyan),
+                AuditSeverity.MigrationPending => ("[MIGR.PEND] ", ConsoleColor.Magenta),
+                _                              => ("[INFO]      ", ConsoleColor.Cyan)
             };
 
             Console.ForegroundColor = color;
@@ -120,10 +186,11 @@ public sealed class SchemaAuditReport
         var payload = new
         {
             ExecutedAt,
-            Summary = new { CriticalCount, ErrorCount, WarningCount, HasCriticalErrors, HasErrors },
+            Summary = new { CriticalCount, ErrorCount, WarningCount, LegacyDataCount, MigrationPendingCount, HasCriticalErrors, HasErrors, HasPendingMigrations },
             Entries  = Entries.Select(e => new
             {
                 Severity   = e.Severity.ToString(),
+                e.Module,
                 e.Category,
                 e.Message,
                 e.Suggestion

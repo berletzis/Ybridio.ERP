@@ -5,7 +5,14 @@
       xmlns:vm="using:Ybridio.WinUI.ViewModels.Ventas"
       xmlns:dto="using:Ybridio.Application.DTOs.Ventas"
       xmlns:selector="using:Ybridio.WinUI.Controls.Selector"
+      xmlns:conv="using:Ybridio.WinUI.Converters"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <Page.Resources>
+        <conv:EstatusVentaToBgBrushConverter   x:Key="EstatusBgConverter"/>
+        <conv:EstatusVentaToFgBrushConverter   x:Key="EstatusFgConverter"/>
+        <conv:DecimalToCurrencyConverter        x:Key="CurrencyConverter"/>
+    </Page.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
@@ -19,33 +26,53 @@
         </Grid.RowDefinitions>
 
         <!-- ── Command Bar ─────────────────────────────────────────────────── -->
-        <CommandBar Grid.Row="0" DefaultLabelPosition="Right" HorizontalAlignment="Left" Margin="8,0,0,0">
-            <AppBarButton Label="Guardar" Command="{x:Bind ViewModel.GuardarCommand}">
-                <AppBarButton.Icon><FontIcon Glyph="&#xE74E;"/></AppBarButton.Icon>
-            </AppBarButton>
-            <AppBarSeparator/>
-            <AppBarButton Label="Agregar Línea" Click="BtnAgregarLinea_Click">
-                <AppBarButton.Icon><FontIcon Glyph="&#xE710;"/></AppBarButton.Icon>
-            </AppBarButton>
-            <AppBarButton Label="Eliminar Línea" Command="{x:Bind ViewModel.EliminarDetalleCommand}">
-                <AppBarButton.Icon><FontIcon Glyph="&#xE74D;"/></AppBarButton.Icon>
-            </AppBarButton>
-            <AppBarSeparator/>
-            <AppBarButton Label="Confirmar Venta" Command="{x:Bind ViewModel.ConfirmarCommand}">
-                <AppBarButton.Icon><FontIcon Glyph="&#xE8FB;"/></AppBarButton.Icon>
-            </AppBarButton>
-            <AppBarButton Label="Registrar Pago" Click="BtnRegistrarPago_Click">
-                <AppBarButton.Icon><FontIcon Glyph="&#xE8D0;"/></AppBarButton.Icon>
-            </AppBarButton>
-            <AppBarButton Label="Cancelar Venta" Click="BtnCancelarVenta_Click">
-                <AppBarButton.Icon><FontIcon Glyph="&#xE711;"/></AppBarButton.Icon>
-            </AppBarButton>
-            <AppBarSeparator/>
-            <AppBarButton Label="Ver Pedido Origen" Click="BtnAbrirPedidoOrigen_Click"
-                          IsEnabled="{x:Bind ViewModel.TienePedidoOrigen, Mode=OneWay}">
-                <AppBarButton.Icon><FontIcon Glyph="&#xE8A1;"/></AppBarButton.Icon>
-            </AppBarButton>
-        </CommandBar>
+        <Border Grid.Row="0" Style="{StaticResource ErpOperationalCommandSurfaceStyle}">
+            <CommandBar Style="{StaticResource ErpDocumentCommandBarStyle}"
+                        Margin="4,0,0,0">
+                <AppBarButton Label="Guardar"
+                              IsEnabled="{x:Bind ViewModel.PuedeEditar, Mode=OneWay}"
+                              Command="{x:Bind ViewModel.GuardarCommand}">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE74E;"/></AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarSeparator/>
+                <AppBarButton Label="Agregar Línea"
+                              IsEnabled="{x:Bind ViewModel.PuedeEditar, Mode=OneWay}"
+                              Click="BtnAgregarLinea_Click">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE710;"/></AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarButton Label="Eliminar Línea"
+                              IsEnabled="{x:Bind ViewModel.PuedeEditar, Mode=OneWay}"
+                              Command="{x:Bind ViewModel.EliminarDetalleCommand}">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE74D;"/></AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarSeparator/>
+                <AppBarButton Label="Confirmar Venta"
+                              IsEnabled="{x:Bind ViewModel.PuedeConfirmar, Mode=OneWay}"
+                              Command="{x:Bind ViewModel.ConfirmarCommand}">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE8FB;"/></AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarButton Label="Registrar Pago"
+                              IsEnabled="{x:Bind ViewModel.PuedeRegistrarPago, Mode=OneWay}"
+                              Click="BtnRegistrarPago_Click">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE8D0;"/></AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarButton Label="Cerrar Venta"
+                              IsEnabled="{x:Bind ViewModel.PuedeCerrar, Mode=OneWay}"
+                              Click="BtnCerrarVenta_Click">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE8F4;"/></AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarButton Label="Cancelar Venta"
+                              IsEnabled="{x:Bind ViewModel.PuedeCancelar, Mode=OneWay}"
+                              Click="BtnCancelarVenta_Click">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE711;"/></AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarSeparator/>
+                <AppBarButton Label="Ver Pedido Origen" Click="BtnAbrirPedidoOrigen_Click"
+                              IsEnabled="{x:Bind ViewModel.TienePedidoOrigen, Mode=OneWay}">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE8A1;"/></AppBarButton.Icon>
+                </AppBarButton>
+            </CommandBar>
+        </Border>
 
         <!-- ADR-031: Document Surface Header operacional — breadcrumb + estado. SIN apariencia tab. -->
         <Border Grid.Row="1" Background="{ThemeResource LayerFillColorDefaultBrush}"
@@ -59,10 +86,13 @@
                 <TextBlock Text="›" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
                 <TextBlock Text="{x:Bind ViewModel.TituloDocumento, Mode=OneWay}"
                            FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                <Border Background="{ThemeResource AccentFillColorDefaultBrush}"
-                        CornerRadius="4" Padding="8,2,8,2" VerticalAlignment="Center">
+                <Border Background="{x:Bind ViewModel.EstatusVenta, Mode=OneWay, Converter={StaticResource EstatusBgConverter}}"
+                        CornerRadius="4" Padding="8,3,8,3" VerticalAlignment="Center"
+                        BorderBrush="{x:Bind ViewModel.EstatusVenta, Mode=OneWay, Converter={StaticResource EstatusFgConverter}}"
+                        BorderThickness="1">
                     <TextBlock Text="{x:Bind ViewModel.EstatusTexto, Mode=OneWay}"
-                               Foreground="White" FontSize="11" FontWeight="SemiBold"/>
+                               Foreground="{x:Bind ViewModel.EstatusVenta, Mode=OneWay, Converter={StaticResource EstatusFgConverter}}"
+                               FontSize="11" FontWeight="SemiBold"/>
                 </Border>
             </StackPanel>
         </Border>
@@ -209,14 +239,34 @@
 
         <!-- ── Status bar ───────────────────────────────────────────────────── -->
         <Border Grid.Row="6" Style="{StaticResource ErpGridStatusBarStyle}" Margin="20,0,20,16">
-            <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
-                <TextBlock Style="{StaticResource ErpGridStatusTextStyle}">
-                    <Run Text="{x:Bind ViewModel.Detalles.Count, Mode=OneWay}"/>
-                    <Run Text="línea(s)"/>
-                </TextBlock>
-                <TextBlock Style="{StaticResource ErpGridErrorTextStyle}"   Text="{x:Bind ViewModel.ErrorMessage,   Mode=OneWay}"/>
-                <TextBlock Style="{StaticResource ErpGridSuccessTextStyle}" Text="{x:Bind ViewModel.SuccessMessage, Mode=OneWay}"/>
-            </StackPanel>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                    <TextBlock Style="{StaticResource ErpGridStatusTextStyle}" Text="{x:Bind ViewModel.Folio, Mode=OneWay}"/>
+                    <TextBlock Style="{StaticResource ErpGridStatusTextStyle}">
+                        <Run Text="{x:Bind ViewModel.Detalles.Count, Mode=OneWay}"/>
+                        <Run Text="línea(s)"/>
+                    </TextBlock>
+                    <TextBlock Style="{StaticResource ErpGridErrorTextStyle}"   Text="{x:Bind ViewModel.ErrorMessage,   Mode=OneWay}"/>
+                    <TextBlock Style="{StaticResource ErpGridSuccessTextStyle}" Text="{x:Bind ViewModel.SuccessMessage, Mode=OneWay}"/>
+                </StackPanel>
+                <!-- Totales financieros -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Style="{StaticResource ErpGridStatusTextStyle}" Text="Total:"/>
+                        <TextBlock Style="{StaticResource ErpGridStatusTextStyle}" FontWeight="SemiBold"
+                                   Text="{x:Bind ViewModel.Total, Mode=OneWay, Converter={StaticResource CurrencyConverter}}"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Style="{StaticResource ErpGridStatusTextStyle}" Text="Saldo:"/>
+                        <TextBlock Style="{StaticResource ErpGridStatusTextStyle}" FontWeight="SemiBold"
+                                   Text="{x:Bind ViewModel.SaldoPendiente, Mode=OneWay, Converter={StaticResource CurrencyConverter}}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
         </Border>
     </Grid>
 </Page>

@@ -118,7 +118,7 @@ public sealed partial class PedidosViewModel : BaseContextViewModel
     }
 
     private bool HaySeleccion    => PedidoSeleccionado is not null;
-    private bool PuedeAvanzar    => PedidoSeleccionado is { Estatus: not EstatusPedido.Completado and not EstatusPedido.Cancelado };
+    private bool PuedeAvanzar    => PedidoSeleccionado is { Estatus: not EstatusPedido.Finalizado and not EstatusPedido.Cancelado };
 
     partial void OnBusquedaChanged(string value)       => AplicarFiltro();
     partial void OnFiltroTemporalChanged(string value) => _ = RefrescarAsync();
@@ -130,9 +130,10 @@ public sealed partial class PedidosViewModel : BaseContextViewModel
         if (PedidoSeleccionado is null || Session.Usuario is null) return;
         var siguiente = PedidoSeleccionado.Estatus switch
         {
-            EstatusPedido.Nuevo      => EstatusPedido.Confirmado,
-            EstatusPedido.Confirmado => EstatusPedido.EnProceso,
-            EstatusPedido.EnProceso  => EstatusPedido.Completado,
+            EstatusPedido.Borrador   => EstatusPedido.Autorizado,
+            EstatusPedido.Autorizado => EstatusPedido.EnProceso,
+            EstatusPedido.EnProceso  => EstatusPedido.Finalizado,
+            EstatusPedido.Parcial    => EstatusPedido.Finalizado,
             _                        => PedidoSeleccionado.Estatus
         };
         IsBusy = true; ErrorMessage = SuccessMessage = string.Empty;

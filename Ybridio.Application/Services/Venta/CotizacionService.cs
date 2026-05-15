@@ -180,8 +180,10 @@ public sealed class CotizacionService : ICotizacionService
         var c = await _context.Cotizaciones.Include(x => x.Detalles)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
         if (c is null) return ServiceResult<CotizacionDto>.Fail("Cotización no encontrada.", ErrorCode.NotFound);
-        if (c.Estatus == EstatusCotizacion.Cancelada)
-            return ServiceResult<CotizacionDto>.Fail("No se puede editar una cotización cancelada.", ErrorCode.ValidationFailed);
+        if (c.Estatus is EstatusCotizacion.Cancelada or EstatusCotizacion.Convertida)
+            return ServiceResult<CotizacionDto>.Fail("No se puede editar una cotización Cancelada o Convertida.", ErrorCode.ValidationFailed);
+        if (c.Estatus == EstatusCotizacion.Aprobada)
+            return ServiceResult<CotizacionDto>.Fail("Una cotización Aprobada está congelada. Regrese a Borrador para editar.", ErrorCode.ValidationFailed);
 
         c.RelacionComercialId   = dto.RelacionComercialId;
         c.NombreCliente         = dto.NombreCliente.Trim();
@@ -205,6 +207,8 @@ public sealed class CotizacionService : ICotizacionService
         var c = await _context.Cotizaciones.Include(x => x.Detalles)
             .FirstOrDefaultAsync(x => x.Id == cotizacionId, ct);
         if (c is null) return ServiceResult<DetalleLineaDto>.Fail("Cotización no encontrada.", ErrorCode.NotFound);
+        if (c.Estatus is not (EstatusCotizacion.Borrador))
+            return ServiceResult<DetalleLineaDto>.Fail("Solo se pueden agregar detalles a una cotización en Borrador.", ErrorCode.ValidationFailed);
 
         // ADR-042: Importe neto usa CommercialDocumentCalculator
         var detalle = new CotizacionDetalle
@@ -226,8 +230,11 @@ public sealed class CotizacionService : ICotizacionService
         c.UsuarioModificacionId = usuarioId;
 
         await _context.SaveChangesAsync(ct);
+        // Sku requiere navegar a Producto — el ViewModel lo preserva desde el detalle original
         return ServiceResult<DetalleLineaDto>.Ok(
-            new(detalle.Id, detalle.ProductoId, detalle.Descripcion, detalle.Cantidad, detalle.PrecioUnitario, detalle.Importe, detalle.DescuentoPct));
+            new(detalle.Id, detalle.ProductoId, detalle.Descripcion, detalle.Cantidad,
+                detalle.PrecioUnitario, detalle.Importe, detalle.DescuentoPct,
+                IvaAplicable: detalle.IvaAplicable));
     }
 
     /// <inheritdoc/>
@@ -240,6 +247,8 @@ public sealed class CotizacionService : ICotizacionService
             .Include(x => x.Cotizacion).ThenInclude(c => c.Detalles)
             .FirstOrDefaultAsync(x => x.Id == detalleId, ct);
         if (d is null) return ServiceResult.Fail("Detalle no encontrado.", ErrorCode.NotFound);
+        if (d.Cotizacion.Estatus is not EstatusCotizacion.Borrador)
+            return ServiceResult.Fail("Solo se pueden eliminar detalles de una cotización en Borrador.", ErrorCode.ValidationFailed);
 
         _context.CotizacionesDetalle.Remove(d);
 
@@ -259,20 +268,52 @@ public sealed class CotizacionService : ICotizacionService
         if (!await _auth.PuedeAsync(PermisosClave.Pedido.Crear, ct))
             return ServiceResult<PedidoDto>.Fail("Sin permiso para crear pedidos (pedido.crear).", ErrorCode.Unauthorized);
 
-        var c = await _context.Cotizaciones.Include(x => x.Detalles)
+        // Cargar cabecera de cotización CON tracking (para actualizar Estatus luego)
+        var c = await _context.Cotizaciones
             .FirstOrDefaultAsync(x => x.Id == cotizacionId, ct);
         if (c is null) return ServiceResult<PedidoDto>.Fail("Cotización no encontrada.", ErrorCode.NotFound);
         if (c.Estatus != EstatusCotizacion.Aprobada)
             return ServiceResult<PedidoDto>.Fail("Solo se pueden convertir cotizaciones en estado Aprobada.", ErrorCode.ValidationFailed);
 
-        var detalles = c.Detalles.Select(d => new PedidoDetalle
+        // Cargar detalles y cargos AsNoTracking — CRÍTICO: evita valores stale del change tracker.
+        // El ErpDbContext es scoped y puede tener versiones antiguas de los detalles (pre-descuento)
+        // en el identity map. AsNoTracking fuerza lectura fresca desde BD.
+        var detallesDb = await _context.CotizacionesDetalle.AsNoTracking()
+            .Where(d => d.CotizacionId == cotizacionId)
+            .ToListAsync(ct);
+        var cargosDb = await _context.CotizacionesCargos.AsNoTracking()
+            .Where(cc => cc.CotizacionId == cotizacionId)
+            .OrderBy(cc => cc.Orden)
+            .ToListAsync(ct);
+
+        // Snapshot de líneas — preserva snapshot comercial completo (ADR-042)
+        var detalles = detallesDb.Select(d => new PedidoDetalle
         {
             ProductoId     = d.ProductoId,
             Descripcion    = d.Descripcion,
             Cantidad       = d.Cantidad,
             PrecioUnitario = d.PrecioUnitario,
-            Importe        = d.Importe
+            DescuentoPct   = d.DescuentoPct,    // preservar descuento por línea
+            IvaAplicable   = d.IvaAplicable,    // preservar flag IVA por línea
+            Importe        = d.Importe          // importe neto ya calculado
         }).ToList();
+
+        // Snapshot de cargos accesorios — usa cargosDb (AsNoTracking, valores frescos de BD)
+        var cargos = cargosDb.Select((cc, idx) => new Ybridio.Domain.Ventas.PedidoCargo
+        {
+            Descripcion = cc.Descripcion,
+            Importe     = cc.Importe,
+            AplicaIva   = cc.AplicaIva,
+            Orden       = idx
+        }).ToList();
+
+        // Document Identity Rule: el Pedido recibe su propio folio independiente
+        var folioPedido = await _folioGenerator.GenerarFolioAsync(
+            c.EmpresaId, TipoDocumentoSerie.Pedido, c.SucursalId, ct);
+
+        var observacionConRef = string.IsNullOrEmpty(c.Folio)
+            ? $"Generado desde Cotización #{c.Id}"
+            : $"Generado desde Cotización {c.Folio}";
 
         var pedido = new Pedido
         {
@@ -280,15 +321,19 @@ public sealed class CotizacionService : ICotizacionService
             SucursalId             = c.SucursalId,
             RelacionComercialId    = c.RelacionComercialId,
             NombreCliente          = c.NombreCliente,
-            CotizacionId      = c.Id,
-            Estatus           = EstatusPedido.Nuevo,
-            Fecha             = DateTime.Today,
-            Total             = c.Total,
-            Observaciones     = $"Generado desde Cotización #{c.Id}",
-            FechaCreacion     = DateTime.UtcNow,
-            UsuarioCreacionId = usuarioId,
-            Borrado           = false,
-            Detalles          = detalles
+            CotizacionId           = c.Id,
+            Folio                  = folioPedido,
+            Estatus                = EstatusPedido.Borrador,
+            Fecha                  = DateTime.Today,
+            // Calcular Subtotal y Total desde los valores frescos (AsNoTracking) — no usar c.Subtotal/Total stale
+            Subtotal               = detalles.Sum(d => d.Importe),
+            Total                  = detalles.Sum(d => d.Importe) + cargos.Sum(cc => cc.Importe),
+            Observaciones          = observacionConRef,
+            FechaCreacion          = DateTime.UtcNow,
+            UsuarioCreacionId      = usuarioId,
+            Borrado                = false,
+            Detalles               = detalles,
+            Cargos                 = cargos      // snapshot fiel de cargos accesorios
         };
 
         _context.Pedidos.Add(pedido);
@@ -300,10 +345,16 @@ public sealed class CotizacionService : ICotizacionService
 
         await _context.SaveChangesAsync(ct);
 
-        return ServiceResult<PedidoDto>.Ok(new(pedido.Id, pedido.EmpresaId, pedido.SucursalId, pedido.RelacionComercialId,
-            pedido.NombreCliente, pedido.CotizacionId, pedido.Estatus, "Nuevo", pedido.Fecha,
+        return ServiceResult<PedidoDto>.Ok(new(
+            pedido.Id, pedido.EmpresaId, pedido.SucursalId, pedido.RelacionComercialId,
+            pedido.NombreCliente, pedido.CotizacionId, pedido.Estatus, "Borrador", pedido.Fecha,
             pedido.FechaEntregaCompromiso, pedido.Total, pedido.Observaciones,
-            detalles.Select(d => new DetalleLineaDto(d.Id, d.ProductoId, d.Descripcion, d.Cantidad, d.PrecioUnitario, d.Importe)).ToList()));
+            detalles.Select(d => new DetalleLineaDto(
+                d.Id, d.ProductoId, d.Descripcion, d.Cantidad, d.PrecioUnitario,
+                d.Importe, d.DescuentoPct, IvaAplicable: d.IvaAplicable)).ToList(),
+            Folio:   folioPedido,
+            Cargos:  cargos.Select(cc => new PedidoCargoDto(cc.Id, cc.Descripcion, cc.Importe, cc.AplicaIva, cc.Orden)).ToList(),
+            Subtotal: pedido.Subtotal));
     }
 
     // ── Cargos accesorios (Commercial Charges Pattern) ───────────────────────

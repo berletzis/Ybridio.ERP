@@ -55,25 +55,46 @@
         ErpDocumentCommandBarStyle
         ───────────────────────────
         Contexto: CommandBar dentro de un Document Surface inline o ventana
-        standalone (CotizacionDocumentoPage, VentaDocumentoPage, etc.).
-
-        Intención UX:
-          · Mismo comportamiento de alineación que ErpModuleCommandBarStyle.
-          · Semánticamente diferenciado para permitir futura personalización
-            visual del nivel documental (ej: fondo LayerFill, sombra sutil).
+        standalone. SIEMPRE va dentro de un Border con ErpOperationalCommandSurfaceStyle.
+        El fondo lo provee el Border container — el CommandBar permanece transparente.
 
         Regla de uso:
-          · Aplicar a CommandBar de Document Surfaces y ventanas standalone.
-          · NO usar en módulos de listado (usar ErpModuleCommandBarStyle).
+          · Siempre empaquetar en <Border Style="{StaticResource ErpOperationalCommandSurfaceStyle}">
+          · NO aplicar a CommandBars de módulos de listado (usar ErpModuleCommandBarStyle).
 
         Ver: ADR-031 Document Surface Visual Separation Standard
-             ADR-032 Window Mode Architecture
              ADR-034 Pixel Perfect Operational Layout System
     -->
     <Style x:Key="ErpDocumentCommandBarStyle" TargetType="CommandBar"
            BasedOn="{StaticResource ErpModuleCommandBarStyle}">
-        <!-- Reservado para diferenciación futura del nivel documental.
-             Actualmente hereda todo de ErpModuleCommandBarStyle. -->
+        <!-- Transparente: el fondo institucional lo provee ErpOperationalCommandSurfaceStyle -->
+    </Style>
+
+    <!--
+        ErpOperationalCommandSurfaceStyle
+        ───────────────────────────────────
+        Contexto: Border que envuelve el CommandBar en superficies documentales.
+        Proporciona:
+          · Fondo sólido institucional (LayerFillColorDefaultBrush)
+          · Separador inferior visual (DividerStrokeColorDefaultBrush)
+          · Apariencia desktop-native, sin transparencias ni overlays
+
+        Uso obligatorio en TODAS las Document Surfaces:
+            <Border Style="{StaticResource ErpOperationalCommandSurfaceStyle}">
+                <CommandBar Style="{StaticResource ErpDocumentCommandBarStyle}" .../>
+            </Border>
+
+        PROHIBIDO:
+          · Fondo Acrylic o transparente en CommandBars documentales
+          · CommandBar flotante sin container
+          · Backgrounds inline hardcodeados (usar este estilo)
+
+        Ver: ADR-031 Document Surface Visual Separation Standard
+    -->
+    <Style x:Key="ErpOperationalCommandSurfaceStyle" TargetType="Border">
+        <Setter Property="Background"       Value="{ThemeResource LayerFillColorDefaultBrush}"/>
+        <Setter Property="BorderBrush"      Value="{ThemeResource DividerStrokeColorDefaultBrush}"/>
+        <Setter Property="BorderThickness"  Value="0,0,0,1"/>
     </Style>
 
 </ResourceDictionary>

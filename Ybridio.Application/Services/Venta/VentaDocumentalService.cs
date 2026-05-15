@@ -4,6 +4,8 @@ using Ybridio.Application.Common;
 using Ybridio.Application.DTOs.Ventas;
 using Ybridio.Application.Services.Autorizacion;
 using Ybridio.Application.Services.Finanzas;
+using Ybridio.Application.Services.Folios;
+using Ybridio.Domain.Catalogos;
 using Ybridio.Domain.Ventas;
 using Ybridio.Infrastructure.Persistence;
 using DomainVenta       = Ybridio.Domain.Ventas.Venta;
@@ -21,18 +23,21 @@ public sealed class VentaDocumentalService : IVentaDocumentalService
     private readonly ErpDbContext             _context;
     private readonly IErpAuthorizationService _auth;
     private readonly ICxCService              _cxcService;
+    private readonly IFolioGeneratorService   _folioGenerator;
     private readonly ILogger<VentaDocumentalService> _logger;
 
     public VentaDocumentalService(
         ErpDbContext             context,
         IErpAuthorizationService auth,
         ICxCService              cxcService,
+        IFolioGeneratorService   folioGenerator,
         ILogger<VentaDocumentalService> logger)
     {
-        _context    = context;
-        _auth       = auth;
-        _cxcService = cxcService;
-        _logger     = logger;
+        _context        = context;
+        _auth           = auth;
+        _cxcService     = cxcService;
+        _folioGenerator = folioGenerator;
+        _logger         = logger;
     }
 
     /// <inheritdoc/>
@@ -71,7 +76,7 @@ public sealed class VentaDocumentalService : IVentaDocumentalService
             return ServiceResult<VentaDocumentalDto>.Fail("Sin permiso (venta.ver).", ErrorCode.Unauthorized);
 
         var v = await _context.Ventas.AsNoTracking()
-            .Include(x => x.Detalles)
+            .Include(x => x.Detalles).ThenInclude(d => d.Producto)
             .FirstOrDefaultAsync(x => x.Id == ventaId, ct);
 
         if (v is null)
@@ -110,6 +115,10 @@ public sealed class VentaDocumentalService : IVentaDocumentalService
 
         var total = detalles.Sum(d => d.Importe ?? 0m);
 
+        // Generar folio documental (Document Identity Rule: folio propio por tipo de documento)
+        var folio = await _folioGenerator.GenerarFolioAsync(
+            dto.EmpresaId, TipoDocumentoSerie.Venta, dto.SucursalId, ct);
+
         var venta = new DomainVenta
         {
             EmpresaId     = dto.EmpresaId,
@@ -119,6 +128,7 @@ public sealed class VentaDocumentalService : IVentaDocumentalService
             TipoPago      = dto.TipoPago,
             Fecha         = dto.Fecha,
             PedidoId      = dto.PedidoId,
+            Folio         = folio,
             Observaciones = dto.Observaciones?.Trim(),
             Estatus       = EstatusVenta.Borrador,
             Subtotal      = total,
@@ -256,7 +266,7 @@ public sealed class VentaDocumentalService : IVentaDocumentalService
                 det.AlmacenId = almacenId;
             }
 
-            venta.Estatus = EstatusVenta.Confirmada;
+            venta.Estatus = EstatusVenta.PendientePago;
             await _context.SaveChangesAsync(ct);
 
             // ── Generar CxC si Crédito ──────────────────────────────────────────
@@ -323,6 +333,15 @@ public sealed class VentaDocumentalService : IVentaDocumentalService
             };
             _context.Set<DomainPagoVenta>().Add(pago);
             venta.TotalPagado += dto.Monto;
+
+            // Auto-transición: si saldo = 0 y estaba PendientePago → Pagada
+            if (venta.Estatus == EstatusVenta.PendientePago
+                && venta.TotalPagado >= (venta.Total ?? 0m))
+            {
+                venta.Estatus = EstatusVenta.Pagada;
+                _logger.LogInformation("VentaDocumental {VentaId} auto-transición PendientePago → Pagada", venta.Id);
+            }
+
             await _context.SaveChangesAsync(ct);
 
             // ── Si Crédito, buscar y actualizar CxC correspondiente ─────────────
@@ -360,11 +379,33 @@ public sealed class VentaDocumentalService : IVentaDocumentalService
         if (venta is null)
             return ServiceResult.Fail("Venta no encontrada.", ErrorCode.NotFound);
 
-        if (venta.Estatus != EstatusVenta.Borrador)
-            return ServiceResult.Fail("Solo se puede cancelar una venta en estado Borrador.", ErrorCode.ValidationFailed);
+        if (venta.Estatus is EstatusVenta.Cerrada or EstatusVenta.Cancelada)
+            return ServiceResult.Fail("No se puede cancelar una venta Cerrada o ya Cancelada.", ErrorCode.ValidationFailed);
 
         venta.Estatus = EstatusVenta.Cancelada;
         await _context.SaveChangesAsync(ct);
+        return ServiceResult.Ok();
+    }
+
+    /// <inheritdoc/>
+    public async Task<ServiceResult> CerrarAsync(long ventaId, Guid usuarioId, CancellationToken ct = default)
+    {
+        if (!await _auth.PuedeAsync(PermisosClave.Venta.Confirmar, ct))
+            return ServiceResult.Fail("Sin permiso (venta.confirmar).", ErrorCode.Unauthorized);
+
+        var venta = await _context.Ventas.FirstOrDefaultAsync(v => v.Id == ventaId, ct);
+        if (venta is null) return ServiceResult.Fail("Venta no encontrada.", ErrorCode.NotFound);
+
+        if (venta.Estatus is EstatusVenta.Cerrada or EstatusVenta.Cancelada)
+            return ServiceResult.Fail("La venta ya está Cerrada o Cancelada.", ErrorCode.ValidationFailed);
+
+        var saldo = (venta.Total ?? 0m) - venta.TotalPagado;
+        if (saldo > 0)
+            return ServiceResult.Fail($"No se puede cerrar la venta con saldo pendiente de {saldo:C2}.", ErrorCode.ValidationFailed);
+
+        venta.Estatus = EstatusVenta.Cerrada;
+        await _context.SaveChangesAsync(ct);
+        _logger.LogInformation("VentaDocumental {VentaId} cerrada por usuario {UserId}", ventaId, usuarioId);
         return ServiceResult.Ok();
     }
 
@@ -434,14 +475,9 @@ public sealed class VentaDocumentalService : IVentaDocumentalService
         var saldo     = total - pagado; // SaldoPendiente = Total - TotalPagado (runtime)
         return new VentaDocumentalResumenDto(
             v.Id, v.EmpresaId, v.NombreCliente ?? "", v.Estatus,
-            v.Estatus switch
-            {
-                EstatusVenta.Borrador   => "Borrador",
-                EstatusVenta.Confirmada => "Confirmada",
-                EstatusVenta.Cancelada  => "Cancelada",
-                _                       => v.Estatus.ToString()
-            },
-            v.TipoPago, v.Fecha, total, pagado, saldo, v.PedidoId, v.Observaciones);
+            EstatusVentaTexto(v.Estatus),
+            v.TipoPago, v.Fecha, total, pagado, saldo, v.PedidoId, v.Observaciones,
+            Folio: v.Folio);
     }
 
     private static VentaDocumentalDto MapToDto(DomainVenta v, IEnumerable<DomainPagoVenta> pagos)
@@ -455,13 +491,7 @@ public sealed class VentaDocumentalService : IVentaDocumentalService
             RelacionComercialId:      v.RelacionComercialId,
             NombreCliente:  v.NombreCliente ?? "",
             Estatus:        v.Estatus,
-            EstatusTexto:   v.Estatus switch
-            {
-                EstatusVenta.Borrador   => "Borrador",
-                EstatusVenta.Confirmada => "Confirmada",
-                EstatusVenta.Cancelada  => "Cancelada",
-                _                       => v.Estatus.ToString()
-            },
+            EstatusTexto:   EstatusVentaTexto(v.Estatus),
             TipoPago:       v.TipoPago,
             Fecha:          v.Fecha,
             Subtotal:       v.Subtotal ?? total,
@@ -471,11 +501,26 @@ public sealed class VentaDocumentalService : IVentaDocumentalService
             PedidoId:       v.PedidoId,
             Observaciones:  v.Observaciones,
             Detalles:       v.Detalles.Select(d => new DetalleLineaDto(
-                d.Id, d.ProductoId == 0 ? null : d.ProductoId, "",
+                d.Id,
+                d.ProductoId == 0 ? null : d.ProductoId,
+                d.Producto?.Nombre ?? "",       // Nombre desde navegación EF (Include Producto)
                 d.Cantidad, d.Precio ?? 0m, d.Importe ?? 0m)).ToList(),
-            Pagos:          pagos.Select(MapPago).ToList());
+            Pagos:          pagos.Select(MapPago).ToList(),
+            Folio:          v.Folio);
     }
 
     private static PagoVentaDto MapPago(DomainPagoVenta p) =>
         new(p.Id, p.VentaId, p.Fecha, p.Monto, p.FormaPago, p.Referencia);
+
+    internal static string EstatusVentaTexto(EstatusVenta e) => e switch
+    {
+        EstatusVenta.Borrador      => "Borrador",
+        EstatusVenta.PendientePago => "Pendiente de Pago",
+        EstatusVenta.Pagada        => "Pagada",
+        EstatusVenta.Facturada     => "Facturada",
+        EstatusVenta.Entregada     => "Entregada",
+        EstatusVenta.Cerrada       => "Cerrada",
+        EstatusVenta.Cancelada     => "Cancelada",
+        _                          => e.ToString()
+    };
 }
