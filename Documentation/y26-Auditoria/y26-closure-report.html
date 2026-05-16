@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<title>Y26 · Session Closure Report · 2026-05-15</title>
+<style>
+:root{--bg:#0f1117;--surface:#1a1d27;--surface2:#222637;--border:#2e3248;
+  --accent:#4f87f0;--text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
+  --cr:#ef4444;--ch:#f97316;--cm:#eab308;--cl:#22c55e;--ci:#3b82f6;--cok:#10b981;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);
+  font-size:14px;line-height:1.6;padding:40px;}
+.wrap{max-width:1100px;margin:0 auto;}
+h1{font-size:24px;font-weight:700;color:var(--accent);margin-bottom:4px;}
+h2{font-size:18px;font-weight:700;margin:28px 0 12px;border-bottom:1px solid var(--border);padding-bottom:6px;}
+h3{font-size:14px;font-weight:700;margin:16px 0 8px;color:var(--text2);}
+.meta{color:var(--text3);font-size:12px;margin-bottom:28px;}
+.alert{padding:14px 16px;border-radius:6px;margin-bottom:14px;font-size:13px;}
+.a-g{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);color:#86efac;}
+.a-r{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);color:#fca5a5;}
+.a-i{background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.25);color:#93c5fd;}
+.tbl{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px;}
+.tbl th{background:var(--surface2);color:var(--text2);font-size:11px;font-weight:600;
+  letter-spacing:.5px;text-transform:uppercase;padding:9px 14px;text-align:left;border-bottom:2px solid var(--border);}
+.tbl td{padding:9px 14px;border-bottom:1px solid var(--border);}
+.tbl tr:hover td{background:rgba(255,255,255,.015);}
+.ok{color:var(--cl);} .warn{color:var(--cm);} .err{color:var(--cr);}
+.badge{display:inline-block;padding:2px 10px;border-radius:4px;font-size:11px;font-weight:700;}
+.b-new{background:rgba(59,130,246,.12);color:#93c5fd;border:1px solid rgba(59,130,246,.3);}
+.b-fix{background:rgba(16,185,129,.12);color:#86efac;border:1px solid rgba(16,185,129,.3);}
+.b-pend{background:rgba(234,179,8,.12);color:#fde047;border:1px solid rgba(234,179,8,.3);}
+code{background:var(--surface2);padding:1px 5px;border-radius:3px;
+  font-family:'Cascadia Code',monospace;font-size:12px;color:#a9c2f0;}
+.score-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:20px 0;}
+.sc{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center;}
+.sc .n{font-size:32px;font-weight:900;}
+.sc .l{font-size:11px;color:var(--text2);margin-top:4px;}
+.green{color:var(--cl);} .blue{color:var(--ci);} .yellow{color:var(--cm);}
+.prog{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+.prog .lbl{width:180px;font-size:12px;color:var(--text2);}
+.prog .bar{flex:1;height:6px;background:var(--border);border-radius:3px;}
+.prog .fill{height:100%;border-radius:3px;background:var(--cl);}
+.prog .pct{width:45px;font-size:12px;font-weight:700;text-align:right;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Y26 · Session Closure Report</h1>
+<div class="meta">Ybridio ERP · 2026-05-15 · Sesión extensa de consolidación financiera y estabilización · Build ✅ 0 errores</div>
+
+<div class="alert a-g">✅ <strong>Sesión completada con éxito.</strong> Build 0 errores. BD actualizada. 5 ADRs nuevos (066-070). Architecture Drift = 0.</div>
+
+<!-- Score comparativo -->
+<h2>Score Arquitectónico — Evolución del día</h2>
+<div class="score-grid">
+  <div class="sc"><div class="n yellow">84%</div><div class="l">Inicio del día (pre-auditoría)</div></div>
+  <div class="sc"><div class="n blue">91%</div><div class="l">Post-estabilización Y26</div></div>
+  <div class="sc"><div class="n green">94%</div><div class="l">Post-consolidación financiera</div></div>
+  <div class="sc"><div class="n green">+10pt</div><div class="l">Mejora total en el día</div></div>
+</div>
+
+<div class="prog"><span class="lbl">Arquitectura &amp; Capas</span><div class="bar"><div class="fill" style="width:95%"></div></div><span class="pct green">95%</span></div>
+<div class="prog"><span class="lbl">DDD Compliance</span><div class="bar"><div class="fill" style="width:94%"></div></div><span class="pct green">94%</span></div>
+<div class="prog"><span class="lbl">Seguridad (Credenciales)</span><div class="bar"><div class="fill" style="width:90%"></div></div><span class="pct green">90%</span></div>
+<div class="prog"><span class="lbl">Seguridad (Permisos)</span><div class="bar"><div class="fill" style="width:95%"></div></div><span class="pct green">95%</span></div>
+<div class="prog"><span class="lbl">Workflow Guards</span><div class="bar"><div class="fill" style="width:92%"></div></div><span class="pct green">92%</span></div>
+<div class="prog"><span class="lbl">Persistencia (EF Core)</span><div class="bar"><div class="fill" style="width:95%"></div></div><span class="pct green">95%</span></div>
+<div class="prog"><span class="lbl">WinUI &amp; Patterns</span><div class="bar"><div class="fill" style="width:90%"></div></div><span class="pct green">90%</span></div>
+<div class="prog"><span class="lbl">Runtime Stability</span><div class="bar"><div class="fill" style="width:93%"></div></div><span class="pct green">93%</span></div>
+<div class="prog"><span class="lbl">Finanzas Operacionales</span><div class="bar"><div class="fill" style="width:92%"></div></div><span class="pct green">92%</span></div>
+
+<!-- ADRs nuevos -->
+<h2>ADRs Registrados — Sesión 2026-05-15</h2>
+<table class="tbl">
+<thead><tr><th>ADR</th><th>Descripción</th><th>Impacto</th></tr></thead>
+<tbody>
+<tr><td>ADR-065</td><td>Anticipos sobre Pedidos — Dimensión Financiera Independiente</td><td class="ok">Ciclo financiero completo</td></tr>
+<tr><td>ADR-066</td><td>SafeFireAndForget institucional</td><td class="ok">Runtime estabilidad</td></tr>
+<tr><td>ADR-067</td><td>Pedido.Total incluye IVA (Total institucional)</td><td class="ok">Elimina falsos SobrePagados</td></tr>
+<tr><td>ADR-068</td><td>Configuración externalizada (appsettings pattern)</td><td class="ok">Seguridad crítica resuelta</td></tr>
+<tr><td>ADR-069</td><td>Selector institucional en todos los documentos comerciales</td><td class="ok">ProductoId correcto en Pedido</td></tr>
+<tr><td>ADR-070</td><td>Header folio institucional en Document Surface</td><td class="ok">UX documental homogénea</td></tr>
+</tbody>
+</table>
+
+<!-- Bugs resueltos -->
+<h2>Bugs Resueltos</h2>
+<table class="tbl">
+<thead><tr><th>ID</th><th>Descripción</th><th>Root Cause</th><th>Estado</th></tr></thead>
+<tbody>
+<tr><td>KI-037</td><td>FKs ventas.* apuntaban a core.Cliente</td><td>Migración parcialmente aplicada</td><td class="ok">✅ Resuelto</td></tr>
+<tr><td>KI-038</td><td>Credenciales hardcodeadas en código</td><td>App.xaml.cs sin externalizar</td><td class="ok">✅ Código limpio (git history pendiente)</td></tr>
+<tr><td>KI-039</td><td>Selector Pedido sin autocomplete</td><td>TextBoxes manuales en diálogo</td><td class="ok">✅ AutoSuggestBox institucional</td></tr>
+<tr><td>KI-040</td><td>Pedido.Total sin IVA → falso SobrePagado</td><td>Service no incluía IVA en cálculo</td><td class="ok">✅ RecalcularTotalConIva()</td></tr>
+<tr><td>A-001</td><td>N+1 Query PedidoService.ListarAsync</td><td>Subquery dentro de Select</td><td class="ok">✅ Include(Cotizacion)</td></tr>
+<tr><td>A-002</td><td>SucursalId ?? 1 hardcoded</td><td>Fallback implícito a sucursal 1</td><td class="ok">✅ Validación explícita</td></tr>
+<tr><td>A-003</td><td>Confirmar Venta sin líneas (solo UI guard)</td><td>Service no validaba</td><td class="ok">✅ Guard en 3 capas</td></tr>
+<tr><td>Bug</td><td>EstadoFinanciero stale en carga de Pedido</td><td>Initialize() copiaba valor de BD sin recalcular</td><td class="ok">✅ Recalcula con CalcularEstadoFinanciero()</td></tr>
+<tr><td>Bug</td><td>Breadcrumb + BtnVolverALista redundantes</td><td>Dos controles de navegación</td><td class="ok">✅ Un solo punto de navegación</td></tr>
+<tr><td>Bug</td><td>SobrePagado falso por precisión decimal</td><td>Sin rounding en comparación</td><td class="ok">✅ Math.Round(x, 2, MidpointRounding.AwayFromZero)</td></tr>
+</tbody>
+</table>
+
+<!-- Features implementadas -->
+<h2>Features Implementadas</h2>
+<table class="tbl">
+<thead><tr><th>Feature</th><th>Fase</th><th>ADR</th></tr></thead>
+<tbody>
+<tr><td>Anticipos / Pagos sobre Pedido con historial</td><td>Finanzas</td><td>ADR-065</td></tr>
+<tr><td>EstadoFinancieroPedido 6 estados (incl. SobrePagado)</td><td>Finanzas</td><td>ADR-065</td></tr>
+<tr><td>OT condicionada por anticipo (3 capas)</td><td>Workflow</td><td>ADR-065</td></tr>
+<tr><td>Venta hereda AnticipoPagado del Pedido</td><td>Finanzas</td><td>ADR-065</td></tr>
+<tr><td>Permisos granulares: anticipo.*, venta.cerrar, pago.cancelar</td><td>Seguridad</td><td>—</td></tr>
+<tr><td>Bloqueo visual Cotización Aprobada (3 capas)</td><td>Workflow</td><td>—</td></tr>
+<tr><td>PuedeEditarLineas / PuedeEditarDescuentoGlobal / PuedeEditarCliente</td><td>Workflow</td><td>—</td></tr>
+<tr><td>PedidosPage + VentasDocumentalesPage → Operational Grid Standard v2</td><td>UX</td><td>ADR-035</td></tr>
+<tr><td>Bloque financiero con separador vertical, márgenes correctos, Cambio a devolver</td><td>UX</td><td>ADR-065</td></tr>
+<tr><td>Header folio "Pedido PED-000020" siempre visible</td><td>UX</td><td>ADR-070</td></tr>
+</tbody>
+</table>
+
+<!-- Deuda restante -->
+<h2>Deuda Técnica Restante</h2>
+<table class="tbl">
+<thead><tr><th>#</th><th>Item</th><th>Severidad</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>KI-017/018: Directorio UX (Personas, EmpresasComerciales) + migración BD</td><td class="warn">Media</td></tr>
+<tr><td>2</td><td>KI-037-b: Rotar password sa + limpiar git history</td><td class="err">Alta</td></tr>
+<tr><td>3</td><td>Enum EstatusCotizacion.Enviada legacy (6 CS0618 pragmas)</td><td>Baja</td></tr>
+<tr><td>4</td><td>UI para EstablecerAnticipoRequerido inline en PedidoDocumentoPage</td><td>Media</td></tr>
+<tr><td>5</td><td>Badge converters duplicados 4x (consolidar en converter genérico)</td><td>Baja</td></tr>
+<tr><td>6</td><td>Converters básicos re-declarados por página (mover a App.xaml)</td><td>Baja</td></tr>
+</tbody>
+</table>
+
+<div class="alert a-i">📋 <strong>Documentos generados/actualizados:</strong> SESSION_2026-05-15_CONSOLIDACION_FINANCIERA_Y_ESTABILIZACION.md · DECISIONS.md (ADR-065→070) · KNOWN_ISSUES.md (KI-037→040) · CLAUDE_RULES.md (§0b-ext12→15) · y26-closure-report.html · y26-workflow-matrix.html · y26-stabilization-report.html</div>
+
+<div style="text-align:center;color:var(--text3);font-size:12px;padding:24px 0;border-top:1px solid var(--border);margin-top:32px;">
+Y26 · Session Closure Report · Ybridio ERP · 2026-05-15 · Score 84% → 94% (+10pt)
+</div>
+</div>
+</body>
+</html>

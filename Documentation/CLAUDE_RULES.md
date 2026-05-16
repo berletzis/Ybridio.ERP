@@ -3,7 +3,82 @@
 > Estas reglas aplican para TODOS los requerimientos futuros del proyecto.  
 > Claude Code debe leer y respetar este documento ANTES de implementar cualquier cambio.  
 > Estas reglas son **permanentes** y forman parte oficial de la arquitectura del ERP.  
-> Última actualización: 2026-05-15 (ADR-061→ADR-064: PedidoCargo, Commercial Surface Pedidos, Page.Loaded guard, Inline Conversion)
+> Última actualización: 2026-05-15 (ADR-066→ADR-070: SafeFireAndForget, Total con IVA, Config externalizada, Selector institucional, Header folio)
+
+---
+
+## 0b-ext12. Pedido — Total Institucional con IVA (ADR-067)
+
+```csharp
+// SIEMPRE calcular Pedido.Total con IVA:
+private static decimal RecalcularTotalConIva(Pedido p)
+{
+    var todos = p.Detalles.Select(d => (d.Importe, d.IvaAplicable))
+                .Concat(p.Cargos.Select(c => (c.Importe, c.AplicaIva))).ToList();
+    var subtotal = todos.Sum(x => x.Item1);
+    var iva      = CommercialDocumentCalculator.CalcularImpuestos(todos, FiscalConstants.TasaIvaEstandar);
+    return CommercialDocumentCalculator.CalcularTotal(subtotal, iva);
+}
+
+// NUNCA: p.Total = p.Detalles.Sum(d => d.Importe);  // sin IVA → falso SobrePagado
+// SIEMPRE: p.Total = RecalcularTotalConIva(p);
+```
+
+**Regla**: Todo método de `PedidoService` que actualiza `p.Total` DEBE usar `RecalcularTotalConIva()`. La omisión del IVA genera inconsistencia con el total mostrado en UI y bloqueos financieros falsos.
+
+---
+
+## 0b-ext13. SafeFireAndForget institucional (ADR-066)
+
+```csharp
+// NUNCA: _ = SomeAsync();   // excepción silenciosa
+
+// SIEMPRE para hydration/best-effort:
+SomeAsync().FireAndForget(err => ViewModel.ErrorMessage = $"Error: {err}");
+
+// Para fire-and-forget sin feedback al usuario:
+SomeAsync().FireAndForget();
+```
+
+Extensión en `Ybridio.WinUI/Helpers/SafeTaskExtensions.cs`. Los event handlers `async void` de WinUI son la excepción válida — no necesitan este patrón.
+
+---
+
+## 0b-ext14. Header folio institucional en Document Surface (ADR-070)
+
+**Regla**: Todo `DocumentoPage` debe tener un `HeaderStrip` **SIEMPRE visible** (nunca `Visibility="Collapsed"` permanente). `EsInlineMode` solo controla botones de navegación, NO el header.
+
+```xaml
+<!-- CORRECTO: header siempre visible -->
+<Border x:Name="HeaderStrip"
+        Background="{ThemeResource LayerFillColorDefaultBrush}"
+        BorderBrush="#E5E5E5" BorderThickness="0,0,0,1"
+        Padding="{StaticResource ErpDocumentHeaderPadding}">
+    <StackPanel Orientation="Horizontal" Spacing="12">
+        <TextBlock Text="{x:Bind ViewModel.TituloDocumento, Mode=OneWay}" .../>
+        <Border ...><!-- badge estado --></Border>
+    </StackPanel>
+</Border>
+```
+
+---
+
+## 0b-ext15. Selector de Producto institucional (ADR-069)
+
+**Regla**: `MostrarDialogoNuevaLinea()` en TODOS los Document Surface comerciales DEBE usar `AutoSuggestBox + IProductoService.BuscarAsync + ProductoSuggestion wrapper`. La implementación de referencia es `CotizacionDocumentoPage.xaml.cs`. `ProductoSuggestion` está en namespace `Ybridio.WinUI.Views.Ventas` y es accesible desde cualquier Page del mismo namespace.
+
+**Anti-pattern prohibido**:
+```csharp
+// ❌ Diálogo con TextBoxes manuales
+var txtDesc = new TextBox { ... };
+// Sin ProductoId, SKU ni IvaAplicable correcto
+return new DetalleLineaEditable(0, null, desc, qty, precio);
+
+// ✅ Con selector institucional
+var asbProducto = new AutoSuggestBox { ... };
+asbProducto.TextChanged += async (s, args) => { ... _productoService.BuscarAsync ... };
+return new DetalleLineaEditable(0, productoSeleccionado.Id, desc, qty, precio, sku: productoSeleccionado.Codigo, ...);
+```
 
 ---
 

@@ -1,6 +1,6 @@
 # KNOWN_ISSUES.md — Problemas Conocidos y Limitaciones
 
-> Última actualización: 2026-05-15 (ver `SESSION_2026-05-15_PEDIDOS_COMMERCIAL_SURFACE_BUGFIXES.md`)
+> Última actualización: 2026-05-15 (ver `SESSION_2026-05-15_CONSOLIDACION_FINANCIERA_Y_ESTABILIZACION.md`)
 > Formato: `[SEVERIDAD] Descripción — Workaround / Plan`
 
 ---
@@ -13,6 +13,56 @@
 - **LOW** — cosmético o técnico menor; backlog
 
 ---
+
+### [RESUELTO] KI-040 — Pedido.Total en BD no incluía IVA → falso SobrePagado
+
+**Módulo**: `PedidoService` — `AgregarDetalleAsync`, `EliminarDetalleAsync`, `AgregarCargoAsync`, `EliminarCargoAsync`, `RegistrarAnticipoAsync`
+
+**Problema**: `Pedido.Total` se calculaba sin IVA (solo Subtotal + Cargos). Al comparar contra `AnticipoPagado` (que el usuario ingresaba incluyendo IVA), el sistema detectaba un "excedente" de $89.44 = exactamente el IVA 16%. Bloqueaba incorrectamente el registro de anticipos legítimos.
+
+**Solución**: Helper `RecalcularTotalConIva(p)` en `PedidoService` usando `CommercialDocumentCalculator.CalcularImpuestos + FiscalConstants.TasaIvaEstandar`. Todos los métodos que actualizan `p.Total` usan el helper. `RegistrarAnticipoAsync` recalcula en tiempo real antes de comparar. BD actualizada. **Estado**: ✅ **RESUELTO 2026-05-15**
+
+---
+
+### [RESUELTO] KI-039 — Selector de Producto en Pedido usaba TextBoxes manuales
+
+**Módulo**: `PedidoDocumentoPage.xaml.cs` — `MostrarDialogoNuevaLinea()`
+
+**Problema**: El diálogo de agregar línea en Pedido usaba TextBoxes manuales (sin autocomplete), mientras que Cotizaciones tenía AutoSuggestBox con búsqueda de productos real. Las líneas de Pedido podían quedar sin `ProductoId` correcto.
+
+**Solución**: `MostrarDialogoNuevaLinea()` reemplazado con el selector institucional idéntico a `CotizacionDocumentoPage`. Usa `_productoService.BuscarAsync` + `ProductoSuggestion` wrapper + existencia informativa. **Estado**: ✅ **RESUELTO 2026-05-15** — ADR-069
+
+---
+
+### [RESUELTO] KI-038 — Credenciales BD hardcodeadas en código fuente
+
+**Módulo**: `App.xaml.cs:62`, `ErpDbContextFactory.cs:16`
+
+**Problema**: Usuario `sa` con password en texto plano en repositorio git.
+
+**Solución**: `appsettings.Development.json` (gitignored) contiene la connection string real. `appsettings.json` es plantilla sin credenciales. `ConfigurationBuilder` en App.xaml.cs. `.gitignore` actualizado con sección institucional para secretos. **Estado**: ✅ **RESUELTO EN CÓDIGO 2026-05-15** — Pendiente: rotar password sa + limpiar git history.
+
+---
+
+### [RESUELTO] KI-037 — FKs ventas.* apuntaban a core.Cliente en lugar de core.RelacionComercial
+
+**Módulo**: BD — `ventas.Venta`, `ventas.OrdenTrabajo`, `ventas.Factura`, `ventas.Pedido`
+
+**Problema**: Al crear una Venta con `RelacionComercialId`, el FK constraint `FK_Venta_Cliente` referenciaba `core.Cliente` → violación de FK porque el ID provenía de `core.RelacionComercial`.
+
+**Solución**: FKs corregidas en BD. EF configs actualizados con `HasConstraintName` correcto. **Estado**: ✅ **RESUELTO 2026-05-15**
+
+---
+
+### [MEDIUM] KI-037-b — Password sa aún en git history
+
+**Módulo**: Repositorio git — historial de commits anteriores a 2026-05-15
+
+**Estado**: El archivo `appsettings.Development.json` está en `.gitignore` pero el password ya fue comiteado antes en `App.xaml.cs`. Recomendación: ejecutar `git filter-branch` o `git secrets --clean` + rotar password en BD. **Workaround**: Cambiar la contraseña del usuario `sa` lo antes posible.
+
+---
+
+### [PENDIENTE] KI-017 — Directorio UX: páginas de Personas y EmpresasComerciales sin implementar (ADR-036)
 
 ### [RESUELTO] KI-036 — Descuentos no preservados al convertir Cotización → Pedido
 

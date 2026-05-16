@@ -2,7 +2,55 @@
 
 > Este documento registra las decisiones técnicas importantes tomadas durante el desarrollo de Ybridio ERP,
 > incluyendo la alternativa descartada y la razón de la elección.  
-> Última actualización: 2026-05-15 (ver `SESSION_2026-05-15_PEDIDOS_COMMERCIAL_SURFACE_BUGFIXES.md`)
+> Última actualización: 2026-05-15 (ver `SESSION_2026-05-15_CONSOLIDACION_FINANCIERA_Y_ESTABILIZACION.md`)
+
+---
+
+## ADR-070 — Header Folio Institucional en Document Surface
+
+**Contexto**: `PedidoDocumentoPage` mostraba el folio solo en modo inline (HeaderStrip `Visibility="Collapsed"` cuando no inline). En ventana standalone no había identidad documental visible. `CotizacionDocumentoPage` tiene header siempre visible.
+
+**Decisión**: Toda Page de Document Surface debe tener su `HeaderStrip` SIEMPRE visible. `EsInlineMode` solo controla los botones de navegación inline (BtnVolverALista, BtnAbrirEnVentana), nunca la visibilidad del header. Formato: `"Pedido PED-000020"` con badge de estado. Padding = `ErpDocumentHeaderPadding`.
+
+---
+
+## ADR-069 — Selector Institucional en todos los documentos comerciales
+
+**Contexto**: `PedidoDocumentoPage.MostrarDialogoNuevaLinea()` usaba TextBoxes manuales sin autocomplete, mientras `CotizacionDocumentoPage` tenía `AutoSuggestBox` con `IProductoService.BuscarAsync`. Pedido insertaba líneas sin `ProductoId` correcto.
+
+**Decisión**: Todos los Document Surface comerciales deben usar el mismo selector institucional con `AutoSuggestBox + ProductoSuggestion wrapper`. `PedidoDocumentoPage` ahora usa `_productoService.BuscarAsync` idéntico a Cotización. `ProductoSuggestion` está en namespace `Ybridio.WinUI.Views.Ventas` accesible desde ambas Pages.
+
+---
+
+## ADR-068 — Configuración Externalizada (appsettings pattern)
+
+**Contexto**: Credenciales de BD (`sa` password) hardcodeadas en `App.xaml.cs` y `ErpDbContextFactory.cs`. Visibles en historial de git.
+
+**Decisión**: Connection string vive en `appsettings.Development.json` (gitignored). Plantilla sin credenciales en `appsettings.json` (en repositorio). `ConfigurationBuilder + AddJsonFile + AddEnvironmentVariables` en `App.xaml.cs`. `ErpDbContextFactory` usa variable de entorno `ERP_CONNECTION_STRING` con fallback a appsettings. Paquetes: `Microsoft.Extensions.Configuration.Json`.
+
+---
+
+## ADR-067 — Pedido.Total debe incluir IVA (Total Institucional)
+
+**Contexto**: `PedidoService` calculaba `Pedido.Total = SUM(Detalles.Importe) + SUM(Cargos.Importe)` sin IVA. El ViewModel calculaba `Total = Subtotal + OtrosCargos + Impuestos` con IVA. Cuando AnticipoPagado igualaba el total con IVA ($648.44), el servicio comparaba contra el Total sin IVA ($559.00) → falso SobrePagado de $89.44 = exactamente el IVA.
+
+**Decisión**: `PedidoService` usa `RecalcularTotalConIva(p)` helper con `CommercialDocumentCalculator.CalcularImpuestos()` y `FiscalConstants.TasaIvaEstandar`. Todos los métodos que actualizan `p.Total` (AgregarDetalle, EliminarDetalle, AgregarCargo, EliminarCargo, RegistrarAnticipo) usan este helper. `RegistrarAnticipoAsync` recalcula en tiempo real antes de comparar para evitar valores stale de BD.
+
+---
+
+## ADR-066 — SafeFireAndForget Institucional
+
+**Contexto**: Operaciones de hydration async (`HidratarSelectorClienteAsync`, `CargarConfiguracionFiscalAsync`) se ejecutaban como `_ = Task()` sin captura de excepciones. Fallos silenciosos no propagaban al usuario.
+
+**Decisión**: Crear `SafeTaskExtensions.FireAndForget(onError, logger)` en `Ybridio.WinUI/Helpers/`. Usa `ContinueWith(OnlyOnFaulted)` para capturar y propagar errores via `onError` callback (típicamente `ViewModel.ErrorMessage`). NO reemplaza event handlers WinUI válidos (éstos son `async void` por diseño). Aplicar a toda operación fire-and-forget en Pages.
+
+---
+
+## ADR-065 — Anticipos sobre Pedidos (Dimensión Financiera Independiente)
+
+**Contexto**: El Pedido es el momento donde se registra el compromiso financiero del cliente (anticipo), anterior a la Venta. El sistema no tenía entidad para registrar pagos parciales antes de generar la Venta.
+
+**Decisión**: Nueva entidad `AnticipoPedido` (análoga a `PagoVenta`) con FK a Pedido. `EstadoFinancieroPedido` enum (6 estados) independiente de `EstatusPedido`. `PedidoService.CalcularEstadoFinanciero()` static como Single Source of Truth. Al generar Venta desde Pedido, `TotalPagado = pedido.AnticipoPagado` (anticipos consumidos). Permisos granulares: `anticipo.registrar`, `anticipo.configurar`. No usa `MovimientoCaja` (PYME simplicity).
 
 ---
 
