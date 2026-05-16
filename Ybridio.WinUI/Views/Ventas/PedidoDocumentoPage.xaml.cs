@@ -8,9 +8,10 @@ using Ybridio.Application.DTOs.Catalogos;
 using Ybridio.Application.DTOs.Directorio;
 using Ybridio.Application.DTOs.Ventas;
 using Ybridio.Application.Services.Directorio;
+using System.Linq;
 using System.Threading;
 using Ybridio.Application.Services.Configuracion;
-using Ybridio.Application.Services.Directorio;
+using Ybridio.Application.Services.Inventario;
 using Ybridio.Application.Services.Producto;
 using Ybridio.Application.Services.Venta;
 using Ybridio.Domain.Ventas;
@@ -18,6 +19,7 @@ using Ybridio.WinUI.Services;
 using Ybridio.WinUI.Services.Windowing;
 using Ybridio.WinUI.Services.Workspace;
 using Ybridio.WinUI.ViewModels.Ventas;
+using Ybridio.WinUI.Helpers;
 using Ybridio.WinUI.Views.Detached;
 
 namespace Ybridio.WinUI.Views.Ventas;
@@ -51,13 +53,17 @@ public sealed partial class PedidoDocumentoPage : Page
             SepInlineActions.Visibility  = vis;
             SepVentana.Visibility        = vis;
             BtnAbrirEnVentana.Visibility = vis;
-            HeaderStrip.Visibility       = vis;
+            // HeaderStrip es SIEMPRE visible — muestra el folio institucional en todos los modos.
+            // Solo los controles de navegación inline (BtnVolverALista, etc.) se ocultan en modo standalone.
         }
     }
     private bool _esInlineMode;
 
-    private readonly IOtroCargoService  _otroCargoService;
-    private readonly IDirectorioService _directorioService;
+    private readonly IOtroCargoService   _otroCargoService;
+    private readonly IDirectorioService  _directorioService;
+    private readonly IProductoService    _productoService;
+    private readonly IInventarioService  _inventarioService;
+    private readonly SessionService      _session;
 
     /// <summary>
     /// Bloquea todos los NumberBox handlers durante el ciclo de inicialización/render.
@@ -70,10 +76,13 @@ public sealed partial class PedidoDocumentoPage : Page
     public PedidoDocumentoPage(PedidoDto? pedido)
     {
         ViewModel          = CreateViewModel();
-        _workspace         = App.Services.GetRequiredService<IWorkspaceService>();
-        _windowManager     = App.Services.GetRequiredService<IWindowManager>();
-        _otroCargoService  = App.Services.GetRequiredService<IOtroCargoService>();
-        _directorioService = App.Services.GetRequiredService<IDirectorioService>();
+        _workspace          = App.Services.GetRequiredService<IWorkspaceService>();
+        _windowManager      = App.Services.GetRequiredService<IWindowManager>();
+        _otroCargoService   = App.Services.GetRequiredService<IOtroCargoService>();
+        _directorioService  = App.Services.GetRequiredService<IDirectorioService>();
+        _productoService    = App.Services.GetRequiredService<IProductoService>();
+        _inventarioService  = App.Services.GetRequiredService<IInventarioService>();
+        _session            = App.Services.GetRequiredService<SessionService>();
 
         // Bloquear handlers hasta que la página esté completamente renderizada
         _listaParaEdicion = false;
@@ -91,9 +100,11 @@ public sealed partial class PedidoDocumentoPage : Page
 
         // Hydration async: email + teléfono real
         if (pedido?.RelacionComercialId is int relId)
-            _ = HidratarSelectorClienteAsync(relId);
+            HidratarSelectorClienteAsync(relId)
+                .FireAndForget(err => ViewModel.ErrorMessage = $"Hydration cliente: {err}");
 
-        _ = ViewModel.CargarConfiguracionFiscalAsync();
+        ViewModel.CargarConfiguracionFiscalAsync()
+            .FireAndForget();
     }
 
     /// <summary>
@@ -102,12 +113,15 @@ public sealed partial class PedidoDocumentoPage : Page
     /// </summary>
     internal PedidoDocumentoPage(PedidoDocumentoViewModel viewModelExistente)
     {
-        ViewModel          = viewModelExistente;
-        _workspace         = App.Services.GetRequiredService<IWorkspaceService>();
-        _windowManager     = App.Services.GetRequiredService<IWindowManager>();
-        _otroCargoService  = App.Services.GetRequiredService<IOtroCargoService>();
-        _directorioService = App.Services.GetRequiredService<IDirectorioService>();
-        _listaParaEdicion  = false;
+        ViewModel           = viewModelExistente;
+        _workspace          = App.Services.GetRequiredService<IWorkspaceService>();
+        _windowManager      = App.Services.GetRequiredService<IWindowManager>();
+        _otroCargoService   = App.Services.GetRequiredService<IOtroCargoService>();
+        _directorioService  = App.Services.GetRequiredService<IDirectorioService>();
+        _productoService    = App.Services.GetRequiredService<IProductoService>();
+        _inventarioService  = App.Services.GetRequiredService<IInventarioService>();
+        _session            = App.Services.GetRequiredService<SessionService>();
+        _listaParaEdicion   = false;
         Loaded += (_, _) => _listaParaEdicion = true;
         InitializeComponent();
         ViewModel.NotificarOTGenerada    = AbrirOTEnWorkspace;
@@ -410,7 +424,8 @@ public sealed partial class PedidoDocumentoPage : Page
     private async void BtnAgregarLinea_Click(object sender, RoutedEventArgs e)
     {
         var detalle = await MostrarDialogoNuevaLinea();
-        if (detalle is not null) await ViewModel.AgregarDetalleLocalAsync(detalle);
+        if (detalle is not null)
+            await ViewModel.AgregarDetalleLocalAsync(detalle);
     }
 
     private async void BtnGenerarOT_Click(object sender, RoutedEventArgs e)
@@ -443,40 +458,168 @@ public sealed partial class PedidoDocumentoPage : Page
             await ViewModel.CancelarAsync();
     }
 
+    /// <summary>
+    /// Diálogo institucional para agregar línea al Pedido.
+    /// Usa AutoSuggestBox con _productoService.BuscarAsync — mismo selector que Cotizaciones (ADR-040).
+    /// ProductoSuggestion wrapper visible en este namespace (definido en CotizacionDocumentoPage.xaml.cs).
+    /// </summary>
     private async Task<DetalleLineaEditable?> MostrarDialogoNuevaLinea()
     {
-        var txtDesc    = new TextBox { PlaceholderText = "Descripción del ítem o servicio" };
-        var txtQty     = new TextBox { PlaceholderText = "Cantidad", Text = "1" };
-        var txtPrecio  = new TextBox { PlaceholderText = "Precio unitario", Text = "0" };
-        var txtDescPct = new TextBox { PlaceholderText = "Descuento %", Text = "0" };
-        var chkIva     = new CheckBox { Content = "Aplica IVA", IsChecked = true };
+        var asbProducto = new AutoSuggestBox
+        {
+            PlaceholderText = "Buscar por código o nombre (mínimo 2 caracteres)...",
+            QueryIcon       = new SymbolIcon(Symbol.Find)
+        };
+        var txtDescripcion    = new TextBox { PlaceholderText = "Descripción (se carga al seleccionar producto)" };
+        var txtCantidad       = new TextBox { PlaceholderText = "Cantidad", Text = "1" };
+        var txtPrecioUnitario = new TextBox { PlaceholderText = "Precio unitario", Text = "0" };
+        var txtDescuento      = new TextBox { PlaceholderText = "Descuento % (0 = sin descuento)", Text = "0" };
 
-        var panel = new StackPanel { Spacing = 10, MinWidth = 340 };
-        void Lbl(string t) => panel.Children.Add(new TextBlock { Text = t, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
-        Lbl("Descripción *");   panel.Children.Add(txtDesc);
-        Lbl("Cantidad *");      panel.Children.Add(txtQty);
-        Lbl("Precio Unitario *"); panel.Children.Add(txtPrecio);
-        Lbl("Descuento %");     panel.Children.Add(txtDescPct);
-        panel.Children.Add(chkIva);
+        var txbInfoProducto = new TextBlock
+        {
+            Text         = "",
+            FontSize     = 11,
+            Foreground   = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray),
+            TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap
+        };
+
+        ProductoDto? productoSeleccionado = null;
+
+        asbProducto.TextChanged += async (s, args) =>
+        {
+            if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput) return;
+            var q = s.Text.Trim();
+            if (q.Length < 2) { s.ItemsSource = null; return; }
+            var resultados = await _productoService.BuscarAsync(_session.EmpresaId, q);
+            s.ItemsSource = resultados.Select(p => new ProductoSuggestion(p)).ToList();
+        };
+
+        asbProducto.SuggestionChosen += async (s, args) =>
+        {
+            if (args.SelectedItem is not ProductoSuggestion sugg) return;
+            var p = sugg.Producto;
+            productoSeleccionado   = p;
+            s.Text                 = $"{p.Codigo} — {p.Nombre}";
+            txtDescripcion.Text    = p.Nombre;
+            txtPrecioUnitario.Text = p.Precio.ToString("F2");
+
+            var existencias     = await _inventarioService.ListarExistenciasAsync(_session.EmpresaId);
+            var totalExistencia = existencias.Where(e => e.ProductoId == p.Id).Sum(e => e.Cantidad);
+
+            txbInfoProducto.Text = totalExistencia > 0
+                ? $"Existencia disponible: {totalExistencia:N2} {p.UnidadMedidaAbreviatura ?? ""}"
+                : "Sin existencia registrada para este producto.";
+        };
+
+        var panel = new StackPanel { Spacing = 8, MinWidth = 380 };
+        void Lbl(string t) => panel.Children.Add(new TextBlock
+        {
+            Text = t, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, FontSize = 12
+        });
+
+        Lbl("Producto *");
+        panel.Children.Add(asbProducto);
+        panel.Children.Add(txbInfoProducto);
+        Lbl("Descripción *");
+        panel.Children.Add(txtDescripcion);
+        Lbl("Cantidad *");
+        panel.Children.Add(txtCantidad);
+        Lbl("Precio Unitario *");
+        panel.Children.Add(txtPrecioUnitario);
+        Lbl("Descuento % (opcional)");
+        panel.Children.Add(txtDescuento);
 
         var dialog = new ContentDialog
         {
-            Title = "Nueva Línea", PrimaryButtonText = "Agregar", SecondaryButtonText = "Cancelar",
-            DefaultButton = ContentDialogButton.Primary, XamlRoot = XamlRoot, Content = panel
+            Title               = "Agregar Línea",
+            PrimaryButtonText   = "Agregar",
+            SecondaryButtonText = "Cancelar",
+            DefaultButton       = ContentDialogButton.Primary,
+            XamlRoot            = XamlRoot,
+            Content             = panel
         };
 
-        ContentDialogResult result;
-        try { result = await dialog.ShowAsync(); }
-        catch (System.Runtime.InteropServices.COMException) { return null; }
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return null;
 
-        if (result != ContentDialogResult.Primary) return null;
-        var desc = txtDesc.Text.Trim();
-        if (string.IsNullOrEmpty(desc)) { ViewModel.ErrorMessage = "Descripción obligatoria."; return null; }
-        if (!decimal.TryParse(txtQty.Text, out var qty) || qty <= 0) { ViewModel.ErrorMessage = "Cantidad inválida."; return null; }
-        if (!decimal.TryParse(txtPrecio.Text, out var precio) || precio < 0) { ViewModel.ErrorMessage = "Precio inválido."; return null; }
-        decimal.TryParse(txtDescPct.Text, out var descPct);
-        descPct = Math.Clamp(descPct, 0m, 100m);
-        return new DetalleLineaEditable(0, null, desc, qty, precio,
-            ivaAplicable: chkIva.IsChecked == true, descuentoPct: descPct);
+        if (productoSeleccionado is null)
+        {
+            ViewModel.ErrorMessage = "Debe seleccionar un producto del catálogo.";
+            return null;
+        }
+        var desc = txtDescripcion.Text.Trim();
+        if (string.IsNullOrEmpty(desc)) { ViewModel.ErrorMessage = "La descripción es obligatoria."; return null; }
+        if (!decimal.TryParse(txtCantidad.Text.Trim(), out var qty) || qty <= 0)
+        {
+            ViewModel.ErrorMessage = "Cantidad inválida. Debe ser mayor a 0.";
+            return null;
+        }
+        if (!decimal.TryParse(txtPrecioUnitario.Text.Trim(), out var precio) || precio < 0)
+        {
+            ViewModel.ErrorMessage = "Precio unitario inválido.";
+            return null;
+        }
+        decimal.TryParse(txtDescuento.Text.Trim(), out var descuentoPct);
+        descuentoPct = Math.Clamp(descuentoPct, 0m, 100m);
+
+        return new DetalleLineaEditable(
+            id:             0,
+            productoId:     productoSeleccionado.Id,
+            descripcion:    desc,
+            cantidad:       qty,
+            precioUnitario: precio,
+            sku:            productoSeleccionado.Codigo,
+            ivaAplicable:   productoSeleccionado.IvaAplicable,
+            descuentoPct:   descuentoPct);
+    }
+
+    // ── Dimensión financiera — Anticipos (ADR-065) ────────────────────────────
+
+    private async void BtnRegistrarAnticipo_Click(object sender, RoutedEventArgs e)
+    {
+        if (!ViewModel.PuedeRegistrarAnticipo) return;
+
+        var txtMonto = new NumberBox
+        {
+            PlaceholderText = "0.00",
+            Minimum = 0.01,
+            SmallChange = 100,
+            LargeChange = 1000,
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
+        var cmbFormaPago = new ComboBox
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            SelectedIndex = 0,
+            Items = { "Efectivo", "Transferencia", "Tarjeta", "Cheque", "Otro" }
+        };
+        var txtReferencia = new TextBox { PlaceholderText = "Número de transferencia, referencia, etc. (opcional)" };
+
+        var panel = new StackPanel { Spacing = 8 };
+        panel.Children.Add(new TextBlock { Text = "Monto *", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+        panel.Children.Add(txtMonto);
+        panel.Children.Add(new TextBlock { Text = "Forma de Pago *", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+        panel.Children.Add(cmbFormaPago);
+        panel.Children.Add(new TextBlock { Text = "Referencia" });
+        panel.Children.Add(txtReferencia);
+
+        var dialog = new ContentDialog
+        {
+            Title = "Registrar Anticipo",
+            Content = panel,
+            PrimaryButtonText = "Registrar",
+            SecondaryButtonText = "Cancelar",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = XamlRoot
+        };
+
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+        var monto = (decimal)txtMonto.Value;
+        if (monto <= 0) { ViewModel.ErrorMessage = "El monto debe ser mayor a cero."; return; }
+
+        var formaPago = cmbFormaPago.SelectedItem?.ToString() ?? "Efectivo";
+        var referencia = string.IsNullOrWhiteSpace(txtReferencia.Text) ? null : txtReferencia.Text.Trim();
+
+        await ViewModel.RegistrarAnticipoAsync(monto, formaPago, referencia);
     }
 }

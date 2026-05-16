@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<title>Y26 — Workflow Matrix Institucional · Ybridio ERP</title>
+<style>
+:root{--bg:#0f1117;--surface:#1a1d27;--surface2:#222637;--border:#2e3248;
+  --accent:#4f87f0;--text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
+  --ok:#10b981;--warn:#eab308;--err:#ef4444;--info:#3b82f6;--neu:#6b7280;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:13px;line-height:1.5;}
+#hdr{background:var(--surface);border-bottom:1px solid var(--border);padding:16px 32px;
+  display:flex;align-items:center;gap:16px;}
+#hdr h1{font-size:18px;font-weight:700;color:var(--accent);}
+#hdr span{color:var(--text3);font-size:12px;margin-left:auto;}
+.wrap{max-width:1400px;margin:0 auto;padding:32px;}
+h2{font-size:15px;font-weight:700;margin:28px 0 12px;color:var(--text2);border-bottom:1px solid var(--border);padding-bottom:6px;}
+h3{font-size:13px;font-weight:600;margin:16px 0 8px;}
+.doc-section{margin-bottom:40px;}
+
+/* Matrix table */
+.matrix{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;}
+.matrix th{background:#161925;color:var(--text2);font-size:10px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.5px;padding:10px 12px;text-align:left;
+  border-bottom:2px solid var(--border);position:sticky;top:0;}
+.matrix td{padding:9px 12px;border-bottom:1px solid rgba(46,50,72,.5);vertical-align:top;}
+.matrix tr:hover td{background:rgba(255,255,255,.015);}
+.matrix .estado-col{font-weight:700;font-size:12px;}
+
+/* State badges */
+.st{display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;
+  white-space:nowrap;margin:1px;}
+.st-b{background:rgba(107,114,128,.15);color:#9ca3af;border:1px solid rgba(107,114,128,.3);}
+.st-a{background:rgba(16,185,129,.12);color:#6ee7b7;border:1px solid rgba(16,185,129,.3);}
+.st-w{background:rgba(234,179,8,.12);color:#fde047;border:1px solid rgba(234,179,8,.3);}
+.st-r{background:rgba(239,68,68,.12);color:#fca5a5;border:1px solid rgba(239,68,68,.3);}
+.st-i{background:rgba(59,130,246,.12);color:#93c5fd;border:1px solid rgba(59,130,246,.3);}
+.st-p{background:rgba(124,92,191,.12);color:#c4b5fd;border:1px solid rgba(167,139,250,.3);}
+
+/* Op pills */
+.op{display:inline-block;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:600;
+  margin:1px 2px;white-space:nowrap;}
+.op-ok{background:rgba(16,185,129,.1);color:#6ee7b7;}
+.op-no{background:rgba(239,68,68,.1);color:#fca5a5;text-decoration:line-through;}
+.op-cond{background:rgba(234,179,8,.1);color:#fde047;}
+.op-guard{background:rgba(59,130,246,.1);color:#93c5fd;}
+
+/* 3-layer badge */
+.layers{display:flex;gap:4px;flex-wrap:wrap;}
+.layer{padding:1px 6px;border-radius:2px;font-size:10px;font-weight:600;}
+.l-svc{background:rgba(124,92,191,.15);color:#c4b5fd;}
+.l-vm{background:rgba(79,135,240,.15);color:#93c5fd;}
+.l-ui{background:rgba(16,185,129,.15);color:#6ee7b7;}
+.l-x{background:rgba(239,68,68,.15);color:#fca5a5;}
+
+code{background:var(--surface2);padding:1px 5px;border-radius:2px;
+  font-family:'Cascadia Code',monospace;font-size:11px;color:#a9c2f0;}
+
+.alert{padding:12px 14px;border-radius:6px;margin-bottom:12px;font-size:12px;}
+.alert-r{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);color:#fca5a5;}
+.alert-ok{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);color:#6ee7b7;}
+.alert-w{background:rgba(234,179,8,.08);border:1px solid rgba(234,179,8,.2);color:#fde047;}
+
+.legend{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:20px;padding:12px;
+  background:var(--surface);border-radius:6px;border:1px solid var(--border);}
+.legend span{font-size:11px;color:var(--text2);}
+</style>
+</head>
+<body>
+<div id="hdr">
+  <h1>Y26 · Workflow Matrix Institucional</h1>
+  <span>Ybridio ERP · 2026-05-15 · Fuente oficial de estados y operaciones</span>
+</div>
+<div class="wrap">
+
+<div class="alert alert-ok">
+  ✅ Esta matriz es la fuente oficial de verdad para estados, transiciones y operaciones permitidas en cada documento del ERP. Cualquier discrepancia entre este documento y el código debe resolverse a favor de esta matriz.
+</div>
+
+<div class="legend">
+  <span><span class="st st-b">Estado</span> Neutral/Borrador</span>
+  <span><span class="st st-a">Estado</span> Activo/OK</span>
+  <span><span class="st st-w">Estado</span> En proceso/Advertencia</span>
+  <span><span class="st st-r">Estado</span> Terminal</span>
+  <span><span class="op op-ok">Operación</span> Permitida</span>
+  <span><span class="op op-no">Operación</span> Bloqueada</span>
+  <span><span class="op op-cond">Operación</span> Condicional</span>
+  <span><span class="layer l-svc">SVC</span> Guard en Service</span>
+  <span><span class="layer l-vm">VM</span> Guard en ViewModel</span>
+  <span><span class="layer l-ui">UI</span> Guard en IsEnabled</span>
+</div>
+
+<!-- ══ COTIZACIONES ══════════════════════════════════════════════ -->
+<div class="doc-section">
+<h2>📋 Cotizaciones</h2>
+<table class="matrix">
+<thead><tr>
+  <th style="width:100px">Estado</th>
+  <th>Descripción</th>
+  <th>Editar Encabezado</th>
+  <th>Editar Líneas / Cargos</th>
+  <th>Aprobar</th>
+  <th>Convertir a Pedido</th>
+  <th>Cancelar</th>
+  <th>Enviar</th>
+  <th>Guards Implementados</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td><span class="st st-b">Borrador</span></td>
+  <td>Edición libre. Aún no oficial.</td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td><div class="layers"><span class="layer l-svc">SVC</span><span class="layer l-vm">VM</span><span class="layer l-ui">UI</span></div></td>
+</tr>
+<tr>
+  <td><span class="st st-a">Aprobada</span></td>
+  <td>Versión comercial oficial. Congelada.</td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td><div class="layers"><span class="layer l-svc">SVC</span><span class="layer l-vm">VM</span><span class="layer l-ui">UI</span></div></td>
+</tr>
+<tr>
+  <td><span class="st st-p">Convertida</span></td>
+  <td>Generó un Pedido. Solo lectura.</td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><div class="layers"><span class="layer l-svc">SVC</span><span class="layer l-vm">VM</span><span class="layer l-ui">UI</span></div></td>
+</tr>
+<tr>
+  <td><span class="st st-r">Cancelada</span></td>
+  <td>Terminal. Solo lectura.</td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><div class="layers"><span class="layer l-svc">SVC</span><span class="layer l-vm">VM</span><span class="layer l-ui">UI</span></div></td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<!-- ══ PEDIDOS ═══════════════════════════════════════════════════ -->
+<div class="doc-section">
+<h2>📦 Pedidos</h2>
+<table class="matrix">
+<thead><tr>
+  <th>Estado</th>
+  <th>Descripción</th>
+  <th>Editar</th>
+  <th>Generar OT</th>
+  <th>Generar Venta</th>
+  <th>Registrar Anticipo</th>
+  <th>Cancelar</th>
+  <th>Estado Financiero</th>
+  <th>Guards</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td><span class="st st-b">Borrador</span></td>
+  <td>Recién creado, en edición.</td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td>SinPago → ParcialmentePagado</td>
+  <td><div class="layers"><span class="layer l-svc">SVC</span><span class="layer l-vm">VM</span><span class="layer l-ui">UI</span></div></td>
+</tr>
+<tr>
+  <td><span class="st st-a">Autorizado</span></td>
+  <td>Autorizado internamente. Listo para operar.</td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td><span class="op op-cond">Si anticipo OK</span></td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td>Cualquier estado financiero</td>
+  <td><div class="layers"><span class="layer l-svc">SVC</span><span class="layer l-vm">VM</span><span class="layer l-ui">UI</span></div></td>
+</tr>
+<tr>
+  <td><span class="st st-w">EnProceso</span></td>
+  <td>En preparación/despacho/servicio.</td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td><span class="op op-cond">Si anticipo OK</span></td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td>Cualquier estado financiero</td>
+  <td><div class="layers"><span class="layer l-svc">SVC</span><span class="layer l-vm">VM</span><span class="layer l-ui">UI</span></div></td>
+</tr>
+<tr>
+  <td><span class="st st-w">Parcial</span></td>
+  <td>Entrega parcial. Al menos 1 línea cumplida.</td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td><span class="op op-cond">Si anticipo OK</span></td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td>Cualquier estado financiero</td>
+  <td><div class="layers"><span class="layer l-svc">SVC</span><span class="layer l-vm">VM</span><span class="layer l-ui">UI</span></div></td>
+</tr>
+<tr>
+  <td><span class="st st-a">Finalizado</span></td>
+  <td>Cumplido completamente.</td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td>AnticipoCompleto → Liquidado</td>
+  <td><div class="layers"><span class="layer l-svc">SVC</span><span class="layer l-vm">VM</span><span class="layer l-ui">UI</span></div></td>
+</tr>
+<tr>
+  <td><span class="st st-r">Cancelado</span></td>
+  <td>Terminal. Solo lectura.</td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td>Congelado</td>
+  <td><div class="layers"><span class="layer l-svc">SVC</span><span class="layer l-vm">VM</span><span class="layer l-ui">UI</span></div></td>
+</tr>
+</tbody>
+</table>
+<div class="alert alert-w">⚠️ Guard "Generar OT condicionado por anticipo": si <code>AnticipoRequerido &gt; 0</code> y <code>AnticipoPagado &lt; AnticipoRequerido</code>, la operación se bloquea en 3 capas (Service + ViewModel.PuedeGenerarOT + UI IsEnabled).</div>
+</div>
+
+<!-- ══ ESTADOS FINANCIEROS PEDIDO ════════════════════════════════ -->
+<div class="doc-section">
+<h2>💰 Estados Financieros de Pedido (Dimensión Independiente)</h2>
+<table class="matrix">
+<thead><tr>
+  <th>EstadoFinanciero</th>
+  <th>Condición</th>
+  <th>Permite OT</th>
+  <th>Descripción</th>
+</tr></thead>
+<tbody>
+<tr><td><span class="st st-b">SinPago</span></td><td>AnticipoPagado = 0</td><td><span class="op op-cond">Solo si no hay requisito</span></td><td>Sin pagos registrados</td></tr>
+<tr><td><span class="st st-w">AnticipoParcial</span></td><td>0 &lt; Pagado &lt; Requerido</td><td><span class="op op-no">Bloqueado</span></td><td>Anticipo parcial, no alcanza el mínimo</td></tr>
+<tr><td><span class="st st-a">AnticipoCompleto</span></td><td>Pagado ≥ Requerido (y &lt; Total)</td><td><span class="op op-ok">Permitido</span></td><td>Anticipo mínimo cubierto. Operación autorizada</td></tr>
+<tr><td><span class="st st-i">ParcialmentePagado</span></td><td>Pagado &gt; 0, sin requisito</td><td><span class="op op-ok">Permitido</span></td><td>Pagos libres sin anticipo mínimo configurado</td></tr>
+<tr><td><span class="st st-a">Liquidado</span></td><td>Pagado ≥ Total</td><td><span class="op op-ok">Permitido</span></td><td>Cierre financiero completo</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ══ VENTAS DOCUMENTALES ═══════════════════════════════════════ -->
+<div class="doc-section">
+<h2>🧾 Ventas Documentales</h2>
+<table class="matrix">
+<thead><tr>
+  <th>Estado</th>
+  <th>Descripción</th>
+  <th>Editar</th>
+  <th>Confirmar</th>
+  <th>Registrar Pago</th>
+  <th>Cerrar</th>
+  <th>Cancelar</th>
+  <th>Guards</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td><span class="st st-b">Borrador</span></td>
+  <td>Creada, sin impacto inventario ni CxC.</td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td><span class="op op-cond">Requiere líneas</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td><div class="layers"><span class="layer l-svc">SVC</span><span class="layer l-x">VM⚠️</span><span class="layer l-x">UI⚠️</span></div></td>
+</tr>
+<tr>
+  <td><span class="st st-w">PendientePago</span></td>
+  <td>Confirmada. Inventario descontado. CxC si Crédito.</td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Ya confirmada</span></td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td><span class="op op-cond">Saldo = 0</span></td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td><div class="layers"><span class="layer l-svc">SVC</span><span class="layer l-vm">VM</span><span class="layer l-ui">UI</span></div></td>
+</tr>
+<tr>
+  <td><span class="st st-a">Pagada</span></td>
+  <td>Saldo = 0. Todos los pagos aplicados.</td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td><span class="op op-ok">Permitido</span></td>
+  <td><div class="layers"><span class="layer l-svc">SVC</span><span class="layer l-vm">VM</span><span class="layer l-ui">UI</span></div></td>
+</tr>
+<tr>
+  <td><span class="st st-a">Cerrada</span></td>
+  <td>Terminal exitoso. Saldo=0, entrega completa.</td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Ya cerrada</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><div class="layers"><span class="layer l-svc">SVC</span><span class="layer l-vm">VM</span><span class="layer l-ui">UI</span></div></td>
+</tr>
+<tr>
+  <td><span class="st st-r">Cancelada</span></td>
+  <td>Terminal. Solo lectura.</td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Bloqueado</span></td>
+  <td><span class="op op-no">Ya cancelada</span></td>
+  <td><div class="layers"><span class="layer l-svc">SVC</span><span class="layer l-vm">VM</span><span class="layer l-ui">UI</span></div></td>
+</tr>
+</tbody>
+</table>
+<div class="alert alert-r">🔴 Gap detectado (A-003): "Confirmar sin líneas" solo validado en SVC. VM e UI no bloquean el botón Confirmar cuando la venta no tiene detalles. Pendiente corrección.</div>
+</div>
+
+<!-- ══ PERMISOS POR OPERACIÓN ════════════════════════════════════ -->
+<div class="doc-section">
+<h2>🔒 Permisos Requeridos por Operación</h2>
+<table class="matrix">
+<thead><tr>
+  <th>Documento</th>
+  <th>Operación</th>
+  <th>PermisosClave</th>
+  <th>Valor string</th>
+  <th>Estado</th>
+</tr></thead>
+<tbody>
+<tr><td>Cotización</td><td>Ver</td><td><code>Cotizacion.Ver</code></td><td><code>cotizacion.ver</code></td><td class="ok">✅</td></tr>
+<tr><td>Cotización</td><td>Crear/Editar</td><td><code>Cotizacion.Crear/Editar</code></td><td><code>cotizacion.crear</code></td><td class="ok">✅</td></tr>
+<tr><td>Cotización</td><td>Aprobar</td><td><code>Cotizacion.Editar</code></td><td><code>cotizacion.editar</code></td><td class="ok">✅</td></tr>
+<tr><td>Pedido</td><td>Crear/Editar</td><td><code>Pedido.Crear/Editar</code></td><td><code>pedido.crear</code></td><td class="ok">✅</td></tr>
+<tr><td>Pedido</td><td>Generar OT</td><td><code>OrdenTrabajo.Crear</code></td><td><code>ordentrabajo.crear</code></td><td class="ok">✅</td></tr>
+<tr><td>Pedido</td><td>Registrar Anticipo</td><td><code>Anticipo.Registrar</code></td><td><code>anticipo.registrar</code></td><td class="ok">✅ Nuevo</td></tr>
+<tr><td>Pedido</td><td>Configurar Anticipo Req.</td><td><code>Anticipo.Configurar</code></td><td><code>anticipo.configurar</code></td><td class="ok">✅ Nuevo</td></tr>
+<tr><td>Venta</td><td>Crear/Editar</td><td><code>Venta.Crear/Editar</code></td><td><code>venta.crear</code></td><td class="ok">✅</td></tr>
+<tr><td>Venta</td><td>Registrar Pago</td><td><code>Pago.Registrar</code></td><td><code>pago.registrar</code></td><td class="ok">✅</td></tr>
+<tr><td>Venta</td><td>Cerrar</td><td><code>Venta.Confirmar</code></td><td><code>venta.confirmar</code></td><td class="ok">✅</td></tr>
+</tbody>
+</table>
+</div>
+
+<div style="text-align:center;color:var(--text3);font-size:11px;padding:20px 0;border-top:1px solid var(--border);">
+Y26 · Workflow Matrix · Ybridio ERP · 2026-05-15 · Documento técnico institucional
+</div>
+</div>
+</body>
+</html>

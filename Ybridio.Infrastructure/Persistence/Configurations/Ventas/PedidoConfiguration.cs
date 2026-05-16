@@ -33,9 +33,14 @@ public class PedidoConfiguration : IEntityTypeConfiguration<Pedido>
         builder.Property(e => e.Borrado).IsRequired().HasDefaultValue(false);
         builder.Property(e => e.RowVersion).IsRowVersion();
 
+        // ── Dimensión financiera ──────────────────────────────────────────────────
+        builder.Property(e => e.AnticipoRequerido).HasColumnType("decimal(18,2)").IsRequired(false);
+        builder.Property(e => e.AnticipoPagado).HasColumnType("decimal(18,2)").IsRequired().HasDefaultValue(0m);
+        builder.Property(e => e.EstadoFinanciero).HasConversion<int>().IsRequired().HasDefaultValue(EstadoFinancieroPedido.SinPago);
+
         builder.HasOne(e => e.Empresa).WithMany().HasForeignKey(e => e.EmpresaId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(e => e.Sucursal).WithMany().HasForeignKey(e => e.SucursalId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne(e => e.RelacionComercial).WithMany().HasForeignKey(e => e.RelacionComercialId).IsRequired(false).OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne(e => e.RelacionComercial).WithMany().HasForeignKey(e => e.RelacionComercialId).HasConstraintName("FK_Pedido_RelacionComercial").IsRequired(false).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(e => e.Cotizacion).WithMany().HasForeignKey(e => e.CotizacionId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
 
         builder.HasIndex(e => new { e.EmpresaId, e.Fecha }).HasDatabaseName("IX_Pedido_Empresa_Fecha");

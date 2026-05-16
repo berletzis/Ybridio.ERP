@@ -221,8 +221,11 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
 
     // ── Guardas del workflow (Commercial Document Workflow Pattern) ──────────
 
-    /// <summary>Puede editar: cualquier estado no terminal.</summary>
-    public bool PuedeEditar => Estatus is not (EstatusCotizacion.Cancelada or EstatusCotizacion.Convertida);
+    /// <summary>Puede editar encabezado y cargos: solo en Borrador (Aprobada está congelada).</summary>
+    public bool PuedeEditar => Estatus is EstatusCotizacion.Borrador;
+
+    /// <summary>Puede editar líneas de detalle (cantidad, descuento): solo en estado Borrador.</summary>
+    public bool PuedeEditarLineas => Estatus is EstatusCotizacion.Borrador;
 
     /// <summary>
     /// Enviar = ACCIÓN OPERACIONAL (no modifica estado).
@@ -883,6 +886,39 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
         finally { IsBusy = false; }
     }
 
+    /// <summary>
+    /// Flujo completo de aprobación (PARTE 2): Validar → Guardar → Aprobar.
+    /// Garantiza que el snapshot comercial sea la versión final antes de congelar el documento.
+    /// Si el guardado falla, la aprobación se cancela.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(PuedeAprobar))]
+    public async Task AprobarConGuardadoAsync(CancellationToken ct = default)
+    {
+        if (_session.Usuario is null || !PuedeAprobar) return;
+
+        // Validaciones previas a la aprobación
+        if (_entidadDirectorioSeleccionada is null && !RelacionComercialId.HasValue)
+        {
+            ErrorMessage = "Debe seleccionar un cliente antes de aprobar.";
+            return;
+        }
+        if (Detalles.Count == 0)
+        {
+            ErrorMessage = "Debe agregar al menos una línea de detalle antes de aprobar.";
+            return;
+        }
+
+        // Guardar primero si hay cambios pendientes — garantiza snapshot correcto
+        if (IsDirty || IsNuevo)
+        {
+            await GuardarAsync(ct);
+            if (!string.IsNullOrEmpty(ErrorMessage)) return; // Guardado falló — no aprobar
+            if (!PuedeAprobar) return;                       // Estado inválido post-guardado
+        }
+
+        await CambiarEstatusAsync(EstatusCotizacion.Aprobada, ct);
+    }
+
     [RelayCommand]
     public async Task ConvertirAPedidoAsync(CancellationToken ct = default)
     {
@@ -964,6 +1000,16 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
         OnPropertyChanged(nameof(PuedeConvertir));
         OnPropertyChanged(nameof(PuedeCancelar));
         OnPropertyChanged(nameof(EstatusTextoDisplay));
+
+        // Notificar CanExecute del command de aprobación con guardado.
+        AprobarConGuardadoCommand.NotifyCanExecuteChanged();
+
+        // Propagar estado de edición a ítems de líneas y cargos (DataTemplate bind a item.PuedeEditar).
+        var puedeEditar = PuedeEditarLineas;   // true solo Borrador
+        foreach (var d in Detalles)
+            d.PuedeEditar = puedeEditar;
+        foreach (var c in Cargos)
+            c.PuedeEditar = puedeEditar;
     }
 
     private void ReportarContexto()
@@ -1008,6 +1054,25 @@ public sealed class DetalleLineaEditable : System.ComponentModel.INotifyProperty
     /// Invocado cuando cambia la cantidad o el descuento. El ViewModel lo conecta a RecalcularTotales().
     /// </summary>
     internal Action? ValorCambiadoCallback { get; set; }
+
+    // ── Control de edición (propagado desde ViewModel según estado de cotización) ─
+
+    private bool _puedeEditar = true;
+
+    /// <summary>
+    /// Controla si los controles de edición de línea (Cantidad, Desc. %) están habilitados.
+    /// El ViewModel lo actualiza en <c>RefrescarPermisosUI</c> según <c>EstatusCotizacion</c>.
+    /// </summary>
+    public bool PuedeEditar
+    {
+        get => _puedeEditar;
+        set
+        {
+            if (_puedeEditar == value) return;
+            _puedeEditar = value;
+            OnPropertyChanged(nameof(PuedeEditar));
+        }
+    }
 
     public DetalleLineaEditable() { }
 
@@ -1149,16 +1214,38 @@ public sealed class DetalleLineaEditable : System.ComponentModel.INotifyProperty
 /// Commercial Charges Pattern: sección separada de las líneas de producto.
 /// Id = 0 para cargos nuevos no persistidos; > 0 para cargos ya guardados en BD.
 /// </summary>
-public sealed class CargoLineaEditable
+public sealed class CargoLineaEditable : System.ComponentModel.INotifyPropertyChanged
 {
-    public long   Id          { get; set; }
-    public int?   OtroCargoId { get; set; }
-    public string Descripcion { get; set; }
-    public decimal Importe    { get; set; }
-    public bool   AplicaIva   { get; set; }
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+    private void OnPropertyChanged(string name)
+        => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
+
+    public long    Id          { get; set; }
+    public int?    OtroCargoId { get; set; }
+    public string  Descripcion { get; set; }
+    public decimal Importe     { get; set; }
+    public bool    AplicaIva   { get; set; }
 
     /// <summary>Texto para columna IVA del grid.</summary>
     public string IvaTexto => AplicaIva ? "Sí" : "No";
+
+    private bool _puedeEditar = true;
+
+    /// <summary>
+    /// Controla si el botón de eliminar cargo está habilitado.
+    /// El ViewModel lo actualiza en <c>RefrescarPermisosUI</c> según <c>EstatusCotizacion</c>.
+    /// </summary>
+    public bool PuedeEditar
+    {
+        get => _puedeEditar;
+        set
+        {
+            if (_puedeEditar == value) return;
+            _puedeEditar = value;
+            OnPropertyChanged(nameof(PuedeEditar));
+        }
+    }
 
     public CargoLineaEditable(long id, int? otroCargoId, string descripcion, decimal importe, bool aplicaIva)
     {

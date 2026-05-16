@@ -8,7 +8,10 @@
 
     <Page.Resources>
         <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
-        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <converters:BoolToVisibilityConverter        x:Key="BoolToVisibilityConverter"/>
+        <converters:EstatusVentaToBgBrushConverter   x:Key="EstatusBgConverter"/>
+        <converters:EstatusVentaToFgBrushConverter   x:Key="EstatusFgConverter"/>
+        <converters:DecimalToCurrencyConverter        x:Key="CurrencyConverter"/>
     </Page.Resources>
 
     <Grid>
@@ -20,7 +23,7 @@
         </Grid.RowDefinitions>
 
         <!-- ── Command Bar ─────────────────────────────────────────────────── -->
-        <CommandBar Grid.Row="0" DefaultLabelPosition="Right" HorizontalAlignment="Left" Margin="8,0,0,0">
+        <CommandBar Grid.Row="0" Style="{StaticResource ErpModuleCommandBarStyle}">
             <AppBarButton Label="Nueva Venta" Click="BtnNuevo_Click">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE710;"/></AppBarButton.Icon>
             </AppBarButton>
@@ -34,7 +37,7 @@
         </CommandBar>
 
         <!-- ── Filtros ──────────────────────────────────────────────────────── -->
-        <Grid Grid.Row="1" Padding="8,8,20,4" ColumnSpacing="8">
+        <Grid Grid.Row="1" Padding="{StaticResource ErpFilterRegionPadding}" ColumnSpacing="8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
@@ -55,77 +58,136 @@
             </ComboBox>
         </Grid>
 
-        <!-- ── Grid de ventas ───────────────────────────────────────────────── -->
-        <Border Grid.Row="2" Margin="20,4,20,0" Background="White" BorderBrush="#E5E5E5" BorderThickness="1"
-                Visibility="{x:Bind ViewModel.IsDocumentSurfaceVisible, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}">
-            <Grid>
-                <ListView Style="{StaticResource OutlookDataGridStyle}"
-                          ItemsSource="{x:Bind ViewModel.Ventas, Mode=OneWay}"
-                          SelectedItem="{x:Bind ViewModel.VentaSeleccionada, Mode=TwoWay}"
-                          DoubleTapped="Lista_DoubleTapped">
-                    <ListView.Header>
-                        <Border Background="#FAFAFA" BorderBrush="#E8E8E8" BorderThickness="0,0,0,1">
-                            <Grid Padding="{StaticResource ErpHeaderPadding}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="8"/>
-                                    <ColumnDefinition Width="80"/>
-                                    <ColumnDefinition Width="120"/>
-                                    <ColumnDefinition Width="2*"/>
-                                    <ColumnDefinition Width="120"/>
-                                    <ColumnDefinition Width="120"/>
-                                    <ColumnDefinition Width="110"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="1" Text="#"            Style="{StaticResource ErpGridHeaderTextStyle}"/>
-                                <TextBlock Grid.Column="2" Text="Fecha"        Style="{StaticResource ErpGridHeaderTextStyle}"/>
-                                <TextBlock Grid.Column="3" Text="Cliente"      Style="{StaticResource ErpGridHeaderTextStyle}"/>
-                                <TextBlock Grid.Column="4" Text="Total"        Style="{StaticResource ErpGridHeaderTextStyle}" TextAlignment="Right"/>
-                                <TextBlock Grid.Column="5" Text="Saldo"        Style="{StaticResource ErpGridHeaderTextStyle}" TextAlignment="Right"/>
-                                <TextBlock Grid.Column="6" Text="Estatus"      Style="{StaticResource ErpGridHeaderTextStyle}"/>
-                            </Grid>
-                        </Border>
-                    </ListView.Header>
-                    <ListView.ItemTemplate>
-                        <DataTemplate x:DataType="dto:VentaDocumentalResumenDto">
-                            <Grid Height="{StaticResource ErpRowHeight}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="8"/>
-                                    <ColumnDefinition Width="80"/>
-                                    <ColumnDefinition Width="120"/>
-                                    <ColumnDefinition Width="2*"/>
-                                    <ColumnDefinition Width="120"/>
-                                    <ColumnDefinition Width="120"/>
-                                    <ColumnDefinition Width="110"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="1" Text="{x:Bind Id}"            Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="2" Text="{x:Bind Fecha}"         Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="3" Text="{x:Bind NombreCliente}" Style="{StaticResource ErpCellPrimaryStyle}"   VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="4" Text="{x:Bind Total}"         Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center" TextAlignment="Right"/>
-                                <TextBlock Grid.Column="5" Text="{x:Bind SaldoPendiente}" Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center" TextAlignment="Right"/>
-                                <TextBlock Grid.Column="6" Text="{x:Bind EstatusTexto}" Style="{StaticResource ErpCellSecondaryStyle}" VerticalAlignment="Center"/>
-                            </Grid>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
-                <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}" Width="40" Height="40"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-            </Grid>
-        </Border>
+        <!--
+            ADR-031: Dos estados: listado visible (IsDocumentSurfaceVisible=false)
+            ó Document Surface visible (=true).
+        -->
+        <Grid Grid.Row="2">
 
-        <!-- ADR-031: Document Surface operacional — reemplaza el listado. SIN apariencia tab. -->
-        <ContentPresenter Grid.Row="2"
-                          Margin="20,4,20,0"
-                          Content="{x:Bind ViewModel.DocumentSurfaceContent, Mode=OneWay}"
-                          Visibility="{x:Bind ViewModel.IsDocumentSurfaceVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+            <!-- ═══ Listado de Ventas (Operational Grid Standard v2 — ADR-035) ═══════ -->
+            <Border Style="{StaticResource OgGridContainerStyle}"
+                    Margin="{StaticResource ErpContentBoundaryWithTopGap}"
+                    Visibility="{x:Bind ViewModel.IsDocumentSurfaceVisible, Mode=OneWay,
+                                 Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
 
-        <!-- ── Status bar ───────────────────────────────────────────────────── -->
-        <Border Grid.Row="3" Style="{StaticResource ErpGridStatusBarStyle}" Margin="20,0,20,0">
+                    <!-- Encabezado de columnas -->
+                    <Border Grid.Row="0" Style="{StaticResource OgHeaderContainerStyle}">
+                        <Grid Padding="{StaticResource OgHeaderPadding}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="{StaticResource OgColGutter}"/>
+                                <ColumnDefinition Width="{StaticResource OgColCompact}"/>
+                                <ColumnDefinition Width="{StaticResource OgColDate}"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="{StaticResource OgColFinancial}"/>
+                                <ColumnDefinition Width="{StaticResource OgColFinancial}"/>
+                                <ColumnDefinition Width="{StaticResource OgColStatus}"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="1" Text="Folio"   Style="{StaticResource OgHeaderTextStyle}"/>
+                            <TextBlock Grid.Column="2" Text="Fecha"   Style="{StaticResource OgHeaderTextStyle}"/>
+                            <TextBlock Grid.Column="3" Text="Cliente" Style="{StaticResource OgHeaderTextStyle}"/>
+                            <TextBlock Grid.Column="4" Text="Total"   Style="{StaticResource OgHeaderNumericTextStyle}"/>
+                            <TextBlock Grid.Column="5" Text="Saldo"   Style="{StaticResource OgHeaderNumericTextStyle}"/>
+                            <TextBlock Grid.Column="6" Text="Estatus" Style="{StaticResource OgHeaderCenteredTextStyle}"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Filas -->
+                    <ListView Grid.Row="1"
+                              Style="{StaticResource OgListViewStyle}"
+                              ItemsSource="{x:Bind ViewModel.Ventas, Mode=OneWay}"
+                              SelectedItem="{x:Bind ViewModel.VentaSeleccionada, Mode=TwoWay}"
+                              DoubleTapped="Lista_DoubleTapped">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="dto:VentaDocumentalResumenDto">
+                                <Grid MinHeight="{StaticResource OgRowHeight}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="{StaticResource OgColGutter}"/>
+                                        <ColumnDefinition Width="{StaticResource OgColCompact}"/>
+                                        <ColumnDefinition Width="{StaticResource OgColDate}"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="{StaticResource OgColFinancial}"/>
+                                        <ColumnDefinition Width="{StaticResource OgColFinancial}"/>
+                                        <ColumnDefinition Width="{StaticResource OgColStatus}"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Folio — COMPACT SEMANTIC -->
+                                    <TextBlock Grid.Column="1"
+                                               Text="{x:Bind Folio}"
+                                               Style="{StaticResource OgCellIdStyle}"/>
+
+                                    <!-- Fecha -->
+                                    <TextBlock Grid.Column="2"
+                                               Text="{x:Bind Fecha}"
+                                               Style="{StaticResource OgCellSecondaryStyle}"/>
+
+                                    <!-- Cliente — PRIMARY EXPANDABLE -->
+                                    <TextBlock Grid.Column="3"
+                                               Text="{x:Bind NombreCliente}"
+                                               Style="{StaticResource OgCellPrimaryStyle}"/>
+
+                                    <!-- Total — FINANCIAL COMPACT -->
+                                    <TextBlock Grid.Column="4"
+                                               Text="{x:Bind Total, Converter={StaticResource CurrencyConverter}, Mode=OneTime}"
+                                               Style="{StaticResource OgCurrencyTextStyle}"/>
+
+                                    <!-- Saldo — FINANCIAL COMPACT -->
+                                    <TextBlock Grid.Column="5"
+                                               Text="{x:Bind SaldoPendiente, Converter={StaticResource CurrencyConverter}, Mode=OneTime}"
+                                               Style="{StaticResource OgCurrencyTextStyle}"/>
+
+                                    <!-- Estatus — badge semántico OgStatus* -->
+                                    <Border Grid.Column="6"
+                                            CornerRadius="4"
+                                            Padding="8,2"
+                                            VerticalAlignment="Center"
+                                            HorizontalAlignment="Center"
+                                            Background="{x:Bind Estatus, Converter={StaticResource EstatusBgConverter}, Mode=OneTime}">
+                                        <TextBlock Text="{x:Bind EstatusTexto}"
+                                                   Style="{StaticResource OgStatusBadgeTextStyle}"
+                                                   Foreground="{x:Bind Estatus, Converter={StaticResource EstatusFgConverter}, Mode=OneTime}"/>
+                                    </Border>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+                    <ProgressRing Grid.Row="1"
+                                  IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
+                                  Width="48" Height="48"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <ContentControl Grid.Row="1"
+                                    ContentTemplate="{StaticResource OgEmptyStateTemplate}"
+                                    Visibility="{x:Bind ViewModel.IsEmptyState, Mode=OneWay}"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    IsHitTestVisible="False"/>
+                </Grid>
+            </Border>
+
+            <!-- ═══ Document Surface — INLINE (ADR-031) ═════════════════════════════ -->
+            <ContentPresenter Margin="{StaticResource ErpContentBoundaryWithTopGap}"
+                              Content="{x:Bind ViewModel.DocumentSurfaceContent, Mode=OneWay}"
+                              Visibility="{x:Bind ViewModel.IsDocumentSurfaceVisible, Mode=OneWay,
+                                           Converter={StaticResource BoolToVisibilityConverter}}"/>
+        </Grid>
+
+        <!-- ── Status bar — se oculta cuando Document Surface activo (ADR-031) ── -->
+        <Border Grid.Row="3"
+                Style="{StaticResource OgStatusBarStyle}"
+                Margin="{StaticResource ErpStatusRegionMargin}"
+                Visibility="{x:Bind ViewModel.IsDocumentSurfaceVisible, Mode=OneWay,
+                             Converter={StaticResource InverseBoolToVisibilityConverter}}">
             <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
-                <TextBlock Style="{StaticResource ErpGridStatusTextStyle}">
+                <TextBlock Style="{StaticResource OgStatusCountStyle}">
                     <Run Text="{x:Bind ViewModel.Ventas.Count, Mode=OneWay}"/>
                     <Run Text="venta(s)"/>
                 </TextBlock>
-                <TextBlock Style="{StaticResource ErpGridErrorTextStyle}"   Text="{x:Bind ViewModel.ErrorMessage,   Mode=OneWay}"/>
-                <TextBlock Style="{StaticResource ErpGridSuccessTextStyle}" Text="{x:Bind ViewModel.SuccessMessage, Mode=OneWay}"/>
+                <TextBlock Style="{StaticResource OgStatusErrorStyle}"   Text="{x:Bind ViewModel.ErrorMessage,   Mode=OneWay}"/>
+                <TextBlock Style="{StaticResource OgStatusSuccessStyle}" Text="{x:Bind ViewModel.SuccessMessage, Mode=OneWay}"/>
             </StackPanel>
         </Border>
     </Grid>

@@ -36,7 +36,7 @@ public class OrdenTrabajoConfiguration : IEntityTypeConfiguration<OrdenTrabajo>
 
         builder.HasOne(e => e.Empresa).WithMany().HasForeignKey(e => e.EmpresaId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(e => e.Sucursal).WithMany().HasForeignKey(e => e.SucursalId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne(e => e.RelacionComercial).WithMany().HasForeignKey(e => e.RelacionComercialId).IsRequired(false).OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne(e => e.RelacionComercial).WithMany().HasForeignKey(e => e.RelacionComercialId).HasConstraintName("FK_OT_RelacionComercial").IsRequired(false).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(e => e.Pedido).WithMany().HasForeignKey(e => e.PedidoId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
 
         builder.HasIndex(e => new { e.EmpresaId, e.Estatus }).HasDatabaseName("IX_OrdenTrabajo_Empresa_Estatus");

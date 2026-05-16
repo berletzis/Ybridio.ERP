@@ -65,17 +65,19 @@
             </AppBarButton>
             <AppBarSeparator/>
 
-            <!-- Grupo 2: Edición de líneas -->
-            <AppBarButton Label="Agregar Línea" Click="BtnAgregarLinea_Click">
+            <!-- Grupo 2: Edición de líneas (bloqueados cuando Aprobada/Convertida/Cancelada) -->
+            <AppBarButton Label="Agregar Línea" Click="BtnAgregarLinea_Click"
+                          IsEnabled="{x:Bind ViewModel.PuedeEditarLineas, Mode=OneWay}">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE710;"/></AppBarButton.Icon>
             </AppBarButton>
-            <AppBarButton Label="Eliminar Línea" Command="{x:Bind ViewModel.EliminarDetalleCommand}">
+            <AppBarButton Label="Eliminar Línea" Command="{x:Bind ViewModel.EliminarDetalleCommand}"
+                          IsEnabled="{x:Bind ViewModel.PuedeEditarLineas, Mode=OneWay}">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE74D;"/></AppBarButton.Icon>
             </AppBarButton>
             <AppBarSeparator/>
 
             <!-- Grupo 3: Workflow comercial -->
-            <AppBarButton Label="Aprobar" Click="BtnAprobar_Click">
+            <AppBarButton Label="Aprobar" Command="{x:Bind ViewModel.AprobarConGuardadoCommand}">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE8FB;"/></AppBarButton.Icon>
             </AppBarButton>
             <AppBarButton Label="Convertir a Pedido" Command="{x:Bind ViewModel.ConvertirAPedidoCommand}">
@@ -163,7 +165,8 @@
                         <StackPanel Grid.Column="1" Grid.Row="0" Spacing="4">
                             <TextBlock Text="Observaciones" FontWeight="SemiBold" FontSize="12"/>
                             <TextBox PlaceholderText="Observaciones"
-                                     Text="{x:Bind ViewModel.Observaciones, Mode=TwoWay}"/>
+                                     Text="{x:Bind ViewModel.Observaciones, Mode=TwoWay}"
+                                     IsEnabled="{x:Bind ViewModel.PuedeEditar, Mode=OneWay}"/>
                         </StackPanel>
 
                         <!-- Col 0, Row 1: Info de cliente seleccionado -->
@@ -327,6 +330,7 @@
                                                    HorizontalAlignment="Stretch"
                                                    VerticalAlignment="Center"
                                                    HorizontalContentAlignment="Right"
+                                                   IsEnabled="{x:Bind PuedeEditar, Mode=OneWay}"
                                                    Tag="{x:Bind}"
                                                    ValueChanged="NumberBox_Cantidad_ValueChanged"
                                                    FontSize="13"/>
@@ -339,6 +343,7 @@
                                                    HorizontalAlignment="Stretch"
                                                    VerticalAlignment="Center"
                                                    HorizontalContentAlignment="Right"
+                                                   IsEnabled="{x:Bind PuedeEditar, Mode=OneWay}"
                                                    Tag="{x:Bind}"
                                                    ValueChanged="NumberBox_Descuento_ValueChanged"
                                                    FontSize="13"/>
@@ -364,6 +369,7 @@
                                                 Content="&#xE74D;"
                                                 FontFamily="Segoe Fluent Icons"
                                                 FontSize="14"
+                                                IsEnabled="{x:Bind PuedeEditar, Mode=OneWay}"
                                                 Tag="{x:Bind}"
                                                 Click="BtnEliminarLinea_Click"
                                                 ToolTipService.ToolTip="Eliminar línea"
@@ -456,6 +462,7 @@
                                         <Button Grid.Column="4"
                                                 Style="{StaticResource ErpActionButtonStyle}"
                                                 Content="&#xE74D;" FontFamily="Segoe Fluent Icons" FontSize="12"
+                                                IsEnabled="{x:Bind PuedeEditar, Mode=OneWay}"
                                                 Tag="{x:Bind}"
                                                 Click="BtnEliminarCargo_Click"
                                                 HorizontalAlignment="Center" VerticalAlignment="Center"/>

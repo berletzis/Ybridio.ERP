@@ -47,12 +47,34 @@ public class Pedido : AuditableEntity
     public decimal Total         { get; set; }
     public string? Observaciones  { get; set; }
 
+    // ── Dimensión financiera (independiente del workflow operacional) ──────────
+
+    /// <summary>
+    /// Monto mínimo de anticipo requerido para iniciar operación (ej: generar OT).
+    /// Null = sin anticipo requerido. Configurable por pedido.
+    /// </summary>
+    public decimal? AnticipoRequerido { get; set; }
+
+    /// <summary>
+    /// Suma acumulada de todos los anticipos registrados contra este pedido.
+    /// Actualizado automáticamente al registrar/cancelar un <see cref="AnticipoPedido"/>.
+    /// </summary>
+    public decimal AnticipoPagado { get; set; }
+
+    /// <summary>
+    /// Estado financiero del pedido — dimensión independiente de <see cref="EstatusPedido"/>.
+    /// Calculado automáticamente en cada operación de pago.
+    /// </summary>
+    public EstadoFinancieroPedido EstadoFinanciero { get; set; } = EstadoFinancieroPedido.SinPago;
+
     // Navegación
     public Empresa              Empresa             { get; set; } = null!;
     public Sucursal?            Sucursal            { get; set; }
     public RelacionComercial?   RelacionComercial   { get; set; }
     public Cotizacion?          Cotizacion          { get; set; }
-    public ICollection<PedidoDetalle> Detalles      { get; set; } = [];
+    public ICollection<PedidoDetalle>  Detalles     { get; set; } = [];
     /// <summary>Cargos accesorios del pedido (Flete, Maniobras, Seguro, etc.) — Commercial Charges Pattern.</summary>
-    public ICollection<PedidoCargo>   Cargos        { get; set; } = [];
+    public ICollection<PedidoCargo>    Cargos       { get; set; } = [];
+    /// <summary>Anticipos y pagos parciales registrados contra este pedido.</summary>
+    public ICollection<AnticipoPedido> Anticipos    { get; set; } = [];
 }

@@ -24,21 +24,6 @@ public sealed partial class PedidosPage : Page, ILiveContextReporter
         ViewModel      = App.Services.GetRequiredService<PedidosViewModel>();
         _pedidoService = App.Services.GetRequiredService<IPedidoService>();
         InitializeComponent();
-
-        // Guard extra: sincronizar visibilidad del status bar con el surface documental.
-        // El x:Bind en XAML ya lo hace pero este suscriptor garantiza que no haya timing issues.
-        ViewModel.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(PedidosViewModel.IsDocumentSurfaceVisible))
-                ActualizarVisibilidadStatusBar();
-        };
-    }
-
-    private void ActualizarVisibilidadStatusBar()
-    {
-        StatusBarPedidos.Visibility = ViewModel.IsDocumentSurfaceVisible
-            ? Visibility.Collapsed
-            : Visibility.Visible;
     }
 
     protected override async void OnNavigatedTo(NavigationEventArgs e)

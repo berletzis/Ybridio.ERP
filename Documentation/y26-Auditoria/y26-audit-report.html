@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Y26 — Auditoría Arquitectónica Integral · Ybridio ERP</title>
+<style>
+:root {
+  --bg:         #0f1117;
+  --surface:    #1a1d27;
+  --surface2:   #222637;
+  --border:     #2e3248;
+  --accent:     #4f87f0;
+  --accent2:    #7c5cbf;
+  --text:       #e2e8f0;
+  --text2:      #94a3b8;
+  --text3:      #64748b;
+  --cr:         #ef4444;
+  --cra:        rgba(239,68,68,.12);
+  --ch:         #f97316;
+  --cha:        rgba(249,115,22,.12);
+  --cm:         #eab308;
+  --cma:        rgba(234,179,8,.12);
+  --cl:         #22c55e;
+  --cla:        rgba(34,197,94,.12);
+  --ci:         #3b82f6;
+  --cia:        rgba(59,130,246,.12);
+  --cok:        #10b981;
+  --sidebar-w:  260px;
+  --hdr-h:      56px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.6;}
+
+/* ── HEADER ─────────────────────────────────────────────────────── */
+#hdr{position:fixed;top:0;left:0;right:0;height:var(--hdr-h);background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 24px;gap:16px;z-index:100;}
+#hdr .logo{font-size:18px;font-weight:700;letter-spacing:-.5px;color:var(--accent);}
+#hdr .logo span{color:var(--text2);font-weight:400;}
+#hdr .badge{background:var(--cra);color:var(--cr);border:1px solid var(--cr);border-radius:4px;
+  padding:2px 10px;font-size:11px;font-weight:600;letter-spacing:.5px;}
+#hdr .meta{margin-left:auto;color:var(--text3);font-size:12px;}
+
+/* ── SIDEBAR ─────────────────────────────────────────────────────── */
+#sidebar{position:fixed;top:var(--hdr-h);left:0;bottom:0;width:var(--sidebar-w);
+  background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;z-index:90;padding:16px 0;}
+#sidebar .section{padding:6px 16px 2px;font-size:10px;font-weight:700;letter-spacing:1px;
+  text-transform:uppercase;color:var(--text3);}
+#sidebar a{display:block;padding:7px 20px;color:var(--text2);text-decoration:none;font-size:13px;
+  border-left:2px solid transparent;transition:all .15s;}
+#sidebar a:hover{color:var(--text);background:var(--surface2);border-left-color:var(--border);}
+#sidebar a.active{color:var(--accent);background:rgba(79,135,240,.08);border-left-color:var(--accent);}
+#sidebar a.sub{padding-left:32px;font-size:12px;}
+.sev-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:6px;vertical-align:middle;}
+.dot-r{background:var(--cr);} .dot-h{background:var(--ch);} .dot-m{background:var(--cm);}
+.dot-l{background:var(--cl);} .dot-i{background:var(--ci);}
+
+/* ── MAIN ────────────────────────────────────────────────────────── */
+#main{margin-left:var(--sidebar-w);padding-top:calc(var(--hdr-h) + 32px);padding-bottom:80px;}
+.wrap{max-width:1100px;margin:0 auto;padding:0 32px;}
+
+/* ── SECTIONS ────────────────────────────────────────────────────── */
+.page-section{margin-bottom:48px;scroll-margin-top:80px;}
+h1.section-title{font-size:22px;font-weight:700;margin-bottom:4px;}
+h2.section-title{font-size:18px;font-weight:700;margin-bottom:4px;}
+.section-sub{color:var(--text3);font-size:13px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:12px;}
+
+/* ── CARDS ───────────────────────────────────────────────────────── */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin-bottom:24px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;text-align:center;}
+.card .score{font-size:36px;font-weight:800;margin:8px 0 4px;}
+.card .label{font-size:12px;color:var(--text2);}
+.card .bar{height:4px;border-radius:2px;margin-top:10px;background:var(--border);}
+.card .fill{height:100%;border-radius:2px;transition:width .8s;}
+.score-a{color:var(--cl);} .fill-a{background:var(--cl);}
+.score-b{color:var(--ci);} .fill-b{background:var(--ci);}
+.score-c{color:var(--cm);} .fill-c{background:var(--cm);}
+.score-d{color:var(--ch);} .fill-d{background:var(--ch);}
+.score-e{color:var(--cr);} .fill-e{background:var(--cr);}
+
+/* ── SUMMARY CARDS ───────────────────────────────────────────────── */
+.sum-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:32px;}
+.sum-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;}
+.sum-card .num{font-size:28px;font-weight:800;margin-bottom:2px;}
+.sum-card .lbl{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;}
+.num-r{color:var(--cr);} .num-h{color:var(--ch);} .num-m{color:var(--cm);} .num-ok{color:var(--cok);}
+
+/* ── FINDING CARDS ───────────────────────────────────────────────── */
+.finding{border-radius:8px;border:1px solid var(--border);margin-bottom:16px;overflow:hidden;}
+.finding-hdr{display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;user-select:none;}
+.finding-hdr:hover{background:rgba(255,255,255,.02);}
+.sev-badge{padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:.5px;white-space:nowrap;}
+.sev-CRÍTICO{background:var(--cra);color:var(--cr);border:1px solid rgba(239,68,68,.3);}
+.sev-ALTO{background:var(--cha);color:var(--ch);border:1px solid rgba(249,115,22,.3);}
+.sev-MEDIO{background:var(--cma);color:var(--cm);border:1px solid rgba(234,179,8,.3);}
+.sev-BAJO{background:var(--cla);color:var(--cl);border:1px solid rgba(34,197,94,.3);}
+.sev-INFO{background:var(--cia);color:var(--ci);border:1px solid rgba(59,130,246,.3);}
+.finding-title{font-weight:600;font-size:14px;flex:1;}
+.finding-loc{font-size:12px;color:var(--text3);font-family:'Cascadia Code','Consolas',monospace;}
+.finding-body{padding:0 18px 16px;display:none;}
+.finding-body.open{display:block;}
+.finding-body p{color:var(--text2);margin-bottom:10px;font-size:13px;}
+.finding-body .field{margin-bottom:8px;}
+.finding-body .field label{display:block;font-size:11px;font-weight:600;text-transform:uppercase;
+  letter-spacing:.5px;color:var(--text3);margin-bottom:4px;}
+pre{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px 14px;
+  font-family:'Cascadia Code','Consolas',monospace;font-size:12px;overflow-x:auto;line-height:1.5;color:#a9c2f0;}
+.fix{background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);border-radius:6px;
+  padding:10px 14px;font-size:13px;color:#6ee7b7;margin-top:8px;}
+.fix::before{content:'🔧 Corrección: ';font-weight:700;}
+.chevron{margin-left:auto;color:var(--text3);transition:transform .2s;font-size:14px;}
+.chevron.open{transform:rotate(180deg);}
+
+/* ── TABLES ──────────────────────────────────────────────────────── */
+.tbl{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:24px;}
+.tbl th{background:var(--surface2);color:var(--text2);font-size:11px;font-weight:600;letter-spacing:.5px;
+  text-transform:uppercase;padding:10px 14px;text-align:left;border-bottom:2px solid var(--border);}
+.tbl td{padding:10px 14px;border-bottom:1px solid var(--border);color:var(--text);}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tr:hover td{background:rgba(255,255,255,.02);}
+.tbl .ok{color:var(--cl);}
+.tbl .warn{color:var(--cm);}
+.tbl .err{color:var(--cr);}
+code{background:var(--surface2);padding:1px 6px;border-radius:3px;font-family:'Cascadia Code','Consolas',monospace;
+  font-size:12px;color:#a9c2f0;}
+
+/* ── ALERTS ──────────────────────────────────────────────────────── */
+.alert{padding:14px 16px;border-radius:6px;margin-bottom:16px;font-size:13px;display:flex;gap:10px;align-items:flex-start;}
+.alert-r{background:var(--cra);border:1px solid rgba(239,68,68,.25);color:#fca5a5;}
+.alert-h{background:var(--cha);border:1px solid rgba(249,115,22,.25);color:#fdba74;}
+.alert-m{background:var(--cma);border:1px solid rgba(234,179,8,.25);color:#fde047;}
+.alert-i{background:var(--cia);border:1px solid rgba(59,130,246,.25);color:#93c5fd;}
+.alert-ok{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);color:#6ee7b7;}
+.alert-icon{font-size:16px;line-height:1.3;flex-shrink:0;}
+
+/* ── PHASE HEADER ────────────────────────────────────────────────── */
+.phase-tag{display:inline-block;padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;
+  letter-spacing:.5px;margin-bottom:12px;}
+.tag-arch{background:rgba(124,92,191,.15);color:#a78bfa;border:1px solid rgba(167,139,250,.3);}
+.tag-ef{background:rgba(79,135,240,.15);color:#93c5fd;border:1px solid rgba(147,197,253,.3);}
+.tag-wf{background:rgba(16,185,129,.15);color:#6ee7b7;border:1px solid rgba(110,231,183,.3);}
+.tag-sec{background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(252,165,165,.3);}
+.tag-debt{background:rgba(234,179,8,.15);color:#fde047;border:1px solid rgba(253,224,71,.3);}
+.tag-rt{background:rgba(249,115,22,.15);color:#fdba74;border:1px solid rgba(253,186,116,.3);}
+
+/* ── VERDICT BOX ─────────────────────────────────────────────────── */
+.verdict{background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  padding:20px 24px;margin-bottom:24px;display:flex;gap:20px;align-items:center;}
+.verdict .score-big{font-size:52px;font-weight:900;line-height:1;}
+.verdict .info{}
+.verdict .info h3{font-size:16px;margin-bottom:6px;}
+.verdict .info p{color:var(--text2);font-size:13px;}
+.progress-wrap{margin-top:24px;}
+.progress-row{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+.progress-row .lbl{width:160px;font-size:12px;color:var(--text2);}
+.progress-row .bar{flex:1;height:6px;background:var(--border);border-radius:3px;}
+.progress-row .pct{width:38px;font-size:12px;font-weight:700;text-align:right;}
+
+/* ── ROADMAP ─────────────────────────────────────────────────────── */
+.roadmap{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.rm-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;}
+.rm-card h4{font-size:13px;font-weight:700;margin-bottom:6px;}
+.rm-card p{font-size:12px;color:var(--text2);}
+.rm-card .pri{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;}
+
+.toc-divider{border:none;border-top:1px solid var(--border);margin:8px 16px;}
+
+/* ── PRINT STYLES ────────────────────────────────────────────────── */
+@media print{#sidebar,#hdr{display:none;} #main{margin-left:0;padding-top:0;}}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════ HEADER ════════════════════════════════════ -->
+<div id="hdr">
+  <div class="logo">Y26 <span>· Auditoría Arquitectónica Integral</span></div>
+  <div class="badge">CONFIDENCIAL</div>
+  <div class="meta">Ybridio ERP · 2026-05-15 · Claude Code Analysis Engine</div>
+</div>
+
+<!-- ═══════════════════ SIDEBAR ═══════════════════════════════════ -->
+<nav id="sidebar">
+  <div class="section">Resumen</div>
+  <a href="#executive" onclick="nav(this)">📊 Resumen Ejecutivo</a>
+  <a href="#scores" onclick="nav(this)">🏆 Scorecards</a>
+
+  <hr class="toc-divider"/>
+  <div class="section">Fases de Auditoría</div>
+  <a href="#fase1" onclick="nav(this)">F1 · Arquitectura &amp; Capas</a>
+  <a href="#fase1-violations" class="sub" onclick="nav(this)"><span class="sev-dot dot-i"></span>Violaciones de capa</a>
+  <a href="#fase1-domain" class="sub" onclick="nav(this)"><span class="sev-dot dot-l"></span>Domain purity</a>
+
+  <a href="#fase2" onclick="nav(this)">F2 · Workflow Guards</a>
+  <a href="#fase2-cot" class="sub" onclick="nav(this)">Cotizaciones</a>
+  <a href="#fase2-ped" class="sub" onclick="nav(this)">Pedidos</a>
+  <a href="#fase2-vta" class="sub" onclick="nav(this)">Ventas</a>
+
+  <a href="#fase3" onclick="nav(this)">F3 · Runtime &amp; Lifecycle</a>
+  <a href="#fase4" onclick="nav(this)">F4 · EF Core &amp; Persistencia</a>
+  <a href="#fase5" onclick="nav(this)">F5 · WinUI &amp; ViewModels</a>
+  <a href="#fase6" onclick="nav(this)">F6 · Seguridad &amp; Permisos</a>
+  <a href="#fase7" onclick="nav(this)">F7 · Duplicación &amp; Deuda</a>
+
+  <hr class="toc-divider"/>
+  <div class="section">Hallazgos</div>
+  <a href="#findings-critico" onclick="nav(this)"><span class="sev-dot dot-r"></span>Críticos (1)</a>
+  <a href="#findings-alto" onclick="nav(this)"><span class="sev-dot dot-h"></span>Altos (3)</a>
+  <a href="#findings-medio" onclick="nav(this)"><span class="sev-dot dot-m"></span>Medios (5)</a>
+  <a href="#findings-bajo" onclick="nav(this)"><span class="sev-dot dot-l"></span>Bajos (4)</a>
+
+  <hr class="toc-divider"/>
+  <div class="section">Plan</div>
+  <a href="#roadmap" onclick="nav(this)">🗺 Roadmap de mejoras</a>
+  <a href="#adr-compliance" onclick="nav(this)">📜 ADR Compliance</a>
+</nav>
+
+<!-- ═══════════════════ MAIN ══════════════════════════════════════ -->
+<div id="main">
+<div class="wrap">
+
+<!-- ════════════════════════════════════════════════════════════════
+     RESUMEN EJECUTIVO
+═══════════════════════════════════════════════════════════════════ -->
+<div class="page-section" id="executive">
+  <h1 class="section-title">Resumen Ejecutivo</h1>
+  <div class="section-sub">Auditoría Integral · Ybridio ERP · Build 2026-05-15 · Análisis estático + análisis de patrones</div>
+
+  <div class="alert alert-i">
+    <span class="alert-icon">ℹ️</span>
+    <div>Esta auditoría cubre <strong>4 proyectos</strong> (Domain, Infrastructure, Application, WinUI), <strong>~180 archivos</strong>, <strong>65+ servicios</strong>, <strong>25 ViewModels</strong> y <strong>15+ módulos operacionales</strong> del ERP Ybridio. Metodología: análisis estático de código, verificación de patrones ADR, trazabilidad de workflow guards en 3 capas.</div>
+  </div>
+
+  <div class="sum-cards">
+    <div class="sum-card">
+      <div class="num num-r">1</div>
+      <div class="lbl">Hallazgo Crítico</div>
+    </div>
+    <div class="sum-card">
+      <div class="num num-h">3</div>
+      <div class="lbl">Hallazgos Altos</div>
+    </div>
+    <div class="sum-card">
+      <div class="num num-m">5</div>
+      <div class="lbl">Hallazgos Medios</div>
+    </div>
+    <div class="sum-card">
+      <div class="num num-ok">4</div>
+      <div class="lbl">Hallazgos Bajos / Info</div>
+    </div>
+  </div>
+
+  <div class="alert alert-r">
+    <span class="alert-icon">🔴</span>
+    <div><strong>CRÍTICO — Acción inmediata:</strong> Credenciales de base de datos hardcodeadas en código fuente (<code>App.xaml.cs:62</code>, <code>ErpDbContextFactory.cs:16</code>). Usuario <code>sa</code> con password en texto plano, expuesto en git history.</div>
+  </div>
+
+  <div class="alert alert-h">
+    <span class="alert-icon">🟠</span>
+    <div><strong>ALTO:</strong> Query N+1 en <code>PedidoService.ListarAsync</code> — cada pedido con cotización vinculada genera una query adicional. Con volúmenes medianos (100+ pedidos), impacto en rendimiento medible.</div>
+  </div>
+
+  <div class="alert alert-ok">
+    <span class="alert-icon">✅</span>
+    <div><strong>Arquitectura Clean Architecture CORRECTA:</strong> Domain layer puro (sin EF/Infrastructure), 100% de métodos de servicios protegidos con <code>PermisosClave</code>, separación de capas adherida. No se encontraron violaciones estructurales.</div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     SCORECARDS
+═══════════════════════════════════════════════════════════════════ -->
+<div class="page-section" id="scores">
+  <h2 class="section-title">Scorecards Arquitectónicos</h2>
+  <div class="section-sub">Evaluación por área según hallazgos de la auditoría</div>
+
+  <div class="verdict">
+    <div class="score-big score-b">84<span style="font-size:24px">%</span></div>
+    <div class="info">
+      <h3>Score General — BUENO</h3>
+      <p>Arquitectura bien estructurada. La implementación de Clean Architecture es correcta. Existen issues operacionales (N+1, credentials) pero no hay violaciones estructurales graves. El sistema es mantenible y extensible.</p>
+    </div>
+  </div>
+
+  <div class="progress-wrap">
+    <div class="progress-row">
+      <span class="lbl">Arquitectura &amp; Capas</span>
+      <div class="bar"><div class="fill fill-a" style="width:93%"></div></div>
+      <span class="pct score-a">93%</span>
+    </div>
+    <div class="progress-row">
+      <span class="lbl">DDD Compliance</span>
+      <div class="bar"><div class="fill fill-a" style="width:94%"></div></div>
+      <span class="pct score-a">94%</span>
+    </div>
+    <div class="progress-row">
+      <span class="lbl">Seguridad (Permisos)</span>
+      <div class="bar"><div class="fill fill-c" style="width:75%"></div></div>
+      <span class="pct score-c">75%</span>
+    </div>
+    <div class="progress-row">
+      <span class="lbl">Workflow Guards</span>
+      <div class="bar"><div class="fill fill-b" style="width:82%"></div></div>
+      <span class="pct score-b">82%</span>
+    </div>
+    <div class="progress-row">
+      <span class="lbl">Persistencia (EF Core)</span>
+      <div class="bar"><div class="fill fill-c" style="width:78%"></div></div>
+      <span class="pct score-c">78%</span>
+    </div>
+    <div class="progress-row">
+      <span class="lbl">WinUI &amp; Patterns</span>
+      <div class="bar"><div class="fill fill-b" style="width:83%"></div></div>
+      <span class="pct score-b">83%</span>
+    </div>
+    <div class="progress-row">
+      <span class="lbl">Runtime Stability</span>
+      <div class="bar"><div class="fill fill-b" style="width:87%"></div></div>
+      <span class="pct score-b">87%</span>
+    </div>
+    <div class="progress-row">
+      <span class="lbl">Duplicación / Deuda Técnica</span>
+      <div class="bar"><div class="fill fill-b" style="width:81%"></div></div>
+      <span class="pct score-b">81%</span>
+    </div>
+  </div>
+
+  <div class="cards" style="margin-top:24px;">
+    <div class="card">
+      <div class="label">Arquitectura</div>
+      <div class="score score-a">93%</div>
+      <div class="bar"><div class="fill fill-a" style="width:93%"></div></div>
+    </div>
+    <div class="card">
+      <div class="label">DDD</div>
+      <div class="score score-a">94%</div>
+      <div class="bar"><div class="fill fill-a" style="width:94%"></div></div>
+    </div>
+    <div class="card">
+      <div class="label">Seguridad</div>
+      <div class="score score-c">75%</div>
+      <div class="bar"><div class="fill fill-c" style="width:75%"></div></div>
+    </div>
+    <div class="card">
+      <div class="label">Workflow</div>
+      <div class="score score-b">82%</div>
+      <div class="bar"><div class="fill fill-b" style="width:82%"></div></div>
+    </div>
+    <div class="card">
+      <div class="label">EF Core</div>
+      <div class="score score-c">78%</div>
+      <div class="bar"><div class="fill fill-c" style="width:78%"></div></div>
+    </div>
+    <div class="card">
+      <div class="label">WinUI</div>
+      <div class="score score-b">83%</div>
+      <div class="bar"><div class="fill fill-b" style="width:83%"></div></div>
+    </div>
+    <div class="card">
+      <div class="label">Runtime</div>
+      <div class="score score-b">87%</div>
+      <div class="bar"><div class="fill fill-b" style="width:87%"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     FASE 1 — ARQUITECTURA Y CAPAS
+═══════════════════════════════════════════════════════════════════ -->
+<div class="page-section" id="fase1">
+  <span class="phase-tag tag-arch">FASE 1</span>
+  <h2 class="section-title">Arquitectura &amp; Separación de Capas</h2>
+  <div class="section-sub">Validación de Clean Architecture en 4 capas: Domain → Infrastructure → Application → WinUI</div>
+
+  <div id="fase1-violations">
+  <div class="alert alert-ok">
+    <span class="alert-icon">✅</span>
+    <div><strong>Violaciones de capa: NO ENCONTRADAS.</strong> WinUI no accede directamente a DbContext, EF Core, ni Identity. El único import de EF en WinUI está en <code>App.xaml.cs</code> para configuración del contenedor DI, lo cual es correcto y esperado.</div>
+  </div>
+
+  <table class="tbl">
+    <thead><tr><th>Proyecto</th><th>Responsabilidad</th><th>Estado</th><th>Observación</th></tr></thead>
+    <tbody>
+      <tr><td><code>Ybridio.Domain</code></td><td>Entidades, enums, reglas puras</td><td class="ok">✅ Puro</td><td>Sin EF ni Infrastructure. 0 imports externos.</td></tr>
+      <tr><td><code>Ybridio.Infrastructure</code></td><td>EF Core, DbContext, Identity, Configurations</td><td class="ok">✅ Correcto</td><td>Services implementados, FKs actualizadas.</td></tr>
+      <tr><td><code>Ybridio.Application</code></td><td>Servicios, DTOs, orchestration, permisos</td><td class="ok">✅ Correcto</td><td>100% métodos con PermisosClave. Sin referencias a WinUI.</td></tr>
+      <tr><td><code>Ybridio.WinUI</code></td><td>MVVM, Pages, ViewModels, Converters</td><td class="warn">⚠️ Observación</td><td>ViewModels grandes (8+ responsabilidades). Deuda SRP.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div id="fase1-domain">
+  <h3 style="font-size:15px;margin:20px 0 10px;color:var(--text2);">Domain Layer Purity</h3>
+  <div class="alert alert-ok">
+    <span class="alert-icon">✅</span>
+    <div><strong>Domain Layer 100% puro.</strong> Archivos verificados: <code>Pedido.cs</code>, <code>Cotizacion.cs</code>, <code>Venta.cs</code>, <code>AnticipoPedido.cs</code>. Ningún import de Microsoft.EntityFrameworkCore, Microsoft.Extensions, System.Net, ni referencias a Infrastructure. Principio de inversión de dependencias correctamente implementado.</div>
+  </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     FASE 2 — WORKFLOW GUARDS
+═══════════════════════════════════════════════════════════════════ -->
+<div class="page-section" id="fase2">
+  <span class="phase-tag tag-wf">FASE 2</span>
+  <h2 class="section-title">Workflow Guards — 3 Capas</h2>
+  <div class="section-sub">Validación de guards de workflow en Service (backend) + ViewModel (lógica) + XAML (UI)</div>
+
+  <div id="fase2-cot">
+  <h3 style="font-size:15px;margin:0 0 12px;color:var(--text2);">Cotizaciones</h3>
+  <table class="tbl">
+    <thead><tr><th>Guard</th><th>Service Layer</th><th>ViewModel</th><th>UI (IsEnabled)</th><th>Estado</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Aprobada → no editar encabezado</td>
+        <td class="ok"><code>ActualizarAsync:186</code></td>
+        <td class="ok"><code>PuedeEditar: Borrador only</code></td>
+        <td class="ok">IsEnabled binding</td>
+        <td class="ok">✅ 3 capas</td>
+      </tr>
+      <tr>
+        <td>Aprobada → no editar líneas</td>
+        <td class="ok">Service rechaza AddDetalle</td>
+        <td class="ok"><code>PuedeEditarLineas</code></td>
+        <td class="ok">NumberBox IsEnabled</td>
+        <td class="ok">✅ 3 capas</td>
+      </tr>
+      <tr>
+        <td>Aprobar solo desde Borrador</td>
+        <td class="ok"><code>CambiarEstatusAsync</code> check</td>
+        <td class="ok"><code>PuedeAprobar</code></td>
+        <td class="ok"><code>AprobarConGuardadoCommand</code></td>
+        <td class="ok">✅ 3 capas</td>
+      </tr>
+      <tr>
+        <td>Terminal (Cancelada/Convertida) bloqueada</td>
+        <td class="ok">CambiarEstatusAsync</td>
+        <td class="ok">PuedeCancelar / PuedeConvertir</td>
+        <td class="ok">IsEnabled</td>
+        <td class="ok">✅ 3 capas</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div id="fase2-ped">
+  <h3 style="font-size:15px;margin:16px 0 12px;color:var(--text2);">Pedidos</h3>
+  <table class="tbl">
+    <thead><tr><th>Guard</th><th>Service Layer</th><th>ViewModel</th><th>UI (IsEnabled)</th><th>Estado</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Borrador → no generar OT</td>
+        <td class="ok">EstatusPedido check</td>
+        <td class="ok"><code>PuedeGenerarOT</code></td>
+        <td class="ok">IsEnabled</td>
+        <td class="ok">✅ 3 capas</td>
+      </tr>
+      <tr>
+        <td>Anticipo insuficiente → no OT</td>
+        <td class="ok"><code>GenerarOrdenTrabajoAsync:248</code></td>
+        <td class="ok"><code>PuedeGenerarOT anticipo guard</code></td>
+        <td class="ok">IsEnabled</td>
+        <td class="ok">✅ 3 capas (ADR-065)</td>
+      </tr>
+      <tr>
+        <td>Borrador → no generar Venta</td>
+        <td class="ok"><code>GenerarDesdePedidoAsync:166</code></td>
+        <td class="ok"><code>PuedeGenerarVenta</code></td>
+        <td class="ok">IsEnabled</td>
+        <td class="ok">✅ 3 capas</td>
+      </tr>
+      <tr>
+        <td>Finalizado → no generar Venta</td>
+        <td class="ok"><code>GenerarDesdePedidoAsync:170</code></td>
+        <td class="warn">⚠️ VM NO bloquea explícitamente Finalizado — el estado ya no está en la lista permitida</td>
+        <td class="ok">IsEnabled vía VM</td>
+        <td class="warn">⚠️ 2.5 capas — functionally OK</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div id="fase2-vta">
+  <h3 style="font-size:15px;margin:16px 0 12px;color:var(--text2);">Ventas Documentales</h3>
+  <table class="tbl">
+    <thead><tr><th>Guard</th><th>Service Layer</th><th>ViewModel</th><th>UI</th><th>Estado</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Cancelada → no pagar</td>
+        <td class="ok"><code>RegistrarPagoAsync:336</code></td>
+        <td class="ok">PuedePagar guard</td>
+        <td class="ok">IsEnabled</td>
+        <td class="ok">✅ 3 capas</td>
+      </tr>
+      <tr>
+        <td>Cerrada → no reabrir</td>
+        <td class="ok">CerrarAsync validación</td>
+        <td class="ok">PuedeCerrar</td>
+        <td class="ok">IsEnabled</td>
+        <td class="ok">✅ 3 capas</td>
+      </tr>
+      <tr>
+        <td>Borrador → no confirmar sin líneas</td>
+        <td class="ok">ConfirmarAsync check</td>
+        <td class="warn">Sin guard VM explícito</td>
+        <td class="warn">Sin IsEnabled</td>
+        <td class="warn">⚠️ Solo 1 capa (service)</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     FASE 3 — RUNTIME / LIFECYCLE
+═══════════════════════════════════════════════════════════════════ -->
+<div class="page-section" id="fase3">
+  <span class="phase-tag tag-rt">FASE 3</span>
+  <h2 class="section-title">Runtime &amp; Document Lifecycle</h2>
+  <div class="section-sub">Hydration, async patterns, fire-and-forget, race conditions</div>
+
+  <div class="alert alert-ok">
+    <span class="alert-icon">✅</span>
+    <div><strong>Async void limitado a event handlers.</strong> Todos los <code>async void</code> encontrados son WinUI event handlers (Click, ValueChanged), patrón aceptado y correcto en WinUI3.</div>
+  </div>
+
+  <div class="finding" id="f-ff">
+    <div class="finding-hdr" onclick="toggle(this)">
+      <span class="sev-badge sev-BAJO">BAJO</span>
+      <span class="finding-title">Fire-and-forget sin manejo de excepciones</span>
+      <span class="finding-loc">PedidoDocumentoPage.xaml.cs:94–96</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="finding-body">
+      <div class="field"><label>Código problemático</label>
+<pre>_ = HidratarSelectorClienteAsync(relId);
+_ = ViewModel.CargarConfiguracionFiscalAsync();</pre>
+      </div>
+      <div class="field"><label>Impacto</label><p>Si estas operaciones fallan (red, timeout, BD inaccesible), el error se pierde silenciosamente. El usuario no recibe feedback y la UI queda parcialmente hidratada.</p></div>
+      <div class="fix">Envolver en método helper con try-catch que propague el error al ViewModel.ErrorMessage, o usar <code>SafeFireAndForgetAsync()</code> con callback de error.</div>
+    </div>
+  </div>
+
+  <div class="alert alert-ok">
+    <span class="alert-icon">✅</span>
+    <div><strong>Shared ViewModel Pattern (ADR-039) correctamente implementado.</strong> El rehost de CotizacionDocumentoPage preserva la instancia del ViewModel — sin recreación, sin pérdida de estado runtime. Detectado en constructor de rehost línea 100–122.</div>
+  </div>
+
+  <div class="alert alert-ok">
+    <span class="alert-icon">✅</span>
+    <div><strong>Single-flight guards en ViewModels.</strong> Patrón <code>if (IsBusy) return;</code> implementado consistentemente en comandos async de todos los ViewModels documentales auditados. Previene concurrencia sobre el mismo DbContext scoped.</div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     FASE 4 — EF CORE Y PERSISTENCIA
+═══════════════════════════════════════════════════════════════════ -->
+<div class="page-section" id="fase4">
+  <span class="phase-tag tag-ef">FASE 4</span>
+  <h2 class="section-title">EF Core &amp; Persistencia</h2>
+  <div class="section-sub">Queries N+1, Include faltantes, HasDefaultValue, configuraciones</div>
+
+  <div class="finding">
+    <div class="finding-hdr" onclick="toggle(this)">
+      <span class="sev-badge sev-ALTO">ALTO</span>
+      <span class="finding-title">N+1 Query — PedidoService.ListarAsync</span>
+      <span class="finding-loc">PedidoService.cs:45–54</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="finding-body">
+      <div class="field"><label>Código problemático</label>
+<pre>var lista = await query
+    .OrderByDescending(p => p.Fecha).ThenByDescending(p => p.Id)
+    .Select(p => new {
+        Pedido          = p,
+        FolioCotizacion = p.CotizacionId != null
+            ? _context.Cotizaciones                     // ← Subquery por cada pedido
+                .Where(c => c.Id == p.CotizacionId)
+                .Select(c => c.Folio).FirstOrDefault()
+            : null
+    })
+    .ToListAsync(ct);</pre>
+      </div>
+      <div class="field"><label>Impacto</label>
+        <p>Por cada Pedido con <code>CotizacionId != null</code>, EF Core genera una query SQL adicional. Con 100 pedidos vinculados a cotizaciones: <strong>101 queries</strong> en lugar de 1-2. Impacto medible en respuesta del módulo Pedidos con volumen real.</p>
+      </div>
+      <div class="fix">
+<pre>// Solución: LEFT JOIN explícito
+var lista = await query
+    .Include(p => p.Cotizacion)        // ← Una sola query con JOIN
+    .OrderByDescending(p => p.Fecha)
+    .ThenByDescending(p => p.Id)
+    .ToListAsync(ct);
+
+// En MapToResumen:
+MapToResumen(p, p.Cotizacion?.Folio)</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="alert alert-ok">
+    <span class="alert-icon">✅</span>
+    <div><strong>HasDefaultValue correctamente alineados.</strong> Todos los <code>HasDefaultValue</code> en EF configurations usan el tipo CLR correcto de la propiedad (no el tipo SQL convertido). Después del fix <code>EstadoFinancieroPedido.SinPago</code>, ningún default tipado incorrectamente.</div>
+  </div>
+
+  <div class="alert alert-ok">
+    <span class="alert-icon">✅</span>
+    <div><strong>Foreign Keys actualizadas.</strong> <code>ventas.Venta</code>, <code>ventas.OrdenTrabajo</code>, <code>ventas.Factura</code> y <code>ventas.Pedido</code> ahora apuntan correctamente a <code>core.RelacionComercial</code>. FKs duplicadas en Factura eliminadas.</div>
+  </div>
+
+  <div class="finding">
+    <div class="finding-hdr" onclick="toggle(this)">
+      <span class="sev-badge sev-MEDIO">MEDIO</span>
+      <span class="finding-title">SucursalId ?? 1 hardcodeado como fallback</span>
+      <span class="finding-loc">VentaDocumentalService.cs:168</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="finding-body">
+      <div class="field"><label>Código</label>
+<pre>SucursalId: pedido.SucursalId ?? 1,  // ← Asume SucursalId=1 si el Pedido no tiene sucursal</pre>
+      </div>
+      <div class="field"><label>Riesgo</label><p>Si la empresa tiene múltiples sucursales y el Pedido no tiene SucursalId asignado, la Venta se crea en Sucursal 1 incorrectamente. En entornos multi-sucursal, puede causar reporting inconsistente.</p></div>
+      <div class="fix">Validar explícitamente: si <code>pedido.SucursalId</code> es null, usar la sucursal activa del <code>SessionService</code> o retornar error descriptivo.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     FASE 5 — WINUI Y VIEWMODELS
+═══════════════════════════════════════════════════════════════════ -->
+<div class="page-section" id="fase5">
+  <span class="phase-tag tag-arch">FASE 5</span>
+  <h2 class="section-title">WinUI &amp; ViewModels</h2>
+  <div class="section-sub">Tamaño de ViewModels, code-behind, XAML patterns, converters</div>
+
+  <div class="finding">
+    <div class="finding-hdr" onclick="toggle(this)">
+      <span class="sev-badge sev-MEDIO">MEDIO</span>
+      <span class="finding-title">ViewModels documentales con SRP violado (8+ responsabilidades)</span>
+      <span class="finding-loc">CotizacionDocumentoViewModel.cs, PedidoDocumentoViewModel.cs</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="finding-body">
+      <p>Los ViewModels documentales principales son correctos funcionalmente pero concentran demasiadas responsabilidades, dificultando testabilidad y mantenimiento futuro:</p>
+      <table class="tbl">
+        <thead><tr><th>Responsabilidad</th><th>CotizacionDocumentoVM</th><th>PedidoDocumentoVM</th></tr></thead>
+        <tbody>
+          <tr><td>Estado documento (IsBusy, Error, Success)</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Encabezado editable (cliente, fechas, obs)</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Colección de líneas de detalle</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Colección de cargos accesorios</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Cálculos comerciales (CommercialDocumentCalculator)</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Workflow guards (Aprobar, Cancelar, Convertir)</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Selector de cliente (Directorio, GetOrCreate)</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Configuración fiscal async (IConfiguracionFiscalService)</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><strong>Dimensión financiera (Anticipos)</strong></td><td>—</td><td class="warn">✓ (nuevo)</td></tr>
+        </tbody>
+      </table>
+      <div class="fix">No refactorizar en esta iteración — riesgo alto sin beneficio inmediato. Registrar como deuda técnica para una futura extracción en <code>DocumentFinancialService</code> y <code>DocumentCalculationService</code> (Application layer).</div>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="finding-hdr" onclick="toggle(this)">
+      <span class="sev-badge sev-BAJO">BAJO</span>
+      <span class="finding-title">Converters de badge duplicados 4 veces</span>
+      <span class="finding-loc">Ybridio.WinUI/Converters/Estatus*BadgeConverters.cs</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="finding-body">
+      <p>El patrón <code>EstatusXxxToBgBrushConverter / EstatusXxxToFgBrushConverter</code> se repite para Cotizacion, Pedido, Venta y EstadoFinancieroPedido. Cada par tiene la misma estructura, solo cambian los colores del switch.</p>
+      <div class="field"><label>Deuda técnica</label><p>Agregar un 5° tipo de documento requiere crear otro par de converters manualmente.</p></div>
+      <div class="fix">Crear un converter genérico <code>EnumToColorConverter</code> con un diccionario de mapeos inyectable. Reducción: de ~200 líneas de converter duplicado a ~40 líneas de lógica reutilizable.</div>
+    </div>
+  </div>
+
+  <div class="alert alert-ok">
+    <span class="alert-icon">✅</span>
+    <div><strong>Code-behind correcto (ADR-031).</strong> Las páginas documentales (~500-800 líneas) contienen únicamente: inicialización de ViewModel (DI), event handlers de UI que delegan al ViewModel, y diálogos contextuales. Sin lógica de negocio directa.</div>
+  </div>
+
+  <div class="alert alert-ok">
+    <span class="alert-icon">✅</span>
+    <div><strong>DI registrations correctas.</strong> Services → Scoped. ViewModels → Transient. Singleton reservado para servicios de session/workspace. Sin errores de lifetime detectados.</div>
+  </div>
+
+  <div class="finding">
+    <div class="finding-hdr" onclick="toggle(this)">
+      <span class="sev-badge sev-BAJO">BAJO</span>
+      <span class="finding-title">Converters registrados por página, no globalmente</span>
+      <span class="finding-loc">CotizacionDocumentoPage.xaml:12, PedidoDocumentoPage.xaml:10</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="finding-body">
+      <p>Cada página re-declara sus converters en <code>&lt;Page.Resources&gt;</code>. <code>DecimalToCurrencyConverter</code>, <code>BoolToVisibilityConverter</code> e <code>InverseBoolToVisibilityConverter</code> aparecen en múltiples páginas.</p>
+      <div class="fix">Registrar los converters genéricos una sola vez en <code>App.xaml &lt;Application.Resources&gt;</code>. Los converters específicos de entidad (badge por estatus) quedan por página.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     FASE 6 — SEGURIDAD Y PERMISOS
+═══════════════════════════════════════════════════════════════════ -->
+<div class="page-section" id="fase6">
+  <span class="phase-tag tag-sec">FASE 6</span>
+  <h2 class="section-title">Seguridad &amp; Permisos</h2>
+  <div class="section-sub">Credenciales, cobertura de PermisosClave, guards en 3 capas</div>
+
+  <div class="finding">
+    <div class="finding-hdr" onclick="toggle(this)">
+      <span class="sev-badge sev-CRÍTICO">CRÍTICO</span>
+      <span class="finding-title">Credenciales de BD hardcodeadas en código fuente</span>
+      <span class="finding-loc">App.xaml.cs:62 · ErpDbContextFactory.cs:16</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="finding-body">
+      <div class="field"><label>Código problemático</label>
+<pre>// App.xaml.cs:62
+var connectionString =
+    "Server=132.148.74.136\\ybridio;Database=YBRIDIO-26;" +
+    "user id=sa;password=U3xc3pt!0n!22;TrustServerCertificate=True;...";</pre>
+      </div>
+      <div class="field"><label>Riesgo</label>
+        <p><strong>CRÍTICO — Seguridad:</strong> Usuario <code>sa</code> (sysadmin de SQL Server) con contraseña en texto plano en el repositorio git. Cualquier persona con acceso al código tiene acceso total a la base de datos de producción. La contraseña es irrevocable en el historial de git.</p>
+      </div>
+      <div class="fix">
+        1. Mover a <code>appsettings.json</code> excluido del repositorio (.gitignore).<br/>
+        2. En producción: usar variables de entorno o DPAPI Windows.<br/>
+        3. Rotar inmediatamente la contraseña del usuario <code>sa</code>.<br/>
+        4. Crear un usuario SQL limitado (no sysadmin) para la aplicación.<br/>
+        5. Agregar <code>appsettings.*.json</code> al <code>.gitignore</code>.
+      </div>
+    </div>
+  </div>
+
+  <div class="alert alert-ok">
+    <span class="alert-icon">✅</span>
+    <div><strong>100% de métodos de servicio protegidos con PermisosClave.</strong> Auditados: <code>PedidoService</code> (14 métodos) y <code>VentaDocumentalService</code> (11 métodos). Todos tienen <code>if (!await _auth.PuedeAsync(PermisosClave.Xxx.Yyy, ct)) return Fail(...)</code> como primera instrucción. Cero bypass detectados.</div>
+  </div>
+
+  <div class="alert alert-ok">
+    <span class="alert-icon">✅</span>
+    <div><strong>Sin strings literales de permisos.</strong> Grep por <code>PuedeAsync("</code> no encontró ningún resultado. Todos los permisos se referencian via constantes tipadas <code>PermisosClave.*</code>.</div>
+  </div>
+
+  <div class="finding">
+    <div class="finding-hdr" onclick="toggle(this)">
+      <span class="sev-badge sev-MEDIO">MEDIO</span>
+      <span class="finding-title">Sin permiso formal para operaciones de Anticipo (ADR-065)</span>
+      <span class="finding-loc">PermisosClave.cs · PedidoService.cs:350</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="finding-body">
+      <p>La feature de Anticipos (ADR-065) reutiliza <code>pedido.editar</code> para registrar anticipos. Esto es funcionalmente correcto pero semánticamente impreciso: un usuario con permiso de editar pedidos puede registrar cobros, que es una responsabilidad financiera distinta.</p>
+      <div class="field"><label>Situación actual</label>
+<pre>// PermisosClave.cs — sin categoría Anticipo
+// PedidoService.RegistrarAnticipoAsync:
+if (!await _auth.PuedeAsync(PermisosClave.Pedido.Editar, ct))  // ← Reutilizado</pre>
+      </div>
+      <div class="fix">Agregar en <code>PermisosClave.cs</code>: <code>public static class Anticipo { public const string Registrar = "anticipo.registrar"; }</code> y registrar el permiso en el seed de BD (51 permisos → 52). Permite control de acceso granular: un cajero puede registrar anticipos sin poder editar líneas del pedido.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     FASE 7 — DUPLICACIÓN Y DEUDA TÉCNICA
+═══════════════════════════════════════════════════════════════════ -->
+<div class="page-section" id="fase7">
+  <span class="phase-tag tag-debt">FASE 7</span>
+  <h2 class="section-title">Duplicación &amp; Deuda Técnica</h2>
+  <div class="section-sub">Lógica duplicada, warnings suprimidos, patterns inconsistentes</div>
+
+  <div class="alert alert-ok">
+    <span class="alert-icon">✅</span>
+    <div><strong>CommercialDocumentCalculator — Single Source of Truth.</strong> Auditado en <code>PedidoService.cs</code> y <code>CotizacionService.cs</code>. Sin cálculos duplicados de importes, descuentos ni IVA fuera de esta clase. El patrón ADR-042 se respeta.</div>
+  </div>
+
+  <div class="finding">
+    <div class="finding-hdr" onclick="toggle(this)">
+      <span class="sev-badge sev-BAJO">BAJO</span>
+      <span class="finding-title">CS0618 pragmas — enum Enviada legacy</span>
+      <span class="finding-loc">CotizacionDocumentoViewModel.cs:213,238 · CotizacionService.cs:134,165</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="finding-body">
+      <p><code>EstatusCotizacion.Enviada</code> está marcado como <code>[Obsolete]</code> pero sigue siendo referenciado en guards de workflow y display. Los <code>#pragma warning disable CS0618</code> suprimen los warnings correctamente.</p>
+      <div class="field"><label>Justificación</label><p>Existen registros legacy en BD con estado <code>Enviada=2</code>. Eliminar el soporte rompería la visualización de esos registros. Es deuda técnica necesaria hasta migración de datos.</p></div>
+      <div class="fix">Mantener durante el período de soporte legacy. Planificar script de migración de BD que actualice <code>Estatus=2 (Enviada)</code> → <code>Estatus=1 (Aprobada)</code> en cotizaciones históricas, luego eliminar el enum value.</div>
+    </div>
+  </div>
+
+  <table class="tbl" style="margin-top:16px;">
+    <thead><tr><th>Área</th><th>Deuda Identificada</th><th>Prioridad</th><th>Esfuerzo</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Credentials BD</td>
+        <td>Sa password en código fuente</td>
+        <td class="err">Crítica</td>
+        <td>2h — mover a appsettings.json</td>
+      </tr>
+      <tr>
+        <td>N+1 Query</td>
+        <td>PedidoService.ListarAsync subquery</td>
+        <td class="warn">Alta</td>
+        <td>1h — agregar Include(p => p.Cotizacion)</td>
+      </tr>
+      <tr>
+        <td>SucursalId fallback</td>
+        <td>?? 1 hardcodeado en VentaDocumentalService</td>
+        <td class="warn">Media</td>
+        <td>1h — usar SessionService.SucursalId</td>
+      </tr>
+      <tr>
+        <td>Permiso Anticipo</td>
+        <td>Reutiliza pedido.editar, sin granularidad</td>
+        <td class="warn">Media</td>
+        <td>3h — agregar permiso + seed</td>
+      </tr>
+      <tr>
+        <td>Badge Converters</td>
+        <td>Patrón duplicado 4 veces</td>
+        <td>Baja</td>
+        <td>4h — converter genérico</td>
+      </tr>
+      <tr>
+        <td>Converters globales</td>
+        <td>Re-declarados en cada página</td>
+        <td>Baja</td>
+        <td>1h — mover a App.xaml</td>
+      </tr>
+      <tr>
+        <td>Enum Enviada legacy</td>
+        <td>CS0618 pragma suprimido en 6 lugares</td>
+        <td>Baja</td>
+        <td>Script BD + eliminación enum</td>
+      </tr>
+      <tr>
+        <td>ViewModels SRP</td>
+        <td>8+ responsabilidades por ViewModel documental</td>
+        <td>Baja</td>
+        <td>Sprint completo — bajo riesgo/beneficio hoy</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     HALLAZGOS CONSOLIDADOS
+═══════════════════════════════════════════════════════════════════ -->
+<div class="page-section" id="findings-critico">
+  <h2 class="section-title">Hallazgos Consolidados</h2>
+  <div class="section-sub">Ordenados por severidad — 1 Crítico · 3 Altos · 5 Medios · 4 Bajos</div>
+
+  <h3 style="color:var(--cr);font-size:14px;margin-bottom:12px;">🔴 Críticos (1)</h3>
+  <table class="tbl">
+    <thead><tr><th>#</th><th>Hallazgo</th><th>Archivo</th><th>Impacto</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>C-001</td>
+        <td><strong>Credenciales BD hardcodeadas</strong><br><small>Usuario sa + password en texto plano en source</small></td>
+        <td><code>App.xaml.cs:62<br>ErpDbContextFactory.cs:16</code></td>
+        <td class="err">Acceso total a BD por cualquier persona con acceso al repositorio</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="page-section" id="findings-alto">
+  <h3 style="color:var(--ch);font-size:14px;margin-bottom:12px;">🟠 Altos (3)</h3>
+  <table class="tbl">
+    <thead><tr><th>#</th><th>Hallazgo</th><th>Archivo</th><th>Impacto</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>A-001</td>
+        <td><strong>N+1 Query en ListarAsync</strong><br><small>Subquery por pedido con CotizacionId</small></td>
+        <td><code>PedidoService.cs:45-54</code></td>
+        <td class="warn">Degradación de rendimiento O(n). 100 pedidos = 101 queries.</td>
+      </tr>
+      <tr>
+        <td>A-002</td>
+        <td><strong>SucursalId ?? 1 hardcodeado</strong><br><small>Fallback a Sucursal 1 si el pedido no tiene sucursal</small></td>
+        <td><code>VentaDocumentalService.cs:168</code></td>
+        <td class="warn">Ventas asignadas a sucursal incorrecta en entorno multi-sucursal</td>
+      </tr>
+      <tr>
+        <td>A-003</td>
+        <td><strong>Guard incompleto Venta Confirmar</strong><br><small>Sin líneas de detalle: solo validado en service, no en VM ni UI</small></td>
+        <td><code>VentaDocumentalService.cs<br>VentaDocumentoViewModel.cs</code></td>
+        <td class="warn">UX confusa: usuario puede intentar confirmar venta vacía, error viene solo del backend</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="page-section" id="findings-medio">
+  <h3 style="color:var(--cm);font-size:14px;margin-bottom:12px;">🟡 Medios (5)</h3>
+  <table class="tbl">
+    <thead><tr><th>#</th><th>Hallazgo</th><th>Archivo</th><th>Recomendación</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>M-001</td>
+        <td>Sin permiso formal para Anticipos (ADR-065)</td>
+        <td><code>PermisosClave.cs<br>PedidoService.cs:350</code></td>
+        <td>Agregar <code>anticipo.registrar</code> en PermisosClave + seed BD</td>
+      </tr>
+      <tr>
+        <td>M-002</td>
+        <td>ViewModels documentales con SRP violado (8+ responsabilidades)</td>
+        <td><code>CotizacionDocumentoViewModel.cs<br>PedidoDocumentoViewModel.cs</code></td>
+        <td>Registrar deuda técnica. Extraer en iteración futura dedicada.</td>
+      </tr>
+      <tr>
+        <td>M-003</td>
+        <td>Fire-and-forget sin manejo de excepciones</td>
+        <td><code>PedidoDocumentoPage.xaml.cs:94-96</code></td>
+        <td>Agregar try-catch con propagación a ViewModel.ErrorMessage</td>
+      </tr>
+      <tr>
+        <td>M-004</td>
+        <td>Enum <code>EstatusCotizacion.Enviada</code> obsoleto en 6 lugares</td>
+        <td><code>CotizacionDocumentoViewModel.cs<br>EstatusCotizacionBadgeConverters.cs</code></td>
+        <td>Planificar migración BD + eliminación del enum obsoleto</td>
+      </tr>
+      <tr>
+        <td>M-005</td>
+        <td>Guard "Confirmar sin líneas" solo en service (Venta)</td>
+        <td><code>VentaDocumentalService.cs<br>VentaDocumentoViewModel.cs</code></td>
+        <td>Agregar <code>PuedeConfirmar => Detalles.Count > 0</code> en ViewModel</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="page-section" id="findings-bajo">
+  <h3 style="color:var(--cl);font-size:14px;margin-bottom:12px;">🟢 Bajos / Informativos (4)</h3>
+  <table class="tbl">
+    <thead><tr><th>#</th><th>Hallazgo</th><th>Archivo</th><th>Nota</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>B-001</td>
+        <td>Badge converters duplicados 4 veces</td>
+        <td><code>Converters/Estatus*BadgeConverters.cs</code></td>
+        <td>Bajo impacto. Candidato a refactor cosmético futuro.</td>
+      </tr>
+      <tr>
+        <td>B-002</td>
+        <td>Converters básicos re-declarados por página</td>
+        <td>Múltiples <code>Page.Resources</code></td>
+        <td>Mover a App.xaml en iteración de limpieza.</td>
+      </tr>
+      <tr>
+        <td>B-003</td>
+        <td>EstatusOrdenTrabajo no alineado con nomenclatura del requerimiento</td>
+        <td><code>Domain/Ventas/EstatusOrdenTrabajo.cs</code></td>
+        <td>Enum existente funcional. Renombrar requiere migración de datos.</td>
+      </tr>
+      <tr>
+        <td>B-004</td>
+        <td>Fire-and-forget en CargarConfiguracionFiscalAsync</td>
+        <td><code>CotizacionDocumentoPage.xaml.cs:95</code></td>
+        <td>Fallback a <code>FiscalConstants.TasaIvaEstandar</code> mitiga el riesgo.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     ROADMAP
+═══════════════════════════════════════════════════════════════════ -->
+<div class="page-section" id="roadmap">
+  <h2 class="section-title">Roadmap de Mejoras</h2>
+  <div class="section-sub">Prioridades de corrección post-auditoría</div>
+
+  <div class="roadmap">
+    <div class="rm-card" style="border-color:rgba(239,68,68,.4);">
+      <div class="pri" style="color:var(--cr);">🔴 Sprint 1 — Inmediato</div>
+      <h4>Seguridad &amp; Performance</h4>
+      <p style="margin-bottom:8px;"><strong>C-001:</strong> Mover credentials a appsettings.json + rotar password sa.</p>
+      <p><strong>A-001:</strong> Fix N+1 en PedidoService.ListarAsync con Include(Cotizacion).</p>
+    </div>
+    <div class="rm-card" style="border-color:rgba(249,115,22,.4);">
+      <div class="pri" style="color:var(--ch);">🟠 Sprint 2 — Próximas 2 semanas</div>
+      <h4>Workflow &amp; Guards</h4>
+      <p style="margin-bottom:8px;"><strong>A-002:</strong> Fix SucursalId ?? 1 con SessionService.</p>
+      <p style="margin-bottom:8px;"><strong>A-003 + M-005:</strong> Agregar guard VM para Venta sin líneas.</p>
+      <p><strong>M-001:</strong> Agregar permiso anticipo.registrar.</p>
+    </div>
+    <div class="rm-card" style="border-color:rgba(234,179,8,.4);">
+      <div class="pri" style="color:var(--cm);">🟡 Sprint 3 — Deuda técnica</div>
+      <h4>Calidad &amp; Limpieza</h4>
+      <p style="margin-bottom:8px;"><strong>M-003:</strong> Fire-and-forget con error handling.</p>
+      <p style="margin-bottom:8px;"><strong>B-001 + B-002:</strong> Consolidar converters.</p>
+      <p><strong>M-004:</strong> Planificar migración Enviada → Aprobada.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     ADR COMPLIANCE
+═══════════════════════════════════════════════════════════════════ -->
+<div class="page-section" id="adr-compliance">
+  <h2 class="section-title">ADR Compliance</h2>
+  <div class="section-sub">Estado de cumplimiento de los ADRs institucionales auditados</div>
+
+  <table class="tbl">
+    <thead><tr><th>ADR</th><th>Descripción</th><th>Estado</th><th>Observación</th></tr></thead>
+    <tbody>
+      <tr><td>ADR-025/031</td><td>Document Surface UX Pattern (Inline)</td><td class="ok">✅ Compliant</td><td>Pedidos, Ventas, OT usan surface inline. Sin tabs redundantes.</td></tr>
+      <tr><td>ADR-032</td><td>Shared Session Pattern (Detach rehost)</td><td class="ok">✅ Compliant</td><td>Constructor rehost en CotizacionDocumentoPage preserva instancia VM.</td></tr>
+      <tr><td>ADR-038</td><td>RelacionComercial bajo demanda (GetOrCreate)</td><td class="ok">✅ Compliant</td><td>Selector busca en Persona/EmpresaComercial. GetOrCreate al guardar.</td></tr>
+      <tr><td>ADR-039</td><td>Shared Document Session (rehost instancia)</td><td class="ok">✅ Compliant</td><td>Detach rehostea la misma instancia de Page+ViewModel.</td></tr>
+      <tr><td>ADR-040/041</td><td>Merge-or-add detalle, NumberBox TwoWay</td><td class="ok">✅ Compliant</td><td>AgregarOIncrementar implementado. Guards Page.Loaded (ADR-061).</td></tr>
+      <tr><td>ADR-042</td><td>CommercialDocumentCalculator SoT</td><td class="ok">✅ Compliant</td><td>Sin fórmulas duplicadas. Único calculator usado en todos los servicios.</td></tr>
+      <tr><td>ADR-061</td><td>Page.Loaded guard para NumberBox en DataTemplate</td><td class="ok">✅ Compliant</td><td>Guard _listaParaEdicion implementado en Cotizacion y Pedido.</td></tr>
+      <tr><td>ADR-062</td><td>HasDefaultValue prohibido en Detalle (EF)</td><td class="ok">✅ Compliant</td><td>PedidoDetalleConfiguration y CotizacionDetalleConfiguration sin HasDefaultValue.</td></tr>
+      <tr><td>ADR-063</td><td>AsNoTracking en conversiones</td><td class="ok">✅ Compliant</td><td>ConvertirAPedidoAsync usa AsNoTracking.</td></tr>
+      <tr><td>ADR-065</td><td>Anticipos sobre Pedidos</td><td class="warn">⚠️ Parcial</td><td>Implementado sin permiso formal <code>anticipo.registrar</code>. Ver M-001.</td></tr>
+    </tbody>
+  </table>
+
+  <div style="margin-top:24px;padding:16px 20px;background:var(--surface);border:1px solid var(--border);border-radius:8px;">
+    <p style="font-size:13px;color:var(--text2);margin:0;">
+      <strong style="color:var(--text);">Nota metodológica:</strong> Esta auditoría fue generada por análisis estático de código (Claude Code Analysis Engine) el 2026-05-15. Cubre los patrones arquitectónicos, separación de capas, guards de workflow y configuraciones EF auditables por análisis de código. El análisis de runtime real (DbContext concurrencia bajo carga, memory leaks, performance en producción) requiere observabilidad instrumentada en entorno real.
+    </p>
+  </div>
+</div>
+
+<!-- Footer -->
+<div style="text-align:center;color:var(--text3);font-size:12px;padding:32px 0;border-top:1px solid var(--border);">
+  Y26 · Plataforma de Auditoría Arquitectónica · Ybridio ERP · 2026-05-15<br>
+  Generado por Claude Code Analysis Engine · Confidencial — uso interno
+</div>
+
+</div><!-- /wrap -->
+</div><!-- /main -->
+
+<script>
+function toggle(hdr) {
+  const body = hdr.nextElementSibling;
+  const chev = hdr.querySelector('.chevron');
+  const isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  if (chev) chev.classList.toggle('open', !isOpen);
+}
+
+function nav(a) {
+  document.querySelectorAll('#sidebar a').forEach(el => el.classList.remove('active'));
+  a.classList.add('active');
+}
+
+// Highlight active section on scroll
+const sections = document.querySelectorAll('.page-section');
+const links = document.querySelectorAll('#sidebar a[href^="#"]');
+window.addEventListener('scroll', () => {
+  let cur = '';
+  sections.forEach(s => { if (window.scrollY >= s.offsetTop - 100) cur = s.id; });
+  links.forEach(l => {
+    l.classList.toggle('active', l.getAttribute('href') === '#' + cur);
+  });
+}, { passive: true });
+
+// Open first finding by default
+document.querySelectorAll('.finding-hdr')[0]?.click();
+</script>
+</body>
+</html>

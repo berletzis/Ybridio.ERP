@@ -81,8 +81,86 @@ public sealed partial class PedidoDocumentoViewModel : ObservableObject
     [ObservableProperty] private EstatusPedido estatus        = EstatusPedido.Borrador;
     [ObservableProperty] private string?       folio;
 
-    public ObservableCollection<DetalleLineaEditable> Detalles { get; } = [];
-    public ObservableCollection<CargoLineaEditable>   Cargos   { get; } = [];
+    public ObservableCollection<DetalleLineaEditable> Detalles  { get; } = [];
+    public ObservableCollection<CargoLineaEditable>   Cargos    { get; } = [];
+    public ObservableCollection<AnticipoPedidoDto>    Anticipos { get; } = [];
+
+    // ── Dimensión financiera (ADR-065) ────────────────────────────────────────
+    [ObservableProperty] private decimal?                   _anticiRequerido;
+    [ObservableProperty] private decimal                    _anticipoPagado;
+    [ObservableProperty] private EstadoFinancieroPedido     _estadoFinanciero = EstadoFinancieroPedido.SinPago;
+    [ObservableProperty] private string                     _estadoFinancieroTexto = "Sin Pago";
+
+    /// <summary>Saldo pendiente = Max(0, Total - AnticipoPagado). No negativo — excedente se muestra en Excedente.</summary>
+    public decimal SaldoPendienteFinanciero => Math.Max(0, Total - AnticipoPagado);
+
+    /// <summary>Excedente = pagado - total cuando hay sobrepago. Usa redondeo a 2 decimales para coincidir con CalcularEstadoFinanciero.</summary>
+    public decimal Excedente
+    {
+        get
+        {
+            var pagado = Math.Round(AnticipoPagado, 2, MidpointRounding.AwayFromZero);
+            var tot    = Math.Round(Total, 2, MidpointRounding.AwayFromZero);
+            return pagado > tot && tot > 0 ? pagado - tot : 0m;
+        }
+    }
+
+    /// <summary>True cuando los anticipos superan el total del pedido (con redondeo consistente).</summary>
+    public bool HaySobrePago => EstadoFinanciero == EstadoFinancieroPedido.SobrePagado
+                                && Excedente > 0;
+
+    /// <summary>True cuando hay un anticipo mínimo requerido configurado (> 0).</summary>
+    public bool HayAnticipoRequerido => AnticiRequerido.HasValue && AnticiRequerido.Value > 0;
+
+    /// <summary>
+    /// Puede registrar anticipo: pedido existente, no cancelado, y sin sobrepago previo.
+    /// No tiene sentido registrar más pagos si ya hay excedente.
+    /// </summary>
+    public bool PuedeRegistrarAnticipo =>
+        !IsNuevo &&
+        Estatus != EstatusPedido.Cancelado &&
+        EstadoFinanciero != EstadoFinancieroPedido.SobrePagado;
+
+    /// <summary>
+    /// Puede editar líneas de detalle (cantidades, descuentos por línea): solo en Borrador o Autorizado.
+    /// En EnProceso/Parcial el snapshot comercial está parcialmente comprometido.
+    /// </summary>
+    public bool PuedeEditarLineas =>
+        Estatus is EstatusPedido.Borrador or EstatusPedido.Autorizado;
+
+    /// <summary>
+    /// Puede editar el Descuento Global: SOLO en Borrador.
+    /// El descuento global altera el snapshot comercial completo — se congela al autorizar.
+    /// </summary>
+    public bool PuedeEditarDescuentoGlobal =>
+        Estatus is EstatusPedido.Borrador;
+
+    partial void OnTotalChanged(decimal value)
+    {
+        OnPropertyChanged(nameof(SaldoPendienteFinanciero));
+        OnPropertyChanged(nameof(Excedente));
+        OnPropertyChanged(nameof(HaySobrePago));
+    }
+
+    partial void OnAnticipoPagadoChanged(decimal value)
+    {
+        OnPropertyChanged(nameof(SaldoPendienteFinanciero));
+        OnPropertyChanged(nameof(Excedente));
+        OnPropertyChanged(nameof(HaySobrePago));
+    }
+
+    partial void OnAnticiRequeridoChanged(decimal? value)
+    {
+        OnPropertyChanged(nameof(HayAnticipoRequerido));
+        OnPropertyChanged(nameof(PuedeRegistrarAnticipo));
+    }
+
+    partial void OnEstadoFinancieroChanged(EstadoFinancieroPedido value)
+    {
+        OnPropertyChanged(nameof(HaySobrePago));
+        OnPropertyChanged(nameof(Excedente));
+        OnPropertyChanged(nameof(PuedeRegistrarAnticipo));
+    }
 
     // ── Totales (CommercialDocumentCalculator — ADR-042) ──────────────────────
     [ObservableProperty] private decimal subtotalBruto;
@@ -130,16 +208,46 @@ public sealed partial class PedidoDocumentoViewModel : ObservableObject
     };
 
     // ── Workflow guards ────────────────────────────────────────────────────────
-    /// <summary>Se puede editar encabezado y líneas mientras no esté Finalizado ni Cancelado.</summary>
-    public bool PuedeEditar      => Estatus is not (EstatusPedido.Finalizado or EstatusPedido.Cancelado);
+
+    /// <summary>Puede editar encabezado operacional (observaciones, fechas): cualquier estado no terminal.</summary>
+    public bool PuedeEditar => Estatus is not (EstatusPedido.Finalizado or EstatusPedido.Cancelado);
+
+    /// <summary>
+    /// Puede cambiar el cliente del pedido: solo en Borrador o Autorizado.
+    /// En EnProceso/Parcial el cliente ya está operacionalmente comprometido — no se puede alterar.
+    /// </summary>
+    public bool PuedeEditarCliente =>
+        Estatus is EstatusPedido.Borrador or EstatusPedido.Autorizado;
     /// <summary>Se puede avanzar estado linealmente hasta Finalizado.</summary>
     public bool PuedeAvanzar     => Estatus is EstatusPedido.Borrador or EstatusPedido.Autorizado or EstatusPedido.EnProceso or EstatusPedido.Parcial;
-    /// <summary>Se puede generar OT desde Autorizado en adelante (documento guardado).</summary>
-    public bool PuedeGenerarOT   => !IsNuevo && Estatus is EstatusPedido.Autorizado or EstatusPedido.EnProceso or EstatusPedido.Parcial;
+    /// <summary>
+    /// Se puede generar OT desde Autorizado en adelante.
+    /// Condicionado por anticipo: si AnticipoRequerido > 0 → debe estar pagado.
+    /// </summary>
+    public bool PuedeGenerarOT
+    {
+        get
+        {
+            if (IsNuevo) return false;
+            if (Estatus is not (EstatusPedido.Autorizado or EstatusPedido.EnProceso or EstatusPedido.Parcial))
+                return false;
+            // Guard anticipo (ADR-065): mismo check que el service layer
+            if (AnticiRequerido.GetValueOrDefault(0) > 0 && AnticipoPagado < AnticiRequerido!.Value)
+                return false;
+            return true;
+        }
+    }
     /// <summary>Se puede cancelar siempre que no esté Cancelado ni Finalizado.</summary>
     public bool PuedeCancelar    => !IsNuevo && Estatus is not (EstatusPedido.Finalizado or EstatusPedido.Cancelado);
-    /// <summary>Se puede generar Venta en cualquier estado operacional (no Cancelado).</summary>
-    public bool PuedeGenerarVenta => !IsNuevo && Estatus != EstatusPedido.Cancelado;
+    /// <summary>
+    /// Se puede generar Venta en Autorizado, EnProceso, Parcial o Finalizado.
+    /// Finalizado permitido: representa el pedido completado listo para documentar (Venta = documento comercial final).
+    /// Liquidado financieramente no bloquea la generación — el dinero puede haberse recibido antes del documento.
+    /// </summary>
+    public bool PuedeGenerarVenta =>
+        !IsNuevo &&
+        Estatus is EstatusPedido.Autorizado or EstatusPedido.EnProceso
+                or EstatusPedido.Parcial    or EstatusPedido.Finalizado;
 
     /// <summary>ID de empresa del contexto de sesión, expuesto para binding en el selector control.</summary>
     public int EmpresaId => _session.EmpresaId;
@@ -293,6 +401,22 @@ public sealed partial class PedidoDocumentoViewModel : ObservableObject
             if (pedido.Cargos is not null)
                 foreach (var c in pedido.Cargos.OrderBy(c => c.Orden))
                     Cargos.Add(new CargoLineaEditable(c.Id, null, c.Descripcion, c.Importe, c.AplicaIva));
+
+            // Dimensión financiera (ADR-065)
+            AnticiRequerido = pedido.AnticipoRequerido;
+            AnticipoPagado  = pedido.AnticipoPagado;
+
+            // Recalcular EstadoFinanciero en tiempo de carga — NO confiar en el valor de BD.
+            // Razón: el enum SobrePagado (=5) se agregó después de que existían registros con valores
+            // calculados con el algoritmo anterior. Recalcular garantiza consistencia siempre.
+            EstadoFinanciero = PedidoService.CalcularEstadoFinanciero(
+                pedido.AnticipoRequerido, pedido.AnticipoPagado, pedido.Total);
+            EstadoFinancieroTexto = EstadoFinancieroTextoDisplay(EstadoFinanciero);
+
+            Anticipos.Clear();
+            if (pedido.Anticipos is not null)
+                foreach (var a in pedido.Anticipos)
+                    Anticipos.Add(a);
 
             DetectarDescuentoGlobal(pedido.Detalles);
             OnPropertyChanged(nameof(TieneClienteSeleccionado));
@@ -639,15 +763,28 @@ public sealed partial class PedidoDocumentoViewModel : ObservableObject
     private void RefrescarPermisosUI()
     {
         OnPropertyChanged(nameof(PuedeEditar));
+        OnPropertyChanged(nameof(PuedeEditarCliente));
+        OnPropertyChanged(nameof(PuedeEditarLineas));
+        OnPropertyChanged(nameof(PuedeEditarDescuentoGlobal));
         OnPropertyChanged(nameof(PuedeAvanzar));
         OnPropertyChanged(nameof(PuedeGenerarOT));
         OnPropertyChanged(nameof(PuedeCancelar));
         OnPropertyChanged(nameof(PuedeGenerarVenta));
+        OnPropertyChanged(nameof(PuedeRegistrarAnticipo));
         OnPropertyChanged(nameof(EstatusTextoDisplay));
         OnPropertyChanged(nameof(SiguienteEstatus));
         OnPropertyChanged(nameof(TituloDocumento));
         OnPropertyChanged(nameof(HayCargos));
         OnPropertyChanged(nameof(HayDescuento));
+        OnPropertyChanged(nameof(SaldoPendienteFinanciero));
+        OnPropertyChanged(nameof(HaySobrePago));
+        OnPropertyChanged(nameof(HayAnticipoRequerido));
+        OnPropertyChanged(nameof(Excedente));
+
+        // Propagar estado de edición de líneas y cargos al item level para DataTemplate IsEnabled
+        var puedeEditarLineas = PuedeEditarLineas;
+        foreach (var d in Detalles) d.PuedeEditar = puedeEditarLineas;
+        foreach (var c in Cargos)   c.PuedeEditar = puedeEditarLineas;
     }
 
     /// <summary>
@@ -690,4 +827,62 @@ public sealed partial class PedidoDocumentoViewModel : ObservableObject
         }
         finally { IsBusy = false; }
     }
+
+    // ── Dimensión financiera — Anticipos (ADR-065) ────────────────────────────
+
+    /// <summary>
+    /// Registra un anticipo contra el pedido.
+    /// Actualiza AnticipoPagado, EstadoFinanciero y la colección observable.
+    /// </summary>
+    public async Task<bool> RegistrarAnticipoAsync(
+        decimal monto, string formaPago, string? referencia, CancellationToken ct = default)
+    {
+        if (_documento is null || _session.Usuario is null) return false;
+        IsBusy = true; ErrorMessage = SuccessMessage = string.Empty;
+        try
+        {
+            var dto = new RegistrarAnticipoDto(monto, formaPago, referencia);
+            var r   = await _service.RegistrarAnticipoAsync(_documento.Id, dto, _session.Usuario.Id, ct);
+            if (!r.Success) { ErrorMessage = r.Error ?? "No se pudo registrar el anticipo."; return false; }
+
+            Anticipos.Insert(0, r.Value!);
+            AnticipoPagado      += monto;
+            EstadoFinanciero     = PedidoService.CalcularEstadoFinanciero(AnticiRequerido, AnticipoPagado, Total);
+            EstadoFinancieroTexto = EstadoFinancieroTextoDisplay(EstadoFinanciero);
+            SuccessMessage       = $"Anticipo de {monto:C2} registrado.";
+            RefrescarPermisosUI();
+            return true;
+        }
+        finally { IsBusy = false; }
+    }
+
+    /// <summary>Establece el monto mínimo de anticipo requerido para el pedido.</summary>
+    public async Task EstablecerAnticipoRequeridoAsync(decimal? monto, CancellationToken ct = default)
+    {
+        if (_documento is null || _session.Usuario is null) return;
+        IsBusy = true; ErrorMessage = SuccessMessage = string.Empty;
+        try
+        {
+            var r = await _service.EstablecerAnticipoRequeridoAsync(_documento.Id, monto, _session.Usuario.Id, ct);
+            if (!r.Success) { ErrorMessage = r.Error ?? "No se pudo actualizar el anticipo requerido."; return; }
+
+            AnticiRequerido      = monto;
+            EstadoFinanciero     = PedidoService.CalcularEstadoFinanciero(monto, AnticipoPagado, Total);
+            EstadoFinancieroTexto = EstadoFinancieroTextoDisplay(EstadoFinanciero);
+            SuccessMessage       = monto.HasValue ? $"Anticipo requerido: {monto:C2}" : "Anticipo requerido eliminado.";
+            RefrescarPermisosUI();
+        }
+        finally { IsBusy = false; }
+    }
+
+    private static string EstadoFinancieroTextoDisplay(EstadoFinancieroPedido e) => e switch
+    {
+        EstadoFinancieroPedido.SinPago            => "Sin Pago",
+        EstadoFinancieroPedido.AnticipoParcial    => "Anticipo Parcial",
+        EstadoFinancieroPedido.AnticipoCompleto   => "Anticipo Completo",
+        EstadoFinancieroPedido.ParcialmentePagado => "Parcialmente Pagado",
+        EstadoFinancieroPedido.Liquidado          => "Liquidado",
+        EstadoFinancieroPedido.SobrePagado        => "Sobre Pagado",
+        _                                         => e.ToString()
+    };
 }

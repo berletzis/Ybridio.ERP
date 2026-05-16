@@ -3,18 +3,21 @@
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:vm="using:Ybridio.WinUI.ViewModels.Ventas"
+      xmlns:dto="using:Ybridio.Application.DTOs.Ventas"
       xmlns:selector="using:Ybridio.WinUI.Controls.Selector"
       xmlns:conv="using:Ybridio.WinUI.Converters"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
     <Page.Resources>
-        <conv:EstatusPedidoToBgBrushConverter x:Key="EstatusBgConverter"/>
-        <conv:EstatusPedidoToFgBrushConverter x:Key="EstatusFgConverter"/>
-        <conv:DecimalToCurrencyConverter       x:Key="CurrencyConverter"/>
-        <conv:BoolToVisibilityConverter        x:Key="BoolToVisibility"/>
-        <conv:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility"/>
-        <conv:OperationalDateConverter         x:Key="OperationalDateConverter"/>
-        <conv:BoolToSiNoConverter              x:Key="BoolToSiNo"/>
+        <conv:EstatusPedidoToBgBrushConverter              x:Key="EstatusBgConverter"/>
+        <conv:EstatusPedidoToFgBrushConverter              x:Key="EstatusFgConverter"/>
+        <conv:EstadoFinancieroPedidoToBgBrushConverter     x:Key="FinBgConverter"/>
+        <conv:EstadoFinancieroPedidoToFgBrushConverter     x:Key="FinFgConverter"/>
+        <conv:DecimalToCurrencyConverter                    x:Key="CurrencyConverter"/>
+        <conv:BoolToVisibilityConverter                     x:Key="BoolToVisibility"/>
+        <conv:InverseBoolToVisibilityConverter              x:Key="InverseBoolToVisibility"/>
+        <conv:OperationalDateConverter                      x:Key="OperationalDateConverter"/>
+        <conv:BoolToSiNoConverter                           x:Key="BoolToSiNo"/>
     </Page.Resources>
 
     <!--
@@ -50,19 +53,19 @@
                 </AppBarButton>
                 <AppBarSeparator/>
 
-                <!-- Grupo 2: Edición de líneas -->
+                <!-- Grupo 2: Edición de líneas — bloqueado en EnProceso/Parcial/Finalizado/Cancelado -->
                 <AppBarButton Label="Agregar Línea"
-                              IsEnabled="{x:Bind ViewModel.PuedeEditar, Mode=OneWay}"
+                              IsEnabled="{x:Bind ViewModel.PuedeEditarLineas, Mode=OneWay}"
                               Click="BtnAgregarLinea_Click">
                     <AppBarButton.Icon><FontIcon Glyph="&#xE710;"/></AppBarButton.Icon>
                 </AppBarButton>
                 <AppBarButton Label="Eliminar Línea"
-                              IsEnabled="{x:Bind ViewModel.PuedeEditar, Mode=OneWay}"
+                              IsEnabled="{x:Bind ViewModel.PuedeEditarLineas, Mode=OneWay}"
                               Command="{x:Bind ViewModel.EliminarDetalleCommand}">
                     <AppBarButton.Icon><FontIcon Glyph="&#xE74D;"/></AppBarButton.Icon>
                 </AppBarButton>
                 <AppBarButton Label="Agregar Cargo"
-                              IsEnabled="{x:Bind ViewModel.PuedeEditar, Mode=OneWay}"
+                              IsEnabled="{x:Bind ViewModel.PuedeEditarLineas, Mode=OneWay}"
                               Command="{x:Bind ViewModel.AgregarCargoCommand}">
                     <AppBarButton.Icon><FontIcon Glyph="&#xE8EC;"/></AppBarButton.Icon>
                 </AppBarButton>
@@ -116,48 +119,28 @@
                     <RowDefinition Height="Auto"/>  <!-- Líneas de producto -->
                     <RowDefinition Height="Auto"/>  <!-- Otros Cargos -->
                     <RowDefinition Height="Auto"/>  <!-- Totales -->
+                    <RowDefinition Height="Auto"/>  <!-- Sección Financiera — Anticipos (ADR-065) -->
                     <RowDefinition Height="Auto"/>  <!-- StatusBar — al pie de totales -->
                 </Grid.RowDefinitions>
 
-                <!-- ── Header strip: visible SOLO en modo INLINE (ADR-031)
-                     Collapsed por defecto — se activa vía EsInlineMode=true.
-                     En Workspace Tab el tab header provee la identidad documental. -->
+                <!-- ── Header institucional — SIEMPRE visible.
+                     Muestra folio documental + badge de estado. Patrón idéntico a CotizacionDocumentoPage.
+                     Navegación inline vía CommandBar BtnVolverALista (se oculta cuando no es inline mode). -->
                 <Border x:Name="HeaderStrip"
                         Grid.Row="0"
-                        Visibility="Collapsed"
                         Background="{ThemeResource LayerFillColorDefaultBrush}"
                         BorderBrush="#E5E5E5" BorderThickness="0,0,0,1"
-                        Padding="20,10,20,10">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                            <!-- Botón volver (siempre visible en header para navegación) -->
-                            <Button Click="BtnVolverALista_Click"
-                                    Style="{StaticResource DocumentSurfaceBackActionButtonStyle}"
-                                    ToolTipService.ToolTip="Volver al listado">
-                                <FontIcon Glyph="&#xE76B;" FontSize="14"/>
-                            </Button>
-                            <TextBlock Text="Pedidos" FontSize="12"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       VerticalAlignment="Center"/>
-                            <TextBlock Text="›" FontSize="12"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       VerticalAlignment="Center"/>
-                            <TextBlock Text="{x:Bind ViewModel.TituloDocumento, Mode=OneWay}"
-                                       FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                            <Border Background="{x:Bind ViewModel.Estatus, Mode=OneWay, Converter={StaticResource EstatusBgConverter}}"
-                                    CornerRadius="4" Padding="8,3,8,3" VerticalAlignment="Center"
-                                    BorderBrush="{x:Bind ViewModel.Estatus, Mode=OneWay, Converter={StaticResource EstatusFgConverter}}"
-                                    BorderThickness="1">
-                                <TextBlock Text="{x:Bind ViewModel.EstatusTextoDisplay, Mode=OneWay}"
-                                           Foreground="{x:Bind ViewModel.Estatus, Mode=OneWay, Converter={StaticResource EstatusFgConverter}}"
-                                           FontSize="11" FontWeight="SemiBold"/>
-                            </Border>
-                        </StackPanel>
-                    </Grid>
+                        Padding="{StaticResource ErpDocumentHeaderPadding}">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <TextBlock Text="{x:Bind ViewModel.TituloDocumento, Mode=OneWay}"
+                                   FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <Border Background="{x:Bind ViewModel.Estatus, Mode=OneWay, Converter={StaticResource EstatusBgConverter}}"
+                                CornerRadius="4" Padding="8,2,8,2" VerticalAlignment="Center">
+                            <TextBlock Text="{x:Bind ViewModel.EstatusTextoDisplay, Mode=OneWay}"
+                                       Foreground="{x:Bind ViewModel.Estatus, Mode=OneWay, Converter={StaticResource EstatusFgConverter}}"
+                                       FontSize="12" FontWeight="SemiBold"/>
+                        </Border>
+                    </StackPanel>
                 </Border>
 
                 <!-- ── Formulario encabezado ── -->
@@ -181,7 +164,7 @@
                                 x:Name="SelectorCliente"
                                 PlaceholderText="Buscar socio comercial por nombre, RFC o email..."
                                 EmpresaId="{x:Bind ViewModel.EmpresaId, Mode=OneWay}"
-                                IsEnabled="{x:Bind ViewModel.PuedeEditar, Mode=OneWay}"
+                                IsEnabled="{x:Bind ViewModel.PuedeEditarCliente, Mode=OneWay}"
                                 SelectionChanged="SelectorCliente_SelectionChanged"/>
                         </StackPanel>
 
@@ -239,7 +222,7 @@
                                            PlaceholderText="0 %"
                                            HorizontalContentAlignment="Right"
                                            VerticalAlignment="Center"
-                                           IsEnabled="{x:Bind ViewModel.PuedeEditar, Mode=OneWay}"
+                                           IsEnabled="{x:Bind ViewModel.PuedeEditarDescuentoGlobal, Mode=OneWay}"
                                            ValueChanged="NbDescuentoGlobal_ValueChanged"/>
                             </Grid>
                         </Border>
@@ -327,21 +310,21 @@
                                                    FontSize="11"/>
                                         <TextBlock Grid.Column="2" Text="{x:Bind Descripcion}"
                                                    Style="{StaticResource ErpCellPrimaryStyle}" VerticalAlignment="Center"/>
-                                        <!-- Cantidad editable (ADR-041) -->
+                                        <!-- Cantidad editable — bloqueada cuando Pedido no es Borrador/Autorizado -->
                                         <NumberBox Grid.Column="3"
                                                    Value="{x:Bind CantidadDouble, Mode=TwoWay}"
                                                    Minimum="0" SpinButtonPlacementMode="Hidden"
                                                    HorizontalContentAlignment="Right"
+                                                   IsEnabled="{x:Bind PuedeEditar, Mode=OneWay}"
                                                    Tag="{x:Bind}"
                                                    ValueChanged="NumberBox_Cantidad_ValueChanged"
                                                    VerticalAlignment="Center" FontSize="13"/>
-                                        <!-- Descuento % editable: Mode=OneWay para display correcto.
-                                             El TwoWay en DataTemplate tiene race condition con Tag binding.
-                                             El ValueChanged handler propaga cambios al ViewModel. -->
+                                        <!-- Descuento % editable — bloqueado cuando Pedido no es Borrador/Autorizado -->
                                         <NumberBox Grid.Column="4"
                                                    Value="{x:Bind DescuentoPctDouble, Mode=OneWay}"
                                                    Minimum="0" Maximum="100" SpinButtonPlacementMode="Hidden"
                                                    HorizontalContentAlignment="Right"
+                                                   IsEnabled="{x:Bind PuedeEditar, Mode=OneWay}"
                                                    Tag="{x:Bind}"
                                                    ValueChanged="NumberBox_Descuento_ValueChanged"
                                                    VerticalAlignment="Center" FontSize="13"/>
@@ -423,6 +406,7 @@
                                         <Button Grid.Column="4"
                                                 Style="{StaticResource ErpActionButtonStyle}"
                                                 Content="&#xE74D;" FontFamily="Segoe Fluent Icons" FontSize="12"
+                                                IsEnabled="{x:Bind PuedeEditar, Mode=OneWay}"
                                                 Tag="{x:Bind}"
                                                 Click="BtnEliminarCargo_Click"
                                                 HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -495,8 +479,167 @@
                     </Grid>
                 </Border>
 
+                <!-- ════════════════════════════════════════════════════════════════
+                     ROW 5: DIMENSIÓN FINANCIERA — Estado + Historial (ADR-065)
+                     Bloque independiente del workflow comercial.
+                     ════════════════════════════════════════════════════════════════ -->
+                <!-- ErpOperationalCardStyle aplica Margin="20,8,20,0" — mismo que bloques superiores.
+                     NO sobreescribir Margin para mantener alineación institucional. -->
+                <Border Grid.Row="5" Style="{StaticResource ErpOperationalCardStyle}">
+                    <StackPanel>
+
+                        <!-- ── Header: Estado Financiero + botón Registrar Pago ── -->
+                        <Grid Padding="16,10,16,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                <TextBlock Text="Estado Financiero"
+                                           FontSize="12" FontWeight="SemiBold"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           VerticalAlignment="Center"/>
+                                <Border CornerRadius="4" Padding="8,2"
+                                        Background="{x:Bind ViewModel.EstadoFinanciero, Converter={StaticResource FinBgConverter}, Mode=OneWay}">
+                                    <TextBlock Text="{x:Bind ViewModel.EstadoFinancieroTexto, Mode=OneWay}"
+                                               Style="{StaticResource OgStatusBadgeTextStyle}"
+                                               Foreground="{x:Bind ViewModel.EstadoFinanciero, Converter={StaticResource FinFgConverter}, Mode=OneWay}"/>
+                                </Border>
+                            </StackPanel>
+                            <!-- Botón con margen derecho garantizado por el Grid.Padding -->
+                            <Button Grid.Column="1"
+                                    Content="＋ Registrar Pago"
+                                    FontSize="11"
+                                    Style="{StaticResource ErpActionButtonStyle}"
+                                    IsEnabled="{x:Bind ViewModel.PuedeRegistrarAnticipo, Mode=OneWay}"
+                                    Click="BtnRegistrarAnticipo_Click"/>
+                        </Grid>
+
+                        <!-- Separador horizontal bajo el header -->
+                        <Border Height="1" Background="#E8E8E8" Margin="0,0,0,0"/>
+
+                        <!-- ── Cuerpo: Resumen numérico | Separador vertical | Historial pagos ── -->
+                        <Grid Padding="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="260" MinWidth="220"/>
+                                <!-- separador vertical -->
+                                <ColumnDefinition Width="1"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Col 0: Resumen financiero -->
+                            <Grid Grid.Column="0" Padding="16,12,16,0" RowSpacing="6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Column="0" Grid.Row="0" Text="Total pedido:"
+                                           Style="{StaticResource ErpCellSecondaryStyle}" FontSize="12"/>
+                                <TextBlock Grid.Column="1" Grid.Row="0"
+                                           Text="{x:Bind ViewModel.Total, Mode=OneWay, Converter={StaticResource CurrencyConverter}}"
+                                           Style="{StaticResource ErpCellSecondaryStyle}" FontSize="12" TextAlignment="Right"/>
+
+                                <!-- Fila anticipo requerido — oculta si no está configurado -->
+                                <TextBlock Grid.Column="0" Grid.Row="1" Text="Anticipo mínimo:"
+                                           Style="{StaticResource ErpCellSecondaryStyle}" FontSize="12"
+                                           Visibility="{x:Bind ViewModel.HayAnticipoRequerido, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"/>
+                                <TextBlock Grid.Column="1" Grid.Row="1"
+                                           Text="{x:Bind ViewModel.AnticiRequerido, Mode=OneWay, Converter={StaticResource CurrencyConverter}}"
+                                           Style="{StaticResource ErpCellSecondaryStyle}" FontSize="12" TextAlignment="Right"
+                                           Visibility="{x:Bind ViewModel.HayAnticipoRequerido, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"/>
+
+                                <TextBlock Grid.Column="0" Grid.Row="2" Text="Total pagado:"
+                                           Style="{StaticResource ErpCellSecondaryStyle}" FontSize="12" FontWeight="SemiBold"/>
+                                <TextBlock Grid.Column="1" Grid.Row="2"
+                                           Text="{x:Bind ViewModel.AnticipoPagado, Mode=OneWay, Converter={StaticResource CurrencyConverter}}"
+                                           Style="{StaticResource ErpCellSecondaryStyle}" FontSize="12" TextAlignment="Right" FontWeight="SemiBold"/>
+
+                                <!-- Separador entre cuerpo y resumen -->
+                                <Border Grid.Column="0" Grid.ColumnSpan="2" Grid.Row="3"
+                                        Height="1" Background="#F0F0F0" Margin="0,4,0,4"/>
+
+                                <TextBlock Grid.Column="0" Grid.Row="4" Text="Saldo pendiente:"
+                                           FontSize="12" FontWeight="SemiBold"
+                                           Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                <TextBlock Grid.Column="1" Grid.Row="4"
+                                           Text="{x:Bind ViewModel.SaldoPendienteFinanciero, Mode=OneWay, Converter={StaticResource CurrencyConverter}}"
+                                           FontSize="12" TextAlignment="Right" FontWeight="SemiBold"
+                                           Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+
+                                <!-- Fila Cambio — visible solo cuando hay excedente real (SobrePagado > $0.00) -->
+                                <TextBlock Grid.Column="0" Grid.Row="5" Text="Cambio a devolver:"
+                                           FontSize="12" FontWeight="SemiBold"
+                                           Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                           Visibility="{x:Bind ViewModel.HaySobrePago, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"/>
+                                <TextBlock Grid.Column="1" Grid.Row="5"
+                                           Text="{x:Bind ViewModel.Excedente, Mode=OneWay, Converter={StaticResource CurrencyConverter}}"
+                                           FontSize="12" TextAlignment="Right" FontWeight="SemiBold"
+                                           Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                           Visibility="{x:Bind ViewModel.HaySobrePago, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"/>
+                            </Grid>
+
+                            <!-- Col 1: Separador vertical -->
+                            <Border Grid.Column="1" Background="#E8E8E8" Margin="0,12,0,0"/>
+
+                            <!-- Col 2: Historial de pagos -->
+                            <ListView Grid.Column="2"
+                                      ItemsSource="{x:Bind ViewModel.Anticipos, Mode=OneWay}"
+                                      ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                      ScrollViewer.VerticalScrollMode="Disabled"
+                                      SelectionMode="None">
+                                <ListView.Header>
+                                    <Border Background="#FAFAFA" BorderBrush="#E8E8E8" BorderThickness="0,0,0,1">
+                                        <Grid Padding="8,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="90"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="100"/>
+                                                <ColumnDefinition Width="120"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="Fecha"      FontSize="11" FontWeight="SemiBold" Foreground="#888"/>
+                                            <TextBlock Grid.Column="1" Text="Forma Pago" FontSize="11" FontWeight="SemiBold" Foreground="#888"/>
+                                            <TextBlock Grid.Column="2" Text="Referencia" FontSize="11" FontWeight="SemiBold" Foreground="#888"/>
+                                            <TextBlock Grid.Column="3" Text="Monto"      FontSize="11" FontWeight="SemiBold" Foreground="#888" TextAlignment="Right"/>
+                                        </Grid>
+                                    </Border>
+                                </ListView.Header>
+                                <ListView.ItemTemplate>
+                                    <DataTemplate x:DataType="dto:AnticipoPedidoDto">
+                                        <Grid Height="36">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="90"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="100"/>
+                                                <ColumnDefinition Width="120"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{x:Bind Fecha}" FontSize="12" VerticalAlignment="Center"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                            <TextBlock Grid.Column="1" Text="{x:Bind FormaPago}" FontSize="12" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="2" Text="{x:Bind Referencia}" FontSize="11" VerticalAlignment="Center"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                            <TextBlock Grid.Column="3"
+                                                       Text="{x:Bind Monto, Converter={StaticResource CurrencyConverter}}"
+                                                       Style="{StaticResource OgCurrencyTextStyle}"
+                                                       FontSize="12"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
                 <!-- ── StatusBar — al pie del bloque de Totales ── -->
-                <Border Grid.Row="5" Style="{StaticResource ErpGridStatusBarStyle}" Margin="0,4,0,8">
+                <Border Grid.Row="6" Style="{StaticResource ErpGridStatusBarStyle}" Margin="0,4,0,8">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>

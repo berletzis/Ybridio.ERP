@@ -19,11 +19,17 @@ public static class PermisosClave
         public const string Confirmar = "venta.confirmar";
         public const string Cancelar  = "venta.cancelar";
         public const string Aprobar   = "venta.aprobar";
+        /// <summary>Cierre formal de venta. Requiere saldo = 0. Operación irreversible sin venta.reabrir.</summary>
+        public const string Cerrar    = "venta.cerrar";
+        /// <summary>Reapertura de una venta Cerrada. Requiere auditoría. Solo roles superiores.</summary>
+        public const string Reabrir   = "venta.reabrir";
     }
 
     public static class Pago
     {
         public const string Registrar = "pago.registrar";
+        /// <summary>Cancelar un pago registrado. Reduce TotalPagado y actualiza saldo.</summary>
+        public const string Cancelar  = "pago.cancelar";
     }
 
     public static class Entrada
@@ -187,12 +193,25 @@ public static class PermisosClave
     }
 
     /// <summary>
+    /// Permisos para operaciones de anticipo sobre Pedidos (ADR-065 / Fase 5 Y26).
+    /// Separa la responsabilidad financiera de la edición comercial del pedido.
+    /// </summary>
+    public static class Anticipo
+    {
+        /// <summary>Registrar un anticipo o pago parcial contra un pedido.</summary>
+        public const string Registrar = "anticipo.registrar";
+
+        /// <summary>Establecer el monto mínimo de anticipo requerido en un pedido.</summary>
+        public const string Configurar = "anticipo.configurar";
+    }
+
+    /// <summary>
     /// Retorna todos los claves definidos en esta clase. Útil para seed y validaciones.
     /// </summary>
     public static IReadOnlyList<string> Todos() =>
     [
-        Venta.Ver, Venta.Crear, Venta.Editar, Venta.Confirmar, Venta.Cancelar, Venta.Aprobar,
-        Pago.Registrar,
+        Venta.Ver, Venta.Crear, Venta.Editar, Venta.Confirmar, Venta.Cancelar, Venta.Aprobar, Venta.Cerrar, Venta.Reabrir,
+        Pago.Registrar, Pago.Cancelar,
         Entrada.Ver, Entrada.Crear, Entrada.Cancelar, Entrada.Aprobar,
         Salida.Ver, Salida.Crear, Salida.Cancelar, Salida.Autorizar,
         Traspaso.Ver, Traspaso.Crear, Traspaso.Cancelar,
@@ -217,5 +236,6 @@ public static class PermisosClave
         Finanzas.Ver, Finanzas.Crear, Finanzas.Editar, Finanzas.Eliminar,
         CxC.Ver, CxC.Crear, CxC.Editar,
         CxP.Ver, CxP.Crear, CxP.Editar,
+        Anticipo.Registrar, Anticipo.Configurar,
     ];
 }

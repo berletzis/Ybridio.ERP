@@ -4,6 +4,7 @@ using Ybridio.Application.DTOs.Ventas;
 using Ybridio.Application.Services.Autorizacion;
 using Ybridio.Application.Services.Folios;
 using Ybridio.Domain.Catalogos;
+using Ybridio.Domain.Common;
 using Ybridio.Domain.Ventas;
 using Ybridio.Infrastructure.Persistence;
 
@@ -41,20 +42,15 @@ public sealed class PedidoService : IPedidoService
         if (desde.HasValue) query = query.Where(p => p.Fecha >= desde.Value);
         if (hasta.HasValue) query = query.Where(p => p.Fecha <= hasta.Value);
 
-        // Proyección con folio de cotización origen — LEFT JOIN sin cargar entidad completa
+        // Fix A-001 (Y26): Include(Cotizacion) reemplaza la subquery N+1 anterior.
+        // Una sola query con LEFT JOIN en lugar de O(n) queries adicionales.
         var lista = await query
+            .Include(p => p.Cotizacion)
             .OrderByDescending(p => p.Fecha).ThenByDescending(p => p.Id)
-            .Select(p => new
-            {
-                Pedido           = p,
-                FolioCotizacion  = p.CotizacionId != null
-                    ? _context.Cotizaciones.Where(c => c.Id == p.CotizacionId).Select(c => c.Folio).FirstOrDefault()
-                    : null
-            })
             .ToListAsync(ct);
 
         return ServiceResult<IReadOnlyList<PedidoResumenDto>>.Ok(
-            lista.Select(x => MapToResumen(x.Pedido, x.FolioCotizacion)).ToList());
+            lista.Select(p => MapToResumen(p, p.Cotizacion?.Folio)).ToList());
     }
 
     /// <inheritdoc/>
@@ -66,6 +62,7 @@ public sealed class PedidoService : IPedidoService
         var p = await _context.Pedidos.AsNoTracking()
             .Include(x => x.Detalles).ThenInclude(d => d.Producto)
             .Include(x => x.Cargos)
+            .Include(x => x.Anticipos)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
 
         return p is null
@@ -203,8 +200,8 @@ public sealed class PedidoService : IPedidoService
             Importe        = CommercialDocumentCalculator.CalcularImporteLinea(dto.Cantidad, dto.PrecioUnitario, dto.DescuentoPct)
         };
         p.Detalles.Add(detalle);
-        // Total = SUM(detalles neto) — sin recalcular cargos aquí (se cargan aparte)
-        p.Total                 = p.Detalles.Sum(d => d.Importe);
+        // Total con IVA — mismo cálculo que el ViewModel para consistencia financiera
+        p.Total                 = RecalcularTotalConIva(p);
         p.FechaModificacion     = DateTime.UtcNow;
         p.UsuarioModificacionId = usuarioId;
 
@@ -227,7 +224,8 @@ public sealed class PedidoService : IPedidoService
         if (d is null) return ServiceResult.Fail("Detalle no encontrado.", ErrorCode.NotFound);
 
         _context.PedidosDetalle.Remove(d);
-        d.Pedido.Total                 = d.Pedido.Detalles.Where(x => x.Id != detalleId).Sum(x => x.Importe);
+        // Total con IVA — recalculado tras eliminar el detalle
+        d.Pedido.Total                 = RecalcularTotalConIva(d.Pedido);
         d.Pedido.FechaModificacion     = DateTime.UtcNow;
         d.Pedido.UsuarioModificacionId = usuarioId;
 
@@ -244,6 +242,13 @@ public sealed class PedidoService : IPedidoService
 
         var p = await _context.Pedidos.FirstOrDefaultAsync(x => x.Id == pedidoId, ct);
         if (p is null) return ServiceResult<OrdenTrabajoDto>.Fail("Pedido no encontrado.", ErrorCode.NotFound);
+
+        // Fase 4: OT condicionada por anticipo (ADR-065)
+        if (p.AnticipoRequerido.GetValueOrDefault(0) > 0 && p.AnticipoPagado < p.AnticipoRequerido!.Value)
+            return ServiceResult<OrdenTrabajoDto>.Fail(
+                $"El pedido requiere un anticipo de {p.AnticipoRequerido:C2}. " +
+                $"Pagado: {p.AnticipoPagado:C2}. Pendiente: {(p.AnticipoRequerido.Value - p.AnticipoPagado):C2}.",
+                ErrorCode.ValidationFailed);
 
         var ot = new OrdenTrabajo
         {
@@ -301,8 +306,8 @@ public sealed class PedidoService : IPedidoService
         };
         p.Cargos.Add(cargo);
 
-        // Recalcular Total = SUM(detalles) + SUM(cargos)
-        p.Total = p.Detalles.Sum(d => d.Importe) + p.Cargos.Sum(c => c.Importe);
+        // Total con IVA — consistente con ViewModel
+        p.Total = RecalcularTotalConIva(p);
         p.FechaModificacion     = DateTime.UtcNow;
         p.UsuarioModificacionId = usuarioId;
 
@@ -324,13 +329,170 @@ public sealed class PedidoService : IPedidoService
         if (c is null) return ServiceResult.Fail("Cargo no encontrado.", ErrorCode.NotFound);
 
         _context.PedidosCargos.Remove(c);
-        c.Pedido.Total = c.Pedido.Detalles.Sum(d => d.Importe)
-                       + c.Pedido.Cargos.Where(x => x.Id != cargoId).Sum(x => x.Importe);
+        // Total con IVA — recalculado tras eliminar el cargo
+        c.Pedido.Total = RecalcularTotalConIva(c.Pedido);
         c.Pedido.FechaModificacion     = DateTime.UtcNow;
         c.Pedido.UsuarioModificacionId = usuarioId;
 
         await _context.SaveChangesAsync(ct);
         return ServiceResult.Ok();
+    }
+
+    // ── Anticipos — dimensión financiera (ADR-065) ───────────────────────────
+
+    /// <inheritdoc/>
+    public async Task<ServiceResult<AnticipoPedidoDto>> RegistrarAnticipoAsync(
+        long pedidoId, RegistrarAnticipoDto dto, Guid usuarioId, CancellationToken ct = default)
+    {
+        // Fase 5 Y26: permiso granular anticipo.registrar en lugar de pedido.editar
+        if (!await _auth.PuedeAsync(PermisosClave.Anticipo.Registrar, ct))
+            return ServiceResult<AnticipoPedidoDto>.Fail("Sin permiso (anticipo.registrar).", ErrorCode.Unauthorized);
+
+        if (dto.Monto <= 0)
+            return ServiceResult<AnticipoPedidoDto>.Fail("El monto del anticipo debe ser mayor a cero.", ErrorCode.ValidationFailed);
+        if (string.IsNullOrWhiteSpace(dto.FormaPago))
+            return ServiceResult<AnticipoPedidoDto>.Fail("La forma de pago es requerida.", ErrorCode.ValidationFailed);
+
+        var p = await _context.Pedidos
+            .Include(x => x.Detalles)
+            .Include(x => x.Cargos)
+            .FirstOrDefaultAsync(x => x.Id == pedidoId, ct);
+        if (p is null) return ServiceResult<AnticipoPedidoDto>.Fail("Pedido no encontrado.", ErrorCode.NotFound);
+        if (p.Estatus is EstatusPedido.Cancelado)
+            return ServiceResult<AnticipoPedidoDto>.Fail("No se puede registrar anticipo en un pedido cancelado.", ErrorCode.ValidationFailed);
+
+        // Recalcular Total con IVA en tiempo real — garantiza comparación correcta
+        // (evita falso SobrePagado cuando p.Total en BD no incluía IVA).
+        var totalConIva = RecalcularTotalConIva(p);
+        p.Total = totalConIva;  // corregir en BD si estaba stale
+
+        // Política Fase 1 Y26 (OPCIÓN B): bloquear pagos adicionales solo si ya hay excedente real.
+        var estadoActual = CalcularEstadoFinanciero(p.AnticipoRequerido, p.AnticipoPagado, totalConIva);
+        if (estadoActual == EstadoFinancieroPedido.SobrePagado)
+        {
+            var excedente = Math.Round(p.AnticipoPagado, 2) - Math.Round(totalConIva, 2);
+            return ServiceResult<AnticipoPedidoDto>.Fail(
+                $"El pedido ya tiene un excedente de {excedente:C2}. No se pueden registrar más anticipos. " +
+                "Gestiona el cambio/devolución antes de registrar nuevos pagos.",
+                ErrorCode.ValidationFailed);
+        }
+
+        var anticipo = new AnticipoPedido
+        {
+            PedidoId          = pedidoId,
+            Fecha             = dto.Fecha ?? DateTime.Today,
+            Monto             = dto.Monto,
+            FormaPago         = dto.FormaPago.Trim(),
+            Referencia        = dto.Referencia?.Trim(),
+            FechaCreacion     = DateTime.UtcNow,
+            UsuarioCreacionId = usuarioId,
+            Borrado           = false
+        };
+
+        p.AnticipoPagado          += dto.Monto;
+        p.EstadoFinanciero         = CalcularEstadoFinanciero(p.AnticipoRequerido, p.AnticipoPagado, p.Total);
+        p.FechaModificacion        = DateTime.UtcNow;
+        p.UsuarioModificacionId    = usuarioId;
+
+        _context.AnticipoPedidos.Add(anticipo);
+        await _context.SaveChangesAsync(ct);
+
+        return ServiceResult<AnticipoPedidoDto>.Ok(
+            new(anticipo.Id, anticipo.PedidoId, anticipo.Fecha, anticipo.Monto,
+                anticipo.FormaPago, anticipo.Referencia, usuarioId));
+    }
+
+    /// <inheritdoc/>
+    public async Task<ServiceResult<IReadOnlyList<AnticipoPedidoDto>>> ListarAnticiposAsync(
+        long pedidoId, CancellationToken ct = default)
+    {
+        if (!await _auth.PuedeAsync(PermisosClave.Pedido.Ver, ct))
+            return ServiceResult<IReadOnlyList<AnticipoPedidoDto>>.Fail("Sin permiso (pedido.ver).", ErrorCode.Unauthorized);
+
+        var lista = await _context.AnticipoPedidos.AsNoTracking()
+            .Where(a => a.PedidoId == pedidoId)
+            .OrderByDescending(a => a.Fecha).ThenByDescending(a => a.Id)
+            .ToListAsync(ct);
+
+        return ServiceResult<IReadOnlyList<AnticipoPedidoDto>>.Ok(
+            lista.Select(a => new AnticipoPedidoDto(
+                a.Id, a.PedidoId, a.Fecha, a.Monto, a.FormaPago, a.Referencia, a.UsuarioCreacionId))
+            .ToList());
+    }
+
+    /// <inheritdoc/>
+    public async Task<ServiceResult> EstablecerAnticipoRequeridoAsync(
+        long pedidoId, decimal? monto, Guid usuarioId, CancellationToken ct = default)
+    {
+        // Fase 5 Y26: permiso granular anticipo.configurar
+        if (!await _auth.PuedeAsync(PermisosClave.Anticipo.Configurar, ct))
+            return ServiceResult.Fail("Sin permiso (anticipo.configurar).", ErrorCode.Unauthorized);
+
+        if (monto.HasValue && monto.Value < 0)
+            return ServiceResult.Fail("El anticipo requerido no puede ser negativo.", ErrorCode.ValidationFailed);
+
+        var p = await _context.Pedidos.FirstOrDefaultAsync(x => x.Id == pedidoId, ct);
+        if (p is null) return ServiceResult.Fail("Pedido no encontrado.", ErrorCode.NotFound);
+        if (p.Estatus is EstatusPedido.Cancelado or EstatusPedido.Finalizado)
+            return ServiceResult.Fail("No se puede modificar el anticipo requerido en estado terminal.", ErrorCode.ValidationFailed);
+
+        p.AnticipoRequerido        = monto;
+        p.EstadoFinanciero         = CalcularEstadoFinanciero(monto, p.AnticipoPagado, p.Total);
+        p.FechaModificacion        = DateTime.UtcNow;
+        p.UsuarioModificacionId    = usuarioId;
+
+        await _context.SaveChangesAsync(ct);
+        return ServiceResult.Ok();
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Recalcula el Total del Pedido incluyendo IVA (igual que CommercialDocumentCalculator en el ViewModel).
+    /// Garantiza que Pedido.Total en BD coincida con lo que el ViewModel muestra al usuario,
+    /// evitando el falso SobrePagado cuando los pagos igualan al total con IVA.
+    /// </summary>
+    private static decimal RecalcularTotalConIva(Pedido p)
+    {
+        var lineas  = p.Detalles.Select(d => (d.Importe, d.IvaAplicable));
+        var cargos  = p.Cargos.Select(c => (c.Importe, c.AplicaIva));
+        var todos   = lineas.Concat(cargos).ToList();
+        var subtotal = todos.Sum(x => x.Item1);
+        var iva      = CommercialDocumentCalculator.CalcularImpuestos(todos, FiscalConstants.TasaIvaEstandar);
+        return CommercialDocumentCalculator.CalcularTotal(subtotal, iva);
+    }
+
+    /// <summary>
+    /// Calcula el <see cref="EstadoFinancieroPedido"/> basado en los montos actuales.
+    /// Single Source of Truth para la lógica financiera del pedido.
+    /// </summary>
+    public static EstadoFinancieroPedido CalcularEstadoFinanciero(
+        decimal? anticiRequerido, decimal anticipoPagado, decimal total)
+    {
+        // Redondear a 2 decimales antes de comparar — evita discrepancias de precisión
+        // entre el Total almacenado en BD y el Total calculado en el ViewModel.
+        var pagado = Math.Round(anticipoPagado, 2, MidpointRounding.AwayFromZero);
+        var tot    = Math.Round(total, 2, MidpointRounding.AwayFromZero);
+
+        // Sobrepago: pagos superiores al total del pedido (comparación con valores redondeados)
+        if (tot > 0 && pagado > tot)
+            return EstadoFinancieroPedido.SobrePagado;
+
+        // Liquidado: pagos exactamente iguales al total (o dentro del redondeo)
+        if (tot > 0 && pagado >= tot)
+            return EstadoFinancieroPedido.Liquidado;
+
+        var requerido = anticiRequerido.GetValueOrDefault(0m);
+        if (requerido > 0)
+        {
+            if (anticipoPagado <= 0)           return EstadoFinancieroPedido.SinPago;
+            if (anticipoPagado < requerido)    return EstadoFinancieroPedido.AnticipoParcial;
+            return EstadoFinancieroPedido.AnticipoCompleto;
+        }
+
+        return anticipoPagado > 0
+            ? EstadoFinancieroPedido.ParcialmentePagado
+            : EstadoFinancieroPedido.SinPago;
     }
 
     private static string EstatusTexto(EstatusPedido e) => e switch
@@ -344,10 +506,25 @@ public sealed class PedidoService : IPedidoService
         _                        => e.ToString()
     };
 
+    private static string EstadoFinancieroTexto(EstadoFinancieroPedido e) => e switch
+    {
+        EstadoFinancieroPedido.SinPago            => "Sin Pago",
+        EstadoFinancieroPedido.AnticipoParcial    => "Anticipo Parcial",
+        EstadoFinancieroPedido.AnticipoCompleto   => "Anticipo Completo",
+        EstadoFinancieroPedido.ParcialmentePagado => "Parcialmente Pagado",
+        EstadoFinancieroPedido.Liquidado          => "Liquidado",
+        EstadoFinancieroPedido.SobrePagado        => "Sobre Pagado",
+        _                                         => e.ToString()
+    };
+
     private static PedidoResumenDto MapToResumen(Pedido p, string? folioCotizacion = null) =>
         new(p.Id, p.EmpresaId, p.NombreCliente, p.CotizacionId,
             p.Estatus, EstatusTexto(p.Estatus), p.Fecha, p.FechaEntregaCompromiso, p.Total, p.Observaciones,
-            Folio: p.Folio, FolioCotizacionOrigen: folioCotizacion);
+            Folio:                p.Folio,
+            FolioCotizacionOrigen: folioCotizacion,
+            AnticipoPagado:       p.AnticipoPagado,
+            EstadoFinanciero:     p.EstadoFinanciero,
+            EstadoFinancieroTexto: EstadoFinancieroTexto(p.EstadoFinanciero));
 
     private static PedidoDto MapToDto(Pedido p) =>
         new(p.Id, p.EmpresaId, p.SucursalId, p.RelacionComercialId, p.NombreCliente, p.CotizacionId,
@@ -361,5 +538,14 @@ public sealed class PedidoService : IPedidoService
             Cargos:   p.Cargos.OrderBy(c => c.Orden)
                         .Select(c => new PedidoCargoDto(c.Id, c.Descripcion, c.Importe, c.AplicaIva, c.Orden))
                         .ToList(),
-            Subtotal: p.Subtotal);
+            Subtotal:              p.Subtotal,
+            AnticipoRequerido:     p.AnticipoRequerido,
+            AnticipoPagado:        p.AnticipoPagado,
+            EstadoFinanciero:      p.EstadoFinanciero,
+            EstadoFinancieroTexto: EstadoFinancieroTexto(p.EstadoFinanciero),
+            Anticipos:             p.Anticipos.OrderByDescending(a => a.Fecha).ThenByDescending(a => a.Id)
+                                     .Select(a => new AnticipoPedidoDto(
+                                         a.Id, a.PedidoId, a.Fecha, a.Monto,
+                                         a.FormaPago, a.Referencia, a.UsuarioCreacionId))
+                                     .ToList());
 }

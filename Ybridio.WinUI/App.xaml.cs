@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml;
@@ -57,9 +58,21 @@ public partial class App : Microsoft.UI.Xaml.Application
         // ── Logging ───────────────────────────────────────────────────────────
         services.AddLogging(b => b.AddConsole().SetMinimumLevel(LogLevel.Debug));
 
+        // ── Configuración (connection string externalizado — Fase 1 Y26) ─────────
+        // appsettings.json = plantilla sin credenciales (en repositorio)
+        // appsettings.Development.json = credenciales reales (en .gitignore)
+        var config = new ConfigurationBuilder()
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: false)
+            .AddJsonFile("appsettings.Development.json", optional: true)
+            .AddEnvironmentVariables()
+            .Build();
+
         // ── EF Core + Identity ────────────────────────────────────────────────
-        var connectionString =
-            "Server=132.148.74.136\\ybridio;Database=YBRIDIO-26;user id=sa;password=U3xc3pt!0n!22;TrustServerCertificate=True;MultipleActiveResultSets=true";
+        var connectionString = config.GetConnectionString("ErpDatabase")
+            ?? throw new InvalidOperationException(
+                "Connection string 'ErpDatabase' no configurada. " +
+                "Crea appsettings.Development.json con la cadena de conexión.");
 
         services.AddDbContext<ErpDbContext>(opt =>
             opt.UseSqlServer(connectionString), ServiceLifetime.Scoped);

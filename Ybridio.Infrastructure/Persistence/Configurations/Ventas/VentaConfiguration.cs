@@ -61,7 +61,7 @@ internal sealed class VentaConfiguration : IEntityTypeConfiguration<Venta>
         builder.HasOne(e => e.RelacionComercial)
             .WithMany()
             .HasForeignKey(e => e.RelacionComercialId)
-            .HasConstraintName("FK_Venta_Cliente")
+            .HasConstraintName("FK_Venta_RelacionComercial")
             .IsRequired(false);
 
         builder.HasMany(e => e.Pagos)

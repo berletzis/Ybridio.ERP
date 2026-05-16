@@ -20,6 +20,7 @@ using Ybridio.WinUI.Services;
 using Ybridio.WinUI.Services.Windowing;
 using Ybridio.WinUI.Services.Workspace;
 using Ybridio.WinUI.ViewModels.Ventas;
+using Ybridio.WinUI.Helpers;
 using Ybridio.WinUI.Views.Detached;
 using CotizacionDto  = Ybridio.Application.DTOs.Ventas.CotizacionDto;
 using PedidoDto      = Ybridio.Application.DTOs.Ventas.PedidoDto;
@@ -82,11 +83,13 @@ public sealed partial class CotizacionDocumentoPage : Page
         // Reemplaza el DTO sintético mínimo (tipo=Empresa, sin email/teléfono) por la
         // entidad real con todos los datos correctos. Best-effort — no bloquea la UI.
         if (cotizacion?.RelacionComercialId is int relacionId)
-            _ = HidratarSelectorClienteAsync(relacionId);
+            HidratarSelectorClienteAsync(relacionId)
+                .FireAndForget(err => ViewModel.ErrorMessage = $"Hydration cliente: {err}");
 
         // Commercial Tax Pattern: carga la tasa IVA desde IConfiguracionFiscalService.
         // Fire-and-forget — el fallback (FiscalConstants.TasaIvaEstandar) está activo hasta que complete.
-        _ = ViewModel.CargarConfiguracionFiscalAsync();
+        ViewModel.CargarConfiguracionFiscalAsync()
+            .FireAndForget();
 
         _hidratandoUI = false;
     }
@@ -355,15 +358,6 @@ public sealed partial class CotizacionDocumentoPage : Page
     {
         if (!ViewModel.PuedeEnviar) return;
         ViewModel.SuccessMessage = "Cotización lista para envío. (PDF/correo disponible próximamente)";
-    }
-
-    /// <summary>
-    /// Aprobar — transición de workflow Borrador → Aprobada.
-    /// </summary>
-    private async void BtnAprobar_Click(object sender, RoutedEventArgs e)
-    {
-        if (!ViewModel.PuedeAprobar) { ViewModel.ErrorMessage = "Solo se puede aprobar una cotización en estado Borrador."; return; }
-        await ViewModel.CambiarEstatusCommand.ExecuteAsync(EstatusCotizacion.Aprobada);
     }
 
     private async void BtnCancelarCotizacion_Click(object sender, RoutedEventArgs e)

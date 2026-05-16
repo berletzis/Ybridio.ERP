@@ -3,6 +3,26 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
+# ── Secretos y configuración sensible — NUNCA subir al repositorio ──────────
+# appsettings con credenciales reales de BD, API keys, tokens
+appsettings.Development.json
+appsettings.Production.json
+appsettings.Staging.json
+appsettings.Local.json
+*.secrets.json
+secrets.json
+
+# Variables de entorno locales
+.env
+.env.local
+.env.development
+
+# Certificados y claves
+*.pfx
+*.p12
+*.key
+*.pem
+
 # User-specific files
 *.rsuser
 *.suo

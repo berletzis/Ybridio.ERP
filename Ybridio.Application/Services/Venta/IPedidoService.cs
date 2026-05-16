@@ -64,4 +64,27 @@ public interface IPedidoService
 
     /// <summary>Elimina un cargo accesorio del pedido y recalcula el Total. Valida pedido.editar.</summary>
     Task<ServiceResult> EliminarCargoAsync(long cargoId, Guid usuarioId, CancellationToken ct = default);
+
+    // ── Dimensión financiera — Anticipos ─────────────────────────────────────
+
+    /// <summary>
+    /// Registra un anticipo o pago parcial contra el pedido.
+    /// Actualiza <c>AnticipoPagado</c> y <c>EstadoFinanciero</c> del pedido.
+    /// Valida pedido.editar.
+    /// </summary>
+    Task<ServiceResult<AnticipoPedidoDto>> RegistrarAnticipoAsync(
+        long pedidoId, RegistrarAnticipoDto dto, Guid usuarioId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Devuelve el historial de anticipos de un pedido. Valida pedido.ver.
+    /// </summary>
+    Task<ServiceResult<IReadOnlyList<AnticipoPedidoDto>>> ListarAnticiposAsync(
+        long pedidoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Establece el monto mínimo de anticipo requerido para el pedido.
+    /// Null elimina el requisito. Valida pedido.editar.
+    /// </summary>
+    Task<ServiceResult> EstablecerAnticipoRequeridoAsync(
+        long pedidoId, decimal? monto, Guid usuarioId, CancellationToken ct = default);
 }

@@ -131,6 +131,13 @@ public sealed class CotizacionService : ICotizacionService
         if (c.Estatus is EstatusCotizacion.Cancelada or EstatusCotizacion.Convertida)
             return ServiceResult.Fail("No se puede modificar una cotización en estado terminal (Cancelada o Convertida).", ErrorCode.ValidationFailed);
 
+#pragma warning disable CS0618
+        // Aprobación: solo desde Borrador o Enviada (legacy). Bloquea re-aprobación.
+        if (nuevoEstatus is EstatusCotizacion.Aprobada &&
+            c.Estatus is not (EstatusCotizacion.Borrador or EstatusCotizacion.Enviada))
+            return ServiceResult.Fail("Solo se puede aprobar una cotización en estado Borrador.", ErrorCode.ValidationFailed);
+#pragma warning restore CS0618
+
         c.Estatus               = nuevoEstatus;
         c.FechaModificacion     = DateTime.UtcNow;
         c.UsuarioModificacionId = usuarioId;

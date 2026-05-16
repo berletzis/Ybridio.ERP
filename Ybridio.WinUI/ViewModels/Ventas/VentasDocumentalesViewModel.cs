@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.UI.Xaml;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -89,6 +90,9 @@ public sealed partial class VentasDocumentalesViewModel : BaseContextViewModel
 
     public ObservableCollection<VentaDocumentalResumenDto> Ventas { get; } = [];
 
+    /// <summary>Estado vacío: sin ventas y sin carga en curso.</summary>
+    public Visibility IsEmptyState => Ventas.Count == 0 && !IsBusy ? Visibility.Visible : Visibility.Collapsed;
+
     public VentasDocumentalesViewModel(
         IVentaDocumentalService          service,
         IErpAuthorizationService         auth,
@@ -101,7 +105,11 @@ public sealed partial class VentasDocumentalesViewModel : BaseContextViewModel
         _auth           = auth;
         _observability  = observability;
         _contextTracker = contextTracker;
+
+        Ventas.CollectionChanged += (_, _) => OnPropertyChanged(nameof(IsEmptyState));
     }
+
+    partial void OnIsBusyChanged(bool value) => OnPropertyChanged(nameof(IsEmptyState));
 
     protected override Task OnContextChangedAsync() => RefrescarAsync();
 

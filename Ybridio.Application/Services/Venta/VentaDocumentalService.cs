@@ -163,9 +163,25 @@ public sealed class VentaDocumentalService : IVentaDocumentalService
         if (pedido is null)
             return ServiceResult<VentaDocumentalDto>.Fail("Pedido no encontrado.", ErrorCode.NotFound);
 
+        // Guard por estado — Borrador: sin autorización → bloquear; Cancelado: terminal → bloquear.
+        // Finalizado: PERMITIDO — es el estado de cumplimiento operacional. La Venta es el documento comercial final.
+        if (pedido.Estatus is EstatusPedido.Borrador)
+            return ServiceResult<VentaDocumentalDto>.Fail(
+                "El pedido debe estar Autorizado antes de generar una venta.", ErrorCode.ValidationFailed);
+        if (pedido.Estatus is EstatusPedido.Cancelado)
+            return ServiceResult<VentaDocumentalDto>.Fail(
+                $"No se puede generar una venta desde un pedido en estado {pedido.Estatus}.", ErrorCode.ValidationFailed);
+
+        // Fix A-002 (Y26): SucursalId no debe asumir Sucursal 1 como fallback.
+        // Si el pedido no tiene sucursal asignada, se rechaza para evitar asignación incorrecta.
+        if (!pedido.SucursalId.HasValue)
+            return ServiceResult<VentaDocumentalDto>.Fail(
+                "El pedido no tiene sucursal asignada. Asigna una sucursal antes de generar la venta.",
+                ErrorCode.ValidationFailed);
+
         var dto = new CrearVentaDocumentalDto(
             EmpresaId:    pedido.EmpresaId,
-            SucursalId:   pedido.SucursalId ?? 1,
+            SucursalId:   pedido.SucursalId.Value,
             RelacionComercialId:    pedido.RelacionComercialId,
             NombreCliente: pedido.NombreCliente,
             TipoPago:     TipoPago.Contado,
@@ -175,7 +191,25 @@ public sealed class VentaDocumentalService : IVentaDocumentalService
             Detalles:     pedido.Detalles.Select(d => new CrearDetalleLineaDto(
                 d.ProductoId, d.Descripcion, d.Cantidad, d.PrecioUnitario)).ToList());
 
-        return await CrearAsync(dto, usuarioId, ct);
+        var result = await CrearAsync(dto, usuarioId, ct);
+
+        // Consumir anticipos: la venta nace con TotalPagado = AnticipoPagado del Pedido (ADR-065)
+        if (result.Success && pedido.AnticipoPagado > 0)
+        {
+            var venta = await _context.Ventas.FirstOrDefaultAsync(v => v.Id == result.Value!.Id, ct);
+            if (venta is not null)
+            {
+                venta.TotalPagado       = Math.Min(pedido.AnticipoPagado, venta.Total ?? 0);
+                venta.FechaModificacion = DateTime.UtcNow;
+                venta.UsuarioModificacionId = usuarioId;
+                await _context.SaveChangesAsync(ct);
+
+                var reloaded = await ObtenerConDetallesAsync(venta.Id, ct);
+                if (reloaded.Success) return reloaded;
+            }
+        }
+
+        return result;
     }
 
     /// <inheritdoc/>
@@ -228,6 +262,12 @@ public sealed class VentaDocumentalService : IVentaDocumentalService
             if (venta.Estatus != EstatusVenta.Borrador)
                 return ServiceResult<VentaDocumentalDto>.Fail(
                     "Solo se puede confirmar una venta en estado Borrador.", ErrorCode.ValidationFailed);
+
+            // Guard A-003 (Y26): no permitir confirmar una venta sin líneas de detalle
+            if (!venta.Detalles.Any(d => !d.Borrado))
+                return ServiceResult<VentaDocumentalDto>.Fail(
+                    "La venta no tiene líneas de detalle. Agrega al menos un producto antes de confirmar.",
+                    ErrorCode.ValidationFailed);
 
             // ── Descontar inventario por línea ──────────────────────────────────
             var tipoMov = ApplicationConstants.TipoMovimientoInventario.SalidaVenta;
@@ -390,8 +430,9 @@ public sealed class VentaDocumentalService : IVentaDocumentalService
     /// <inheritdoc/>
     public async Task<ServiceResult> CerrarAsync(long ventaId, Guid usuarioId, CancellationToken ct = default)
     {
-        if (!await _auth.PuedeAsync(PermisosClave.Venta.Confirmar, ct))
-            return ServiceResult.Fail("Sin permiso (venta.confirmar).", ErrorCode.Unauthorized);
+        // Fase 6 Y26: permiso granular venta.cerrar (antes reutilizaba venta.confirmar erróneamente)
+        if (!await _auth.PuedeAsync(PermisosClave.Venta.Cerrar, ct))
+            return ServiceResult.Fail("Sin permiso (venta.cerrar).", ErrorCode.Unauthorized);
 
         var venta = await _context.Ventas.FirstOrDefaultAsync(v => v.Id == ventaId, ct);
         if (venta is null) return ServiceResult.Fail("Venta no encontrada.", ErrorCode.NotFound);
