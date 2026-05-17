@@ -16,6 +16,17 @@ public interface IVentaDocumentalService
         DateTime?         hasta = null,
         CancellationToken ct    = default);
 
+    /// <summary>
+    /// Lista ventas documentales cerradas (<see cref="Ybridio.Domain.Ventas.EstatusVenta.Cerrada"/>) de la empresa.
+    /// Solo ventas finalizadas que pasaron por el flujo completo COT→PED→VTA.
+    /// Valida venta.ver.
+    /// </summary>
+    Task<ServiceResult<IReadOnlyList<VentaDocumentalResumenDto>>> ListarCerradasAsync(
+        int               empresaId,
+        DateTime?         desde = null,
+        DateTime?         hasta = null,
+        CancellationToken ct    = default);
+
     /// <summary>Obtiene una venta con detalles y pagos. Valida venta.ver.</summary>
     Task<ServiceResult<VentaDocumentalDto>> ObtenerConDetallesAsync(long ventaId, CancellationToken ct = default);
 

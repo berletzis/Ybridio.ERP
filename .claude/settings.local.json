@@ -14,7 +14,9 @@
       "PowerShell(Invoke-Sqlcmd *)",
       "PowerShell(sqlcmd *)",
       "PowerShell(Get-ChildItem \"D:\\\\Users\\\\berletzis\\\\Source\\\\Repos\\\\Ybridio.ERP\\\\Documentation\\\\y26-Auditoria\\\\\" | Select-Object Name, @{N='KB';E={[math]::Round\\($_.Length/1024,1\\)}})",
-      "PowerShell(Get-ChildItem \"D:\\\\Users\\\\berletzis\\\\Source\\\\Repos\\\\Ybridio.ERP\\\\Documentation\\\\y26-Auditoria\" | ForEach-Object { \"$\\($_.Name\\) — $\\([math]::Round\\($_.Length/1024,1\\)\\) KB\" })"
+      "PowerShell(Get-ChildItem \"D:\\\\Users\\\\berletzis\\\\Source\\\\Repos\\\\Ybridio.ERP\\\\Documentation\\\\y26-Auditoria\" | ForEach-Object { \"$\\($_.Name\\) — $\\([math]::Round\\($_.Length/1024,1\\)\\) KB\" })",
+      "PowerShell(Set-ExecutionPolicy *)",
+      "PowerShell(cd D:\\\\Users\\\\berletzis\\\\Source\\\\Repos\\\\Ybridio.ERP && powershell -ExecutionPolicy Bypass -File scripts/Fix-SucursalAlmacenPrincipal.ps1)"
     ]
   }
 }

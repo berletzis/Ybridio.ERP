@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
@@ -107,8 +108,11 @@ public sealed partial class VentaDocumentoViewModel : ObservableObject
     /// <summary>ID de empresa del contexto de sesión, expuesto para binding en el selector control.</summary>
     public int EmpresaId => _session.EmpresaId;
 
-    /// <summary>Almacén por defecto (PYME: 1). La Page puede sobreescribir antes de confirmar.</summary>
-    public int AlmacenIdConfirmacion { get; set; } = 1;
+    /// <summary>
+    /// AlmacenId para confirmar. 0 = resolver automáticamente el principal de la sucursal (recomendado).
+    /// Solo sobreescribir si el usuario selecciona explícitamente un almacén diferente.
+    /// </summary>
+    public int AlmacenIdConfirmacion { get; set; } = 0;
 
     /// <summary>
     /// Selecciona una entidad del Directorio desde el selector institucional (ADR-038).
@@ -154,6 +158,12 @@ public sealed partial class VentaDocumentoViewModel : ObservableObject
         _session        = session;
         _contextTracker = contextTracker;
         Detalles.CollectionChanged += (_, _) => RecalcularTotales();
+        Pagos.CollectionChanged    += (_, _) =>
+        {
+            OnPropertyChanged(nameof(TotalAnticipos));
+            OnPropertyChanged(nameof(TieneAnticipos));
+            OnPropertyChanged(nameof(PagosAnticipos));
+        };
     }
 
     // ── Inicialización ─────────────────────────────────────────────────────────
@@ -362,6 +372,53 @@ public sealed partial class VentaDocumentoViewModel : ObservableObject
     /// <summary>True cuando la venta tiene un pedido origen navegable.</summary>
     public bool TienePedidoOrigen => _documento?.PedidoId.HasValue == true;
 
+    /// <summary>Folio del pedido origen formateado como "PED-{id}". Null si no hay pedido origen.</summary>
+    public string? PedidoOrigenFolio => _documento?.PedidoId is {} id ? $"PED-{id}" : null;
+
+    /// <summary>Ventas documentales no implementan descuentos por línea. Siempre falso.</summary>
+    public bool TieneDescuentoGlobal => false;
+
+    /// <summary>Ventas documentales no implementan descuentos por línea. Siempre cero.</summary>
+    public decimal DescuentoTotalCalculado => 0m;
+
+    /// <summary>Suma de pagos catalogados como anticipos (FormaPago contiene "Anticipo").</summary>
+    public decimal TotalAnticipos => Pagos
+        .Where(p => p.FormaPago.Contains("Anticipo", StringComparison.OrdinalIgnoreCase))
+        .Sum(p => p.Monto);
+
+    /// <summary>True cuando hay al menos un pago categorizado como anticipo.</summary>
+    public bool TieneAnticipos => TotalAnticipos > 0;
+
+    /// <summary>Lista filtrada de pagos catalogados como anticipos. Usada por Bloque F del Document Surface.</summary>
+    public IReadOnlyList<PagoVentaDto> PagosAnticipos =>
+        Pagos.Where(p => p.FormaPago.Contains("Anticipo", StringComparison.OrdinalIgnoreCase))
+             .ToList();
+
+    /// <summary>Número de líneas de detalle en el documento.</summary>
+    public int TotalLineas => Detalles.Count;
+
+    /// <summary>Suma de cantidades de todas las líneas de detalle.</summary>
+    public int TotalArticulos => (int)Detalles.Sum(d => d.Cantidad);
+
+    // ── Inicialización avanzada ────────────────────────────────────────────────
+
+    /// <summary>
+    /// Carga una venta existente por Id directamente desde el servicio.
+    /// Usado cuando el Document Surface se abre desde el grid (ADR-032).
+    /// </summary>
+    /// <param name="ventaId">Id de la venta a cargar.</param>
+    public async Task CargarVentaExistenteAsync(long ventaId, CancellationToken ct = default)
+    {
+        IsBusy = true; ErrorMessage = string.Empty;
+        try
+        {
+            var r = await _service.ObtenerConDetallesAsync(ventaId, ct);
+            if (!r.Success) { ErrorMessage = r.Error ?? "No se pudo cargar la venta."; return; }
+            Initialize(r.Value);
+        }
+        finally { IsBusy = false; }
+    }
+
     // ── Helpers ────────────────────────────────────────────────────────────────
 
     private void RecalcularTotales()
@@ -385,5 +442,14 @@ public sealed partial class VentaDocumentoViewModel : ObservableObject
         OnPropertyChanged(nameof(SaldoPendiente));
         ConfirmarCommand.NotifyCanExecuteChanged();
         EliminarDetalleCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(TienePedidoOrigen));
+        OnPropertyChanged(nameof(PedidoOrigenFolio));
+        OnPropertyChanged(nameof(TieneDescuentoGlobal));
+        OnPropertyChanged(nameof(DescuentoTotalCalculado));
+        OnPropertyChanged(nameof(TotalAnticipos));
+        OnPropertyChanged(nameof(TieneAnticipos));
+        OnPropertyChanged(nameof(PagosAnticipos));
+        OnPropertyChanged(nameof(TotalLineas));
+        OnPropertyChanged(nameof(TotalArticulos));
     }
 }

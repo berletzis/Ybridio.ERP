@@ -12,6 +12,7 @@ using Ybridio.Application.Services.Venta;
 using Ybridio.WinUI.Services;
 using Ybridio.WinUI.Services.Diagnostic;
 using Ybridio.WinUI.ViewModels;
+using Ybridio.WinUI.Views.Ventas;
 
 namespace Ybridio.WinUI.ViewModels.Ventas;
 
@@ -28,7 +29,15 @@ public sealed partial class VentasDocumentalesViewModel : BaseContextViewModel
     [ObservableProperty] private string                       _successMessage = string.Empty;
     [ObservableProperty] private string                       _busqueda       = string.Empty;
     [ObservableProperty] private string                       _filtroTemporal = "30 dias";
-    [ObservableProperty] private VentaDocumentalResumenDto?   _ventaSeleccionada;
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AbrirDetalleCommand))]
+    private VentaDocumentalResumenDto? _ventaSeleccionada;
+
+    /// <summary>Suma de Total de todas las ventas cerradas visibles en el grid.</summary>
+    [ObservableProperty] private decimal _totalAcumulado;
+
+    /// <summary>Cantidad de documentos visibles en el grid (proxy de registros, pues ResumenDto no expone líneas).</summary>
+    [ObservableProperty] private int _totalProductosDistintos;
 
     // ── Document Surface UX Pattern (ADR-025 + ADR-030 + ADR-031) ────────────
     private bool    _isDocumentSurfaceVisible;
@@ -56,6 +65,46 @@ public sealed partial class VentasDocumentalesViewModel : BaseContextViewModel
         set => SetProperty(ref _isDocumentSurfaceDetached, value);
     }
 
+    /// <summary>Guard para AbrirDetalleCommand: requiere una venta seleccionada en el grid.</summary>
+    public bool HaySeleccion => VentaSeleccionada is not null;
+
+    private long? _currentSurfaceVentaId;
+
+    /// <summary>
+    /// Abre el Document Surface inline con la venta seleccionada en modo lectura completo.
+    /// Aplica Single Document Session Rule (ADR): no reabre si el mismo documento ya está activo.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(HaySeleccion))]
+    private async Task AbrirDetalleAsync(CancellationToken ct = default)
+    {
+        if (VentaSeleccionada is null) return;
+
+        // Single Document Session Rule — no reabrir el mismo documento
+        if (IsDocumentSurfaceVisible && _currentSurfaceVentaId == VentaSeleccionada.Id) return;
+
+        IsBusy = true; ErrorMessage = string.Empty;
+        try
+        {
+            var r = await _service.ObtenerConDetallesAsync(VentaSeleccionada.Id, ct);
+            if (!r.Success)
+            {
+                ErrorMessage = r.Error ?? "No se pudo cargar la venta.";
+                return;
+            }
+
+            var page = new VentaDocumentoPage(r.Value);
+            page.OnCerrar = async () => await CerrarDocumentSurfaceAsync();
+
+            _currentSurfaceVentaId = VentaSeleccionada.Id;
+            AbrirDocumentoVenta(page);
+        }
+        catch (TaskCanceledException)
+        {
+            // ADR-026: expected during navigation/lifecycle transitions.
+        }
+        finally { IsBusy = false; }
+    }
+
     /// <summary>Abre el Document Surface con una página de Venta.</summary>
     public void AbrirDocumentoVenta(object page)
     {
@@ -70,6 +119,7 @@ public sealed partial class VentasDocumentalesViewModel : BaseContextViewModel
         IsDocumentSurfaceVisible  = false;
         IsDocumentSurfaceDetached = false;
         DocumentSurfaceContent    = null;
+        _currentSurfaceVentaId    = null;
         try
         {
             await RefrescarCommand.ExecuteAsync(null);
@@ -106,7 +156,11 @@ public sealed partial class VentasDocumentalesViewModel : BaseContextViewModel
         _observability  = observability;
         _contextTracker = contextTracker;
 
-        Ventas.CollectionChanged += (_, _) => OnPropertyChanged(nameof(IsEmptyState));
+        Ventas.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(IsEmptyState));
+            ActualizarCalculados();
+        };
     }
 
     partial void OnIsBusyChanged(bool value) => OnPropertyChanged(nameof(IsEmptyState));
@@ -131,7 +185,7 @@ public sealed partial class VentasDocumentalesViewModel : BaseContextViewModel
                 _         => 30,
             };
             var desde = DateTime.Today.AddDays(-dias);
-            var r = await _service.ListarAsync(Session.EmpresaId, desde, null, ct);
+            var r = await _service.ListarCerradasAsync(Session.EmpresaId, desde, null, ct);
             Ventas.Clear();
             if (!r.Success) { ErrorMessage = r.Error ?? "Error al cargar."; return; }
             var filtradas = string.IsNullOrWhiteSpace(Busqueda)
@@ -152,11 +206,17 @@ public sealed partial class VentasDocumentalesViewModel : BaseContextViewModel
         finally { IsBusy = false; }
     }
 
+    private void ActualizarCalculados()
+    {
+        TotalAcumulado          = Ventas.Sum(v => v.Total);
+        TotalProductosDistintos = Ventas.Count;
+    }
+
     private void ReportarContexto()
     {
         _contextTracker.SetViewModelContext(new CurrentOperationalContext(
             Module:          "Ventas",
-            SubModule:       "Ventas",
+            SubModule:       "Ventas Cerradas",
             ViewModel:       nameof(VentasDocumentalesViewModel),
             Entity:          "Venta",
             RecordCount:     Ventas.Count,

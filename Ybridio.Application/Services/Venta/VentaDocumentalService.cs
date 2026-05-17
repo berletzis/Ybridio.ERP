@@ -5,6 +5,7 @@ using Ybridio.Application.DTOs.Ventas;
 using Ybridio.Application.Services.Autorizacion;
 using Ybridio.Application.Services.Finanzas;
 using Ybridio.Application.Services.Folios;
+using Ybridio.Application.Services.Inventario;
 using Ybridio.Domain.Catalogos;
 using Ybridio.Domain.Ventas;
 using Ybridio.Infrastructure.Persistence;
@@ -24,6 +25,7 @@ public sealed class VentaDocumentalService : IVentaDocumentalService
     private readonly IErpAuthorizationService _auth;
     private readonly ICxCService              _cxcService;
     private readonly IFolioGeneratorService   _folioGenerator;
+    private readonly IAlmacenService          _almacenService;
     private readonly ILogger<VentaDocumentalService> _logger;
 
     public VentaDocumentalService(
@@ -31,12 +33,14 @@ public sealed class VentaDocumentalService : IVentaDocumentalService
         IErpAuthorizationService auth,
         ICxCService              cxcService,
         IFolioGeneratorService   folioGenerator,
+        IAlmacenService          almacenService,
         ILogger<VentaDocumentalService> logger)
     {
         _context        = context;
         _auth           = auth;
         _cxcService     = cxcService;
         _folioGenerator = folioGenerator;
+        _almacenService = almacenService;
         _logger         = logger;
     }
 
@@ -61,6 +65,35 @@ public sealed class VentaDocumentalService : IVentaDocumentalService
 
         var query = _context.Ventas.AsNoTracking()
             .Where(v => v.EmpresaId == empresaId && v.NombreCliente != null); // solo documentales
+
+        if (desde.HasValue) query = query.Where(v => v.Fecha >= desde.Value);
+        if (hasta.HasValue) query = query.Where(v => v.Fecha <= hasta.Value);
+
+        var lista = await query.OrderByDescending(v => v.Fecha).ThenByDescending(v => v.Id).ToListAsync(ct);
+        return ServiceResult<IReadOnlyList<VentaDocumentalResumenDto>>.Ok(lista.Select(MapToResumen).ToList());
+    }
+
+    /// <inheritdoc/>
+    public async Task<ServiceResult<IReadOnlyList<VentaDocumentalResumenDto>>> ListarCerradasAsync(
+        int empresaId, DateTime? desde = null, DateTime? hasta = null, CancellationToken ct = default)
+    {
+        if (ct.IsCancellationRequested)
+            return ServiceResult<IReadOnlyList<VentaDocumentalResumenDto>>.Ok(
+                Array.Empty<VentaDocumentalResumenDto>());
+
+        // ADR-026 — Strategy A: authorization check uses CancellationToken.None.
+        if (!await _auth.PuedeAsync(PermisosClave.Venta.Ver, CancellationToken.None))
+            return ServiceResult<IReadOnlyList<VentaDocumentalResumenDto>>.Fail(
+                "Sin permiso (venta.ver).", ErrorCode.Unauthorized);
+
+        if (ct.IsCancellationRequested)
+            return ServiceResult<IReadOnlyList<VentaDocumentalResumenDto>>.Ok(
+                Array.Empty<VentaDocumentalResumenDto>());
+
+        var query = _context.Ventas.AsNoTracking()
+            .Where(v => v.EmpresaId == empresaId
+                     && v.NombreCliente != null
+                     && v.Estatus == EstatusVenta.Cerrada);
 
         if (desde.HasValue) query = query.Where(v => v.Fecha >= desde.Value);
         if (hasta.HasValue) query = query.Where(v => v.Fecha <= hasta.Value);
@@ -269,6 +302,25 @@ public sealed class VentaDocumentalService : IVentaDocumentalService
                     "La venta no tiene líneas de detalle. Agrega al menos un producto antes de confirmar.",
                     ErrorCode.ValidationFailed);
 
+            // ── Resolver almacén principal de la sucursal ───────────────────────
+            // almacenId=0 significa "resolver automáticamente el principal de la sucursal".
+            // Esto elimina el hardcode AlmacenIdConfirmacion=1 del ViewModel (ADR-fix).
+            var almacenIdFinal = almacenId;
+            if (almacenIdFinal <= 0)
+            {
+                if (venta.SucursalId <= 0)
+                    return ServiceResult<VentaDocumentalDto>.Fail(
+                        "No se pudo determinar el almacén. La venta no tiene sucursal asignada.",
+                        ErrorCode.ValidationFailed);
+
+                var almacenResult = await _almacenService
+                    .ObtenerPrincipalDeSucursalAsync(venta.SucursalId, ct);
+                if (!almacenResult.Success)
+                    return ServiceResult<VentaDocumentalDto>.Fail(
+                        almacenResult.Error!, ErrorCode.NotFound);
+                almacenIdFinal = almacenResult.Value!.Id;
+            }
+
             // ── Descontar inventario por línea ──────────────────────────────────
             var tipoMov = ApplicationConstants.TipoMovimientoInventario.SalidaVenta;
             var ahora   = DateTime.UtcNow;
@@ -277,11 +329,11 @@ public sealed class VentaDocumentalService : IVentaDocumentalService
             {
                 var existencia = await _context.Existencias
                     .FirstOrDefaultAsync(e => e.ProductoId == det.ProductoId
-                                           && e.AlmacenId  == almacenId, ct);
+                                           && e.AlmacenId  == almacenIdFinal, ct);
                 if (existencia is null)
                 {
                     _logger.LogWarning("Producto {ProductoId} sin existencia en almacén {AlmacenId}. Continuando.",
-                        det.ProductoId, almacenId);
+                        det.ProductoId, almacenIdFinal);
                 }
                 else
                 {
@@ -292,7 +344,7 @@ public sealed class VentaDocumentalService : IVentaDocumentalService
                 {
                     EmpresaId        = venta.EmpresaId,
                     ProductoId       = det.ProductoId,
-                    AlmacenId        = almacenId,
+                    AlmacenId        = almacenIdFinal,
                     TipoMovimientoId = tipoMov,
                     Cantidad         = -det.Cantidad,
                     CostoUnitario    = det.Precio ?? 0m,
@@ -303,7 +355,7 @@ public sealed class VentaDocumentalService : IVentaDocumentalService
                     UsuarioCreacionId = usuarioId,
                 });
 
-                det.AlmacenId = almacenId;
+                det.AlmacenId = almacenIdFinal;
             }
 
             venta.Estatus = EstatusVenta.PendientePago;

@@ -140,7 +140,7 @@ public sealed partial class ConfiguracionPage : Page
         else if (tab == TabTiendaPromociones)
             LoadPlaceholder(ref _promocionesLoaded, FramePromociones, "Promociones y Descuentos");
         else if (tab == TabTiendaAlmacenes)
-            LoadPlaceholder(ref _almacenesLoaded, FrameAlmacenes, "Asignación de Almacenes");
+            LoadFrame(ref _almacenesLoaded, FrameAlmacenes, typeof(AlmacenesTiendaPage));
         else if (tab == TabTiendaPermisos)
             LoadPlaceholder(ref _permisosLoaded, FramePermisos, "Permisos Especiales");
         else if (tab == TabTiendaFacturacion)

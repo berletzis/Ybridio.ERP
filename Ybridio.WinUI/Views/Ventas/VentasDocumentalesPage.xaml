@@ -7,11 +7,13 @@
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
     <Page.Resources>
-        <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
-        <converters:BoolToVisibilityConverter        x:Key="BoolToVisibilityConverter"/>
-        <converters:EstatusVentaToBgBrushConverter   x:Key="EstatusBgConverter"/>
-        <converters:EstatusVentaToFgBrushConverter   x:Key="EstatusFgConverter"/>
-        <converters:DecimalToCurrencyConverter        x:Key="CurrencyConverter"/>
+        <converters:InverseBoolToVisibilityConverter  x:Key="InverseBoolToVisibilityConverter"/>
+        <converters:BoolToVisibilityConverter         x:Key="BoolToVisibilityConverter"/>
+        <converters:EstatusVentaToBgBrushConverter    x:Key="EstatusBgConverter"/>
+        <converters:EstatusVentaToFgBrushConverter    x:Key="EstatusFgConverter"/>
+        <converters:DecimalToCurrencyConverter         x:Key="CurrencyConverter"/>
+        <converters:OperationalDateConverter           x:Key="OperationalDateConverter"/>
+        <converters:NullableLongWithPrefixConverter   x:Key="PedidoIdConverter"/>
     </Page.Resources>
 
     <Grid>
@@ -27,8 +29,8 @@
             <AppBarButton Label="Nueva Venta" Click="BtnNuevo_Click">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE710;"/></AppBarButton.Icon>
             </AppBarButton>
-            <AppBarButton Label="Abrir" Click="BtnAbrir_Click">
-                <AppBarButton.Icon><FontIcon Glyph="&#xE8A7;"/></AppBarButton.Icon>
+            <AppBarButton Label="Ver Detalle" Click="BtnAbrir_Click">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE8A9;"/></AppBarButton.Icon>
             </AppBarButton>
             <AppBarSeparator/>
             <AppBarButton Label="Actualizar" Command="{x:Bind ViewModel.RefrescarCommand}">
@@ -80,19 +82,31 @@
                         <Grid Padding="{StaticResource OgHeaderPadding}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="{StaticResource OgColGutter}"/>
-                                <ColumnDefinition Width="{StaticResource OgColCompact}"/>
+                                <!-- Folio — 130 px (OgColDate) -->
                                 <ColumnDefinition Width="{StaticResource OgColDate}"/>
+                                <!-- Cliente — PRIMARY EXPANDABLE -->
                                 <ColumnDefinition Width="*"/>
+                                <!-- Fecha — 130 px -->
+                                <ColumnDefinition Width="{StaticResource OgColDate}"/>
+                                <!-- Tipo Pago — COMPACT SEMANTIC -->
+                                <ColumnDefinition Width="{StaticResource OgColCompact}"/>
+                                <!-- Total — FINANCIAL COMPACT -->
                                 <ColumnDefinition Width="{StaticResource OgColFinancial}"/>
+                                <!-- Pagado — FINANCIAL COMPACT -->
                                 <ColumnDefinition Width="{StaticResource OgColFinancial}"/>
+                                <!-- Estatus — badge -->
                                 <ColumnDefinition Width="{StaticResource OgColStatus}"/>
+                                <!-- Pedido Origen — COMPACT SEMANTIC -->
+                                <ColumnDefinition Width="{StaticResource OgColCompact}"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="1" Text="Folio"   Style="{StaticResource OgHeaderTextStyle}"/>
-                            <TextBlock Grid.Column="2" Text="Fecha"   Style="{StaticResource OgHeaderTextStyle}"/>
-                            <TextBlock Grid.Column="3" Text="Cliente" Style="{StaticResource OgHeaderTextStyle}"/>
-                            <TextBlock Grid.Column="4" Text="Total"   Style="{StaticResource OgHeaderNumericTextStyle}"/>
-                            <TextBlock Grid.Column="5" Text="Saldo"   Style="{StaticResource OgHeaderNumericTextStyle}"/>
-                            <TextBlock Grid.Column="6" Text="Estatus" Style="{StaticResource OgHeaderCenteredTextStyle}"/>
+                            <TextBlock Grid.Column="1" Text="Folio"      Style="{StaticResource OgHeaderTextStyle}"/>
+                            <TextBlock Grid.Column="2" Text="Cliente"    Style="{StaticResource OgHeaderTextStyle}"/>
+                            <TextBlock Grid.Column="3" Text="Fecha"      Style="{StaticResource OgHeaderTextStyle}"/>
+                            <TextBlock Grid.Column="4" Text="Tipo Pago"  Style="{StaticResource OgHeaderTextStyle}"/>
+                            <TextBlock Grid.Column="5" Text="Total"      Style="{StaticResource OgHeaderNumericTextStyle}"/>
+                            <TextBlock Grid.Column="6" Text="Pagado"     Style="{StaticResource OgHeaderNumericTextStyle}"/>
+                            <TextBlock Grid.Column="7" Text="Estatus"    Style="{StaticResource OgHeaderCenteredTextStyle}"/>
+                            <TextBlock Grid.Column="8" Text="Pedido"     Style="{StaticResource OgHeaderTextStyle}"/>
                         </Grid>
                     </Border>
 
@@ -107,41 +121,48 @@
                                 <Grid MinHeight="{StaticResource OgRowHeight}">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="{StaticResource OgColGutter}"/>
-                                        <ColumnDefinition Width="{StaticResource OgColCompact}"/>
                                         <ColumnDefinition Width="{StaticResource OgColDate}"/>
                                         <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="{StaticResource OgColDate}"/>
+                                        <ColumnDefinition Width="{StaticResource OgColCompact}"/>
                                         <ColumnDefinition Width="{StaticResource OgColFinancial}"/>
                                         <ColumnDefinition Width="{StaticResource OgColFinancial}"/>
                                         <ColumnDefinition Width="{StaticResource OgColStatus}"/>
+                                        <ColumnDefinition Width="{StaticResource OgColCompact}"/>
                                     </Grid.ColumnDefinitions>
 
-                                    <!-- Folio — COMPACT SEMANTIC -->
+                                    <!-- Folio -->
                                     <TextBlock Grid.Column="1"
                                                Text="{x:Bind Folio}"
                                                Style="{StaticResource OgCellIdStyle}"/>
 
-                                    <!-- Fecha -->
-                                    <TextBlock Grid.Column="2"
-                                               Text="{x:Bind Fecha}"
-                                               Style="{StaticResource OgCellSecondaryStyle}"/>
-
                                     <!-- Cliente — PRIMARY EXPANDABLE -->
-                                    <TextBlock Grid.Column="3"
+                                    <TextBlock Grid.Column="2"
                                                Text="{x:Bind NombreCliente}"
                                                Style="{StaticResource OgCellPrimaryStyle}"/>
 
-                                    <!-- Total — FINANCIAL COMPACT -->
+                                    <!-- Fecha — OperationalDateConverter -->
+                                    <TextBlock Grid.Column="3"
+                                               Text="{x:Bind Fecha, Converter={StaticResource OperationalDateConverter}, Mode=OneTime}"
+                                               Style="{StaticResource OgCellSecondaryStyle}"/>
+
+                                    <!-- Tipo Pago -->
                                     <TextBlock Grid.Column="4"
+                                               Text="{x:Bind TipoPago}"
+                                               Style="{StaticResource OgCellSecondaryStyle}"/>
+
+                                    <!-- Total — FINANCIAL COMPACT -->
+                                    <TextBlock Grid.Column="5"
                                                Text="{x:Bind Total, Converter={StaticResource CurrencyConverter}, Mode=OneTime}"
                                                Style="{StaticResource OgCurrencyTextStyle}"/>
 
-                                    <!-- Saldo — FINANCIAL COMPACT -->
-                                    <TextBlock Grid.Column="5"
-                                               Text="{x:Bind SaldoPendiente, Converter={StaticResource CurrencyConverter}, Mode=OneTime}"
+                                    <!-- Pagado — FINANCIAL COMPACT -->
+                                    <TextBlock Grid.Column="6"
+                                               Text="{x:Bind TotalPagado, Converter={StaticResource CurrencyConverter}, Mode=OneTime}"
                                                Style="{StaticResource OgCurrencyTextStyle}"/>
 
-                                    <!-- Estatus — badge semántico OgStatus* -->
-                                    <Border Grid.Column="6"
+                                    <!-- Estatus — badge semántico -->
+                                    <Border Grid.Column="7"
                                             CornerRadius="4"
                                             Padding="8,2"
                                             VerticalAlignment="Center"
@@ -151,6 +172,11 @@
                                                    Style="{StaticResource OgStatusBadgeTextStyle}"
                                                    Foreground="{x:Bind Estatus, Converter={StaticResource EstatusFgConverter}, Mode=OneTime}"/>
                                     </Border>
+
+                                    <!-- Pedido Origen — "PED-{id}" o "—" si null -->
+                                    <TextBlock Grid.Column="8"
+                                               Text="{x:Bind PedidoId, Converter={StaticResource PedidoIdConverter}, ConverterParameter=PED-, Mode=OneTime}"
+                                               Style="{StaticResource OgCellSecondaryStyle}"/>
                                 </Grid>
                             </DataTemplate>
                         </ListView.ItemTemplate>
@@ -175,20 +201,38 @@
                                            Converter={StaticResource BoolToVisibilityConverter}}"/>
         </Grid>
 
-        <!-- ── Status bar — se oculta cuando Document Surface activo (ADR-031) ── -->
+        <!-- ── Status bar — se oculta cuando Document Surface activo (ADR-031 + ADR-034 + ADR-041) ── -->
         <Border Grid.Row="3"
                 Style="{StaticResource OgStatusBarStyle}"
                 Margin="{StaticResource ErpStatusRegionMargin}"
                 Visibility="{x:Bind ViewModel.IsDocumentSurfaceVisible, Mode=OneWay,
                              Converter={StaticResource InverseBoolToVisibilityConverter}}">
-            <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
-                <TextBlock Style="{StaticResource OgStatusCountStyle}">
-                    <Run Text="{x:Bind ViewModel.Ventas.Count, Mode=OneWay}"/>
-                    <Run Text="venta(s)"/>
-                </TextBlock>
-                <TextBlock Style="{StaticResource OgStatusErrorStyle}"   Text="{x:Bind ViewModel.ErrorMessage,   Mode=OneWay}"/>
-                <TextBlock Style="{StaticResource OgStatusSuccessStyle}" Text="{x:Bind ViewModel.SuccessMessage, Mode=OneWay}"/>
-            </StackPanel>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <!-- Izquierda: conteos operacionales -->
+                <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                    <TextBlock Style="{StaticResource OgStatusCountStyle}">
+                        <Run Text="{x:Bind ViewModel.Ventas.Count, Mode=OneWay}"/>
+                        <Run Text="venta(s) cerrada(s)"/>
+                    </TextBlock>
+                    <TextBlock Style="{StaticResource OgStatusErrorStyle}"
+                               Text="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"/>
+                    <TextBlock Style="{StaticResource OgStatusSuccessStyle}"
+                               Text="{x:Bind ViewModel.SuccessMessage, Mode=OneWay}"/>
+                </StackPanel>
+                <!-- Derecha: totales financieros -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Style="{StaticResource OgStatusPaginationStyle}" Text="Total acumulado:"/>
+                        <TextBlock Style="{StaticResource OgStatusSummaryStyle}"
+                                   Text="{x:Bind ViewModel.TotalAcumulado, Mode=OneWay,
+                                          Converter={StaticResource CurrencyConverter}}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
         </Border>
     </Grid>
 </Page>
