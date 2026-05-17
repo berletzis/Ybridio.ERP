@@ -1,9 +1,11 @@
 using System;
+using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
+using Ybridio.Application.DTOs.Ventas;
 using Ybridio.Application.Services.Venta;
 using Ybridio.WinUI.Services.Diagnostic;
 using Ybridio.WinUI.ViewModels.Ventas;
@@ -20,6 +22,12 @@ public sealed partial class VentasDocumentalesPage
 
     public VentasDocumentalesViewModel ViewModel { get; }
 
+    /// <summary>
+    /// Instancia activa de VentasDocumentalesPage (navegada). Null si el usuario no está en este sub-módulo.
+    /// Usado por workflows externos (ej. PedidoDocumentoPage) para abrir una venta inline sin workspace tab (ADR-031).
+    /// </summary>
+    public static VentasDocumentalesPage? Current { get; private set; }
+
     public VentasDocumentalesPage()
     {
         ViewModel     = App.Services.GetRequiredService<VentasDocumentalesViewModel>();
@@ -30,6 +38,7 @@ public sealed partial class VentasDocumentalesPage
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
+        Current = this;
         try
         {
             await ViewModel.RefrescarCommand.ExecuteAsync(null);
@@ -43,7 +52,24 @@ public sealed partial class VentasDocumentalesPage
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         base.OnNavigatedFrom(e);
+        if (Current == this) Current = null;
         ViewModel.DetachFromContext();
+    }
+
+    /// <summary>
+    /// Abre una venta existente como Document Surface inline.
+    /// Invocado desde workflows externos (ej. PedidoDocumentoPage tras generar venta — ADR-031).
+    /// </summary>
+    public Task AbrirVentaDesdeWorkflowAsync(VentaDocumentalDto venta)
+    {
+        var page = new VentaDocumentoPage(venta);
+        page.OnCerrar = async () =>
+        {
+            try { await ViewModel.CerrarDocumentSurfaceAsync(); }
+            catch (OperationCanceledException) { }
+        };
+        ViewModel.AbrirDocumentoVenta(page);
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>

@@ -43,12 +43,23 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <AutoSuggestBox Grid.Column="0" PlaceholderText="Buscar por cliente o estado..."
+            <AutoSuggestBox Grid.Column="0" PlaceholderText="Buscar por cliente, folio o estado..."
                             QueryIcon="Find" Text="{x:Bind ViewModel.Busqueda, Mode=TwoWay}"
                             QuerySubmitted="Busqueda_QuerySubmitted"
                             VerticalAlignment="Center"/>
-            <ComboBox Grid.Column="1" MinWidth="130" VerticalAlignment="Center"
+            <ComboBox Grid.Column="1" MinWidth="150" VerticalAlignment="Center"
+                      SelectedItem="{x:Bind ViewModel.FiltroEstatus, Mode=TwoWay}"
+                      ToolTipService.ToolTip="Filtrar por estado">
+                <x:String>Todas</x:String>
+                <x:String>Borrador</x:String>
+                <x:String>Pendiente Pago</x:String>
+                <x:String>Pagada</x:String>
+                <x:String>Cerrada</x:String>
+                <x:String>Cancelada</x:String>
+            </ComboBox>
+            <ComboBox Grid.Column="2" MinWidth="130" VerticalAlignment="Center"
                       SelectedItem="{x:Bind ViewModel.FiltroTemporal, Mode=TwoWay}"
                       SelectionChanged="FiltroTemporal_SelectionChanged">
                 <x:String>7 dias</x:String>
@@ -216,7 +227,7 @@
                 <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
                     <TextBlock Style="{StaticResource OgStatusCountStyle}">
                         <Run Text="{x:Bind ViewModel.Ventas.Count, Mode=OneWay}"/>
-                        <Run Text="venta(s) cerrada(s)"/>
+                        <Run Text="venta(s)"/>
                     </TextBlock>
                     <TextBlock Style="{StaticResource OgStatusErrorStyle}"
                                Text="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"/>

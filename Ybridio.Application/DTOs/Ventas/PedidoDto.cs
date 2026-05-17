@@ -53,7 +53,11 @@ public sealed record PedidoDto(
     EstadoFinancieroPedido         EstadoFinanciero  = EstadoFinancieroPedido.SinPago,
     string                         EstadoFinancieroTexto = "Sin Pago",
     /// <summary>Historial de anticipos registrados contra este pedido.</summary>
-    IReadOnlyList<AnticipoPedidoDto>? Anticipos = null);
+    IReadOnlyList<AnticipoPedidoDto>? Anticipos = null,
+    /// <summary>True si ya existe al menos una venta generada desde este pedido.</summary>
+    bool    TieneVentaGenerada = false,
+    /// <summary>Folio de la venta generada (ej: "VTA-000007") o "#id" si no tiene folio. Null si no hay venta.</summary>
+    string? VentaGeneradaFolio = null);
 
 /// <summary>DTO de lectura de un anticipo registrado contra un pedido.</summary>
 public sealed record AnticipoPedidoDto(

@@ -18,6 +18,7 @@
         <conv:InverseBoolToVisibilityConverter              x:Key="InverseBoolToVisibility"/>
         <conv:OperationalDateConverter                      x:Key="OperationalDateConverter"/>
         <conv:BoolToSiNoConverter                           x:Key="BoolToSiNo"/>
+        <conv:DecimalFormatConverter                        x:Key="DecimalFormatConverter"/>
     </Page.Resources>
 
     <!--
@@ -120,6 +121,7 @@
                     <RowDefinition Height="Auto"/>  <!-- Otros Cargos -->
                     <RowDefinition Height="Auto"/>  <!-- Totales -->
                     <RowDefinition Height="Auto"/>  <!-- Sección Financiera — Anticipos (ADR-065) -->
+                    <RowDefinition Height="Auto"/>  <!-- Operaciones Realizadas (FIX-6) -->
                     <RowDefinition Height="Auto"/>  <!-- StatusBar — al pie de totales -->
                 </Grid.RowDefinitions>
 
@@ -350,9 +352,8 @@
                     </Grid>
                 </Border>
 
-                <!-- ── Otros Cargos (Commercial Charges Pattern) ── -->
-                <Border Grid.Row="3" Style="{StaticResource ErpOperationalCardStyle}"
-                        Visibility="{x:Bind ViewModel.HayCargos, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+                <!-- ── Otros Cargos (Commercial Charges Pattern) — siempre visible → usuario puede agregar cargos en cualquier momento ── -->
+                <Border Grid.Row="3" Style="{StaticResource ErpOperationalCardStyle}">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
@@ -485,7 +486,9 @@
                      ════════════════════════════════════════════════════════════════ -->
                 <!-- ErpOperationalCardStyle aplica Margin="20,8,20,0" — mismo que bloques superiores.
                      NO sobreescribir Margin para mantener alineación institucional. -->
-                <Border Grid.Row="5" Style="{StaticResource ErpOperationalCardStyle}">
+                <Border Grid.Row="5" Style="{StaticResource ErpOperationalCardStyle}"
+                        Visibility="{x:Bind ViewModel.TienePagos, Mode=OneWay,
+                                     Converter={StaticResource BoolToVisibility}}">
                     <StackPanel>
 
                         <!-- ── Header: Estado Financiero + botón Registrar Pago ── -->
@@ -638,8 +641,28 @@
                     </StackPanel>
                 </Border>
 
+                <!-- ── Bloque Operaciones Realizadas — visible en estado terminal/avanzado ── -->
+                <Border Grid.Row="6"
+                        Visibility="{x:Bind ViewModel.MostrarOperacionesRealizadas, Mode=OneWay,
+                                     Converter={StaticResource BoolToVisibility}}"
+                        Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1"
+                        CornerRadius="6" Padding="14,10" Margin="12,8,12,0">
+                    <StackPanel Spacing="6">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE930;" FontSize="14" Foreground="#2563EB"/>
+                            <TextBlock Text="Operaciones realizadas"
+                                       FontWeight="SemiBold" FontSize="13" Foreground="#1E40AF"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE8C8;" FontSize="12" Foreground="#3B82F6"/>
+                            <TextBlock FontSize="12" Foreground="#1E40AF"
+                                       Text="{x:Bind ViewModel.ResumenOperacion, Mode=OneWay}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
                 <!-- ── StatusBar — al pie del bloque de Totales ── -->
-                <Border Grid.Row="6" Style="{StaticResource ErpGridStatusBarStyle}" Margin="0,4,0,8">
+                <Border Grid.Row="7" Style="{StaticResource ErpGridStatusBarStyle}" Margin="0,4,0,8">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -653,9 +676,21 @@
                                 <Run Text="línea(s)"/>
                             </TextBlock>
                             <TextBlock Style="{StaticResource ErpGridStatusTextStyle}">
-                                <Run Text="{x:Bind ViewModel.TotalArticulos, Mode=OneWay}"/>
+                                <Run Text="{x:Bind ViewModel.TotalArticulos, Mode=OneWay,
+                                     Converter={StaticResource DecimalFormatConverter},
+                                     ConverterParameter='N0'}"/>
                                 <Run Text="art."/>
                             </TextBlock>
+                            <!-- Indicador venta generada (FIX-5) -->
+                            <Border Visibility="{x:Bind ViewModel.YaTieneVenta, Mode=OneWay,
+                                                 Converter={StaticResource BoolToVisibility}}"
+                                    Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1"
+                                    CornerRadius="3" Padding="6,2" VerticalAlignment="Center">
+                                <TextBlock FontSize="11" Foreground="#1E40AF">
+                                    <Run Text="Venta:"/>
+                                    <Run Text="{x:Bind ViewModel.VentaGeneradaFolio, Mode=OneWay}"/>
+                                </TextBlock>
+                            </Border>
                             <TextBlock Style="{StaticResource ErpGridErrorTextStyle}"   Text="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"/>
                             <TextBlock Style="{StaticResource ErpGridSuccessTextStyle}" Text="{x:Bind ViewModel.SuccessMessage, Mode=OneWay}"/>
                         </StackPanel>

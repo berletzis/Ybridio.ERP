@@ -65,9 +65,18 @@ public sealed class PedidoService : IPedidoService
             .Include(x => x.Anticipos)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
 
-        return p is null
-            ? ServiceResult<PedidoDto>.Fail("Pedido no encontrado.", ErrorCode.NotFound)
-            : ServiceResult<PedidoDto>.Ok(MapToDto(p));
+        if (p is null)
+            return ServiceResult<PedidoDto>.Fail("Pedido no encontrado.", ErrorCode.NotFound);
+
+        // Cargar info de venta generada (FIX-5): folio para mostrar en UI + guard YaTieneVenta
+        var ventaInfo = await _context.Ventas.AsNoTracking()
+            .Where(v => v.PedidoId == p.Id && !v.Borrado)
+            .Select(v => new { v.Folio, v.Id })
+            .FirstOrDefaultAsync(ct);
+
+        return ServiceResult<PedidoDto>.Ok(MapToDto(p,
+            tieneVentaGenerada: ventaInfo is not null,
+            ventaGeneradaFolio: ventaInfo?.Folio ?? (ventaInfo is not null ? $"#{ventaInfo.Id}" : null)));
     }
 
     /// <inheritdoc/>
@@ -526,7 +535,8 @@ public sealed class PedidoService : IPedidoService
             EstadoFinanciero:     p.EstadoFinanciero,
             EstadoFinancieroTexto: EstadoFinancieroTexto(p.EstadoFinanciero));
 
-    private static PedidoDto MapToDto(Pedido p) =>
+    private static PedidoDto MapToDto(Pedido p,
+        bool tieneVentaGenerada = false, string? ventaGeneradaFolio = null) =>
         new(p.Id, p.EmpresaId, p.SucursalId, p.RelacionComercialId, p.NombreCliente, p.CotizacionId,
             p.Estatus, EstatusTexto(p.Estatus), p.Fecha, p.FechaEntregaCompromiso, p.Total, p.Observaciones,
             p.Detalles.Select(d => new DetalleLineaDto(
@@ -547,5 +557,7 @@ public sealed class PedidoService : IPedidoService
                                      .Select(a => new AnticipoPedidoDto(
                                          a.Id, a.PedidoId, a.Fecha, a.Monto,
                                          a.FormaPago, a.Referencia, a.UsuarioCreacionId))
-                                     .ToList());
+                                     .ToList(),
+            TieneVentaGenerada:    tieneVentaGenerada,
+            VentaGeneradaFolio:    ventaGeneradaFolio);
 }

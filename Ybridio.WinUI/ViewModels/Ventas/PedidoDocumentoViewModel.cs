@@ -91,6 +91,9 @@ public sealed partial class PedidoDocumentoViewModel : ObservableObject
     [ObservableProperty] private EstadoFinancieroPedido     _estadoFinanciero = EstadoFinancieroPedido.SinPago;
     [ObservableProperty] private string                     _estadoFinancieroTexto = "Sin Pago";
 
+    /// <summary>True cuando hay al menos un anticipo/pago registrado. Controla visibilidad del bloque Estado Financiero.</summary>
+    public bool TienePagos => Anticipos.Count > 0 || AnticipoPagado > 0m;
+
     /// <summary>Saldo pendiente = Max(0, Total - AnticipoPagado). No negativo — excedente se muestra en Excedente.</summary>
     public decimal SaldoPendienteFinanciero => Math.Max(0, Total - AnticipoPagado);
 
@@ -246,8 +249,29 @@ public sealed partial class PedidoDocumentoViewModel : ObservableObject
     /// </summary>
     public bool PuedeGenerarVenta =>
         !IsNuevo &&
+        !YaTieneVenta &&
         Estatus is EstatusPedido.Autorizado or EstatusPedido.EnProceso
                 or EstatusPedido.Parcial    or EstatusPedido.Finalizado;
+
+    /// <summary>True si ya existe una venta generada desde este pedido. Bloquea regenerar.</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(GenerarVentaCommand))]
+    private bool yaTieneVenta;
+
+    /// <summary>Folio de la venta generada (ej: "VTA-000007"). Null si no hay venta.</summary>
+    [ObservableProperty] private string? ventaGeneradaFolio;
+
+    /// <summary>Muestra el bloque operaciones cuando el pedido está en estado terminal o avanzado.</summary>
+    public bool MostrarOperacionesRealizadas =>
+        !IsNuevo && Estatus is EstatusPedido.Finalizado or EstatusPedido.Cancelado;
+
+    /// <summary>Texto resumen de la operación principal del pedido.</summary>
+    public string ResumenOperacion => Estatus switch
+    {
+        EstatusPedido.Finalizado => "Pedido finalizado. Venta generada.",
+        EstatusPedido.Cancelado  => "Pedido cancelado.",
+        _                        => string.Empty
+    };
 
     /// <summary>ID de empresa del contexto de sesión, expuesto para binding en el selector control.</summary>
     public int EmpresaId => _session.EmpresaId;
@@ -420,6 +444,11 @@ public sealed partial class PedidoDocumentoViewModel : ObservableObject
 
             DetectarDescuentoGlobal(pedido.Detalles);
             OnPropertyChanged(nameof(TieneClienteSeleccionado));
+
+            // Usar TieneVentaGenerada del DTO cuando está disponible (ObtenerConDetallesAsync lo carga).
+            // Fallback heurístico: Finalizado = operacionalmente tiene venta.
+            YaTieneVenta       = pedido.TieneVentaGenerada || pedido.Estatus == EstatusPedido.Finalizado;
+            VentaGeneradaFolio = pedido.VentaGeneradaFolio;
         }
 
         RecalcularTotales();
@@ -770,6 +799,8 @@ public sealed partial class PedidoDocumentoViewModel : ObservableObject
         OnPropertyChanged(nameof(PuedeGenerarOT));
         OnPropertyChanged(nameof(PuedeCancelar));
         OnPropertyChanged(nameof(PuedeGenerarVenta));
+        OnPropertyChanged(nameof(MostrarOperacionesRealizadas));
+        OnPropertyChanged(nameof(ResumenOperacion));
         OnPropertyChanged(nameof(PuedeRegistrarAnticipo));
         OnPropertyChanged(nameof(EstatusTextoDisplay));
         OnPropertyChanged(nameof(SiguienteEstatus));
@@ -779,6 +810,7 @@ public sealed partial class PedidoDocumentoViewModel : ObservableObject
         OnPropertyChanged(nameof(SaldoPendienteFinanciero));
         OnPropertyChanged(nameof(HaySobrePago));
         OnPropertyChanged(nameof(HayAnticipoRequerido));
+        OnPropertyChanged(nameof(TienePagos));
         OnPropertyChanged(nameof(Excedente));
 
         // Propagar estado de edición de líneas y cargos al item level para DataTemplate IsEnabled

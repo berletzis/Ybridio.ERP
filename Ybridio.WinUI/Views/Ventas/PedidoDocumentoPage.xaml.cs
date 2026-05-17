@@ -154,15 +154,27 @@ public sealed partial class PedidoDocumentoPage : Page
             isClosable:  true);
     }
 
-    private void AbrirVentaEnWorkspace(VentaDocumentalDto venta)
+    private async void AbrirVentaEnWorkspace(VentaDocumentalDto venta)
     {
-        _ = _workspace.OpenOrActivateDocumentTabAsync(
-            key:         $"venta-{venta.Id}",
-            title:       $"Venta #{venta.Id}",
-            icon:        "",
-            dataLoader:  () => System.Threading.Tasks.Task.FromResult<VentaDocumentalDto?>(venta),
-            pageFactory: dto => new VentaDocumentoPage(dto!),
-            isClosable:  true);
+        try
+        {
+            // ADR-031: la venta se abre inline en el módulo Ventas, NO como workspace tab.
+            // Buscar la instancia activa de VentasDocumentalesPage vía referencia estática.
+            var ventasPage = VentasDocumentalesPage.Current;
+            if (ventasPage is not null)
+            {
+                await ventasPage.AbrirVentaDesdeWorkflowAsync(venta);
+                return;
+            }
+
+            // Fallback: el usuario no está en el sub-módulo Ventas — mostrar mensaje orientador.
+            var folioDisplay = !string.IsNullOrEmpty(venta.Folio) ? venta.Folio : $"#{venta.Id}";
+            ViewModel.SuccessMessage = $"Venta {folioDisplay} generada. Ve al módulo Ventas → tab Ventas para verla.";
+        }
+        catch (OperationCanceledException)
+        {
+            // ADR-026: expected lifecycle cancellation.
+        }
     }
 
     private void BtnVolverALista_Click(object sender, RoutedEventArgs e)
@@ -304,7 +316,7 @@ public sealed partial class PedidoDocumentoPage : Page
         {
             if (cmbCatalogo.SelectedItem is ComboBoxItem ci && ci.Tag is OtroCargoDto c)
             {
-                txtDesc.Text    = c.Nombre;
+                txtDesc.Text     = c.Nombre;
                 chkIva.IsChecked = c.AplicaIva;
             }
         };

@@ -118,6 +118,7 @@
                     <RowDefinition Height="Auto"/>  <!-- Líneas de producto -->
                     <RowDefinition Height="Auto"/>  <!-- Otros Cargos -->
                     <RowDefinition Height="Auto"/>  <!-- Totales -->
+                    <RowDefinition Height="Auto"/>  <!-- Operaciones Realizadas (FIX-6) -->
                 </Grid.RowDefinitions>
 
                 <!-- ── Header strip: título + badge de estado ── -->
@@ -539,6 +540,26 @@
                                    Text="{x:Bind ViewModel.Total, Mode=OneWay, Converter={StaticResource CurrencyConverter}}"
                                    FontWeight="SemiBold" FontSize="14" TextAlignment="Right"/>
                     </Grid>
+                </Border>
+
+                <!-- ── Bloque Operaciones Realizadas (FIX-6) ── -->
+                <Border Grid.Row="5" Margin="12,8,12,8"
+                        Visibility="{x:Bind ViewModel.MostrarOperacionesRealizadas, Mode=OneWay,
+                                     Converter={StaticResource BoolToVisibility}}"
+                        Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1"
+                        CornerRadius="6" Padding="14,10">
+                    <StackPanel Spacing="6">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE930;" FontSize="14" Foreground="#2563EB"/>
+                            <TextBlock Text="Operaciones realizadas"
+                                       FontWeight="SemiBold" FontSize="13" Foreground="#1E40AF"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE8C8;" FontSize="12" Foreground="#3B82F6"/>
+                            <TextBlock FontSize="12" Foreground="#1E40AF"
+                                       Text="{x:Bind ViewModel.ResumenOperacion, Mode=OneWay}"/>
+                        </StackPanel>
+                    </StackPanel>
                 </Border>
 
             </Grid>

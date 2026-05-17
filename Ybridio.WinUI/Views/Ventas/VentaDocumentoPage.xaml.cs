@@ -43,6 +43,10 @@ public sealed partial class VentaDocumentoPage : Page
         InitializeComponent();
         ViewModel.Initialize(venta);
 
+        // Selector DTO Hydration Rule (ADR): restaurar chip del selector al cargar documento existente.
+        if (ViewModel.EntidadDirectorioSeleccionada is not null)
+            SelectorCliente.EntidadSeleccionada = ViewModel.EntidadDirectorioSeleccionada;
+
         // Sincronizar ComboBox TipoPago con el ViewModel
         CombTipoPago.SelectedIndex = (int)ViewModel.TipoPagoVenta;
     }

@@ -115,6 +115,12 @@ public sealed partial class VentaDocumentoViewModel : ObservableObject
     public int AlmacenIdConfirmacion { get; set; } = 0;
 
     /// <summary>
+    /// Entidad de Directorio actualmente seleccionada.
+    /// Expuesta para que la Page pueda restaurar el chip del selector al cargar un documento existente.
+    /// </summary>
+    public DirectorioSelectorDto? EntidadDirectorioSeleccionada => _entidadDirectorioSeleccionada;
+
+    /// <summary>
     /// Selecciona una entidad del Directorio desde el selector institucional (ADR-038).
     /// RelacionComercialId se resolverá mediante GetOrCreate al guardar.
     /// </summary>
@@ -177,7 +183,7 @@ public sealed partial class VentaDocumentoViewModel : ObservableObject
 
         if (venta is not null)
         {
-            NombreCliente  = venta.NombreCliente;
+            NombreCliente       = venta.NombreCliente;
             RelacionComercialId = venta.RelacionComercialId;
             TipoPagoVenta  = venta.TipoPago;
             Fecha          = venta.Fecha;
@@ -186,6 +192,25 @@ public sealed partial class VentaDocumentoViewModel : ObservableObject
             Total          = venta.Total;
             TotalPagado    = venta.TotalPagado;
             Folio          = venta.Folio;
+
+            // Selector DTO Hydration Rule (ADR): restaurar chip del selector al cargar documento existente.
+            if (venta.RelacionComercialId.HasValue && !string.IsNullOrEmpty(venta.NombreCliente))
+            {
+                _entidadDirectorioSeleccionada = new DirectorioSelectorDto
+                {
+                    EntityType         = DirectorioEntityType.Empresa,
+                    EmpresaComercialId = venta.RelacionComercialId,
+                    DisplayName        = venta.NombreCliente,
+                };
+            }
+            else if (!string.IsNullOrEmpty(venta.NombreCliente))
+            {
+                _entidadDirectorioSeleccionada = new DirectorioSelectorDto
+                {
+                    EntityType  = DirectorioEntityType.Persona,
+                    DisplayName = venta.NombreCliente,
+                };
+            }
 
             Detalles.Clear();
             foreach (var d in venta.Detalles)
@@ -375,6 +400,20 @@ public sealed partial class VentaDocumentoViewModel : ObservableObject
     /// <summary>Folio del pedido origen formateado como "PED-{id}". Null si no hay pedido origen.</summary>
     public string? PedidoOrigenFolio => _documento?.PedidoId is {} id ? $"PED-{id}" : null;
 
+    /// <summary>Muestra el bloque operaciones cuando la venta está confirmada o en estado posterior.</summary>
+    public bool MostrarOperacionesRealizadas =>
+        !IsNuevo && EstatusVenta is not EstatusVenta.Borrador;
+
+    /// <summary>Texto resumen de la operación principal de la venta.</summary>
+    public string ResumenOperacion => EstatusVenta switch
+    {
+        EstatusVenta.PendientePago => "Venta confirmada. Inventario descontado.",
+        EstatusVenta.Pagada        => "Venta pagada y confirmada.",
+        EstatusVenta.Cerrada       => "Venta cerrada. Saldo liquidado.",
+        EstatusVenta.Cancelada     => "Venta cancelada.",
+        _                          => string.Empty
+    };
+
     /// <summary>Ventas documentales no implementan descuentos por línea. Siempre falso.</summary>
     public bool TieneDescuentoGlobal => false;
 
@@ -444,6 +483,8 @@ public sealed partial class VentaDocumentoViewModel : ObservableObject
         EliminarDetalleCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(TienePedidoOrigen));
         OnPropertyChanged(nameof(PedidoOrigenFolio));
+        OnPropertyChanged(nameof(MostrarOperacionesRealizadas));
+        OnPropertyChanged(nameof(ResumenOperacion));
         OnPropertyChanged(nameof(TieneDescuentoGlobal));
         OnPropertyChanged(nameof(DescuentoTotalCalculado));
         OnPropertyChanged(nameof(TotalAnticipos));

@@ -6,9 +6,11 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 using Ybridio.Application.DTOs.Ventas;
 using Ybridio.Application.Services.Autorizacion;
 using Ybridio.Application.Services.Venta;
+using Ybridio.Domain.Ventas;
 using Ybridio.WinUI.Services;
 using Ybridio.WinUI.Services.Diagnostic;
 using Ybridio.WinUI.ViewModels;
@@ -29,9 +31,12 @@ public sealed partial class VentasDocumentalesViewModel : BaseContextViewModel
     [ObservableProperty] private string                       _successMessage = string.Empty;
     [ObservableProperty] private string                       _busqueda       = string.Empty;
     [ObservableProperty] private string                       _filtroTemporal = "30 dias";
+    [ObservableProperty] private string                       _filtroEstatus  = "Todas";
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(AbrirDetalleCommand))]
     private VentaDocumentalResumenDto? _ventaSeleccionada;
+
+    private IReadOnlyList<VentaDocumentalResumenDto> _todasLasVentas = [];
 
     /// <summary>Suma de Total de todas las ventas cerradas visibles en el grid.</summary>
     [ObservableProperty] private decimal _totalAcumulado;
@@ -156,18 +161,17 @@ public sealed partial class VentasDocumentalesViewModel : BaseContextViewModel
         _observability  = observability;
         _contextTracker = contextTracker;
 
-        Ventas.CollectionChanged += (_, _) =>
-        {
-            OnPropertyChanged(nameof(IsEmptyState));
-            ActualizarCalculados();
-        };
+        Ventas.CollectionChanged += (_, _) => OnPropertyChanged(nameof(IsEmptyState));
     }
 
-    partial void OnIsBusyChanged(bool value) => OnPropertyChanged(nameof(IsEmptyState));
+    partial void OnIsBusyChanged(bool value)       => OnPropertyChanged(nameof(IsEmptyState));
+    partial void OnBusquedaChanged(string _)       => AplicarFiltro();
+    partial void OnFiltroEstatusChanged(string _)  => AplicarFiltro();
+    partial void OnFiltroTemporalChanged(string value) { _ = RefrescarAsync(); }
 
     protected override Task OnContextChangedAsync() => RefrescarAsync();
 
-    /// <summary>Recarga la lista de ventas documentales según el filtro temporal activo.</summary>
+    /// <summary>Recarga todas las ventas documentales desde el servicio y aplica filtros locales.</summary>
     [RelayCommand]
     public async Task RefrescarAsync(CancellationToken ct = default)
     {
@@ -185,38 +189,51 @@ public sealed partial class VentasDocumentalesViewModel : BaseContextViewModel
                 _         => 30,
             };
             var desde = DateTime.Today.AddDays(-dias);
-            var r = await _service.ListarCerradasAsync(Session.EmpresaId, desde, null, ct);
-            Ventas.Clear();
+            var r = await _service.ListarAsync(Session.EmpresaId, desde, null, ct);
             if (!r.Success) { ErrorMessage = r.Error ?? "Error al cargar."; return; }
-            var filtradas = string.IsNullOrWhiteSpace(Busqueda)
-                ? r.Value!
-                : r.Value!.Where(v => v.NombreCliente.Contains(Busqueda, StringComparison.OrdinalIgnoreCase)
-                                   || v.EstatusTexto.Contains(Busqueda, StringComparison.OrdinalIgnoreCase));
-            foreach (var v in filtradas)
-                Ventas.Add(v);
-
-            ReportarContexto();
+            _todasLasVentas = r.Value!;
+            AplicarFiltro();
         }
         catch (TaskCanceledException)
         {
-            // ADR-026: Expected during navigation/lifecycle transitions.
-            // [RelayCommand] cancels previous invocation on re-entry or page unload.
-            // Not an error — UX remains clean, no crash, no Debugger.Break.
+            // ADR-026: expected during navigation/lifecycle transitions.
         }
         finally { IsBusy = false; }
     }
 
-    private void ActualizarCalculados()
+    private void AplicarFiltro()
     {
+        var lista = _todasLasVentas.AsEnumerable();
+
+        lista = FiltroEstatus switch
+        {
+            "Borrador"       => lista.Where(v => v.Estatus == EstatusVenta.Borrador),
+            "Pendiente Pago" => lista.Where(v => v.Estatus == EstatusVenta.PendientePago),
+            "Pagada"         => lista.Where(v => v.Estatus == EstatusVenta.Pagada),
+            "Cerrada"        => lista.Where(v => v.Estatus == EstatusVenta.Cerrada),
+            "Cancelada"      => lista.Where(v => v.Estatus == EstatusVenta.Cancelada),
+            _                => lista
+        };
+
+        if (!string.IsNullOrWhiteSpace(Busqueda))
+            lista = lista.Where(v =>
+                v.NombreCliente.Contains(Busqueda, StringComparison.OrdinalIgnoreCase) ||
+                (v.Folio?.Contains(Busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                v.EstatusTexto.Contains(Busqueda, StringComparison.OrdinalIgnoreCase));
+
+        Ventas.Clear();
+        foreach (var v in lista) Ventas.Add(v);
+
         TotalAcumulado          = Ventas.Sum(v => v.Total);
         TotalProductosDistintos = Ventas.Count;
+        ReportarContexto();
     }
 
     private void ReportarContexto()
     {
         _contextTracker.SetViewModelContext(new CurrentOperationalContext(
             Module:          "Ventas",
-            SubModule:       "Ventas Cerradas",
+            SubModule:       "Ventas",
             ViewModel:       nameof(VentasDocumentalesViewModel),
             Entity:          "Venta",
             RecordCount:     Ventas.Count,

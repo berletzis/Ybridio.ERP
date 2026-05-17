@@ -247,6 +247,20 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
     /// <summary>Cancelar = transición a estado terminal Cancelada (desde cualquier estado activo).</summary>
     public bool PuedeCancelar => !IsNuevo && Estatus is not (EstatusCotizacion.Cancelada or EstatusCotizacion.Convertida);
 
+    /// <summary>Muestra el bloque operaciones cuando la cotización está Aprobada o Convertida.</summary>
+#pragma warning disable CS0618
+    public bool MostrarOperacionesRealizadas =>
+        !IsNuevo && Estatus is EstatusCotizacion.Aprobada or EstatusCotizacion.Convertida;
+
+    /// <summary>Texto resumen de la operación principal de la cotización.</summary>
+    public string ResumenOperacion => Estatus switch
+    {
+        EstatusCotizacion.Aprobada   => "Cotización aprobada comercialmente.",
+        EstatusCotizacion.Convertida => "Cotización convertida a Pedido.",
+        _                            => string.Empty
+    };
+#pragma warning restore CS0618
+
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(EliminarDetalleCommand))]
     private DetalleLineaEditable? detalleSeleccionado;
@@ -1000,6 +1014,8 @@ public sealed partial class CotizacionDocumentoViewModel : ObservableObject
         OnPropertyChanged(nameof(PuedeConvertir));
         OnPropertyChanged(nameof(PuedeCancelar));
         OnPropertyChanged(nameof(EstatusTextoDisplay));
+        OnPropertyChanged(nameof(MostrarOperacionesRealizadas));
+        OnPropertyChanged(nameof(ResumenOperacion));
 
         // Notificar CanExecute del command de aprobación con guardado.
         AprobarConGuardadoCommand.NotifyCanExecuteChanged();

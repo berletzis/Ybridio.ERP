@@ -63,6 +63,15 @@ public sealed class WorkspaceService : IWorkspaceService
     }
 
     /// <inheritdoc/>
+    public bool ActivateModuleTab(string moduleKey)
+    {
+        var tab = Tabs.FirstOrDefault(t => t.Key == moduleKey);
+        if (tab is null) return false;
+        ActivateTab(moduleKey);
+        return true;
+    }
+
+    /// <inheritdoc/>
     public void CloseTab(string key)
     {
         var tab = Tabs.FirstOrDefault(t => t.Key == key);

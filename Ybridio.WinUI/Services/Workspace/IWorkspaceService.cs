@@ -46,6 +46,12 @@ public interface IWorkspaceService
     /// <summary>Cierra y elimina la pestaña con la clave dada.</summary>
     void CloseTab(string key);
 
+    /// <summary>
+    /// Activa el tab de módulo indicado por su key.
+    /// Usado por workflows que necesitan activar un tab de módulo sin abrir un documento.
+    /// </summary>
+    bool ActivateModuleTab(string moduleKey);
+
     /// <summary>Devuelve <c>true</c> si ya existe una pestaña abierta con esa clave.</summary>
     bool Exists(string key);
 
